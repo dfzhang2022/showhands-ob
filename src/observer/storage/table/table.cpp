@@ -191,12 +191,22 @@ RC Table::open(const char *meta_file, const char *base_dir) {
 
 RC Table::close() {
   RC rc = RC::SUCCESS;
-  for (std::vector<Index *>::iterator iter = indexes_.end();
-       iter != indexes_.begin(); iter--) {
-    BplusTreeIndex *index = (BplusTreeIndex *)(&(*iter));
-    index->close();
-    // delete index;
+  for (std::vector<Index *>::iterator iter = indexes_.begin();
+       iter != indexes_.end(); iter++) {
+    std::string table_index_file_path = table_index_file(
+        base_dir_.c_str(), table_meta_.name(), (*iter)->index_meta().name());
+    LOG_INFO("Dropping table %s, need to delete file %s.", name(),
+             table_index_file_path.c_str());
+    // 使用 std::remove 函数删除文件
+    if (std::remove(table_index_file_path.c_str()) == 0) {
+      LOG_INFO("Delete file: %s succeed.", table_index_file_path.c_str());
+    } else {
+      LOG_ERROR("Failed to delete table index file: %s.",
+                table_index_file_path.c_str());
+    }
+    (*iter)->close();
   }
+  indexes_.clear();
   data_buffer_pool_->close_file();
   record_handler_->close();
 
@@ -397,6 +407,7 @@ RC Table::create_index(Trx *trx, const FieldMeta *field_meta,
   BplusTreeIndex *index = new BplusTreeIndex();
   std::string index_file =
       table_index_file(base_dir_.c_str(), name(), index_name);
+  LOG_INFO("Index file name is : %s", index_file.c_str());
   rc = index->create(index_file.c_str(), new_index_meta, *field_meta);
   if (rc != RC::SUCCESS) {
     delete index;
