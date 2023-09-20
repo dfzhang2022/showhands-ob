@@ -14,18 +14,29 @@ See the Mulan PSL v2 for more details. */
 
 #pragma once
 
-#include "common/rc.h"
+#include <string>
+#include <vector>
 
-class SQLStageEvent;
+#include "sql/stmt/stmt.h"
+
+class Db;
 
 /**
- * @brief 创建表的执行器
- * @ingroup Executor
+ * @brief 表示删除表的语句
+ * @ingroup Statement
+ * @details
  */
-class CreateTableExecutor {
+class DropTableStmt : public Stmt {
  public:
-  CreateTableExecutor() = default;
-  virtual ~CreateTableExecutor() = default;
+  DropTableStmt(const std::string &table_name) : table_name_(table_name) {}
+  virtual ~DropTableStmt() = default;
 
-  RC execute(SQLStageEvent *sql_event);
+  StmtType type() const override { return StmtType::DROP_TABLE; }
+
+  const std::string &table_name() const { return table_name_; }
+
+  static RC create(Db *db, const DropTableSqlNode &drop_table, Stmt *&stmt);
+
+ private:
+  std::string table_name_;
 };
