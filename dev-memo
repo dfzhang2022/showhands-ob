@@ -1,0 +1,35 @@
+./bin/observer -f ../etc/observer.ini -P cli
+
+create table t_basic(id int, age int, name char, score float);
+
+create index i_id on t_basic (id);
+
+drop table t_basic;
+
+#多列查询的测试用例 (已通过)
+select *,age from t_basic;
+select * from t_basic;
+
+4 | 4 | E
+ID | AGE | NAME
+SELECT * FROM T_BASIC;
+-4 | 4 | C | 3
+5 | 5 | E | 5.5
+7 | 7 | G | 7.7
+-8 | 8 | H | 8.8
+ID | AGE | NAME | SCORE
+SELECT * FROM T_BASIC2;
+1 | 1 | A
+
+
+# select tables
+3 | C | 11 | 3 | 2 | 11.5
+SELECT_TABLES_7.ID | SELECT_TABLES_7.COL1 | SELECT_TABLES_7.COL2 | SELECT_TABLES_8.ID | SELECT_TABLES_8.COL1 | SELECT_TABLES_8.COL2
+SELECT * from Select_tables_7,Select_tables_8 WHERE Select_tables_7.col1<>Select_tables_8.col1;
++1 | A | 9 | 1 | 0 | 9.5
+1 | A | 9 | 2 | 1 | 10.5
+1 | A | 9 | 3 | 2 | 11.5
++2 | B | 10 | 1 | 0 | 9.5
+2 | B | 10 | 2 | 1 | 10.5
+2 | B | 10 | 3 | 2 | 11.5
++3 | C | 11 | 1 | 0 | 9.5
