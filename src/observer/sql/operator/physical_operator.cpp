@@ -1,7 +1,7 @@
 /* Copyright (c) 2021 OceanBase and/or its affiliates. All rights reserved.
 miniob is licensed under Mulan PSL v2.
-You can use this software according to the terms and conditions of the Mulan PSL v2.
-You may obtain a copy of Mulan PSL v2 at:
+You can use this software according to the terms and conditions of the Mulan PSL
+v2. You may obtain a copy of Mulan PSL v2 at:
          http://license.coscl.org.cn/MulanPSL2
 THIS SOFTWARE IS PROVIDED ON AN "AS IS" BASIS, WITHOUT WARRANTIES OF ANY KIND,
 EITHER EXPRESS OR IMPLIED, INCLUDING BUT NOT LIMITED TO NON-INFRINGEMENT,
@@ -14,8 +14,7 @@ See the Mulan PSL v2 for more details. */
 
 #include "sql/operator/physical_operator.h"
 
-std::string physical_operator_type_name(PhysicalOperatorType type)
-{
+std::string physical_operator_type_name(PhysicalOperatorType type) {
   switch (type) {
     case PhysicalOperatorType::TABLE_SCAN:
       return "TABLE_SCAN";
@@ -23,6 +22,8 @@ std::string physical_operator_type_name(PhysicalOperatorType type)
       return "INDEX_SCAN";
     case PhysicalOperatorType::NESTED_LOOP_JOIN:
       return "NESTED_LOOP_JOIN";
+    case PhysicalOperatorType::HASH_JOIN:
+      return "HASH_JOIN";
     case PhysicalOperatorType::EXPLAIN:
       return "EXPLAIN";
     case PhysicalOperatorType::PREDICATE:
@@ -40,15 +41,10 @@ std::string physical_operator_type_name(PhysicalOperatorType type)
   }
 }
 
-PhysicalOperator::~PhysicalOperator()
-{}
+PhysicalOperator::~PhysicalOperator() {}
 
-std::string PhysicalOperator::name() const
-{
+std::string PhysicalOperator::name() const {
   return physical_operator_type_name(type());
 }
 
-std::string PhysicalOperator::param() const
-{
-  return "";
-}
+std::string PhysicalOperator::param() const { return ""; }
