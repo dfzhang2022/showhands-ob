@@ -11,7 +11,7 @@ RUN apt-get update && apt-get install -y locales apt-utils && rm -rf /var/lib/ap
 ENV LANG en_US.utf8
 
 # dev tools
-RUN apt-get update && apt-get install -y build-essential gdb cmake git wget flex texinfo libreadline-dev diffutils bison
+RUN apt-get update && apt-get install -y build-essential gdb cmake git wget flex texinfo libreadline-dev diffutils bison net-tools
 
 # install openssh
 RUN apt-get install -y openssh-server
@@ -21,6 +21,11 @@ RUN git clone https://github.com/oceanbase/miniob /tmp/miniob \
     && cd /tmp/miniob \
     && bash build.sh init \
     && rm -rf /tmp/miniob
+
+RUN git clone https://github.com/dfzhang2022/showhands-ob /tmp/showhands-ob \
+    && cd /tmp/showhands-ob \
+    && bash build.sh init \
+    && rm -rf /tmp/showhands-ob
 
 RUN mkdir /var/run/sshd
 
