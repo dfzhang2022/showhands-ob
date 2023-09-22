@@ -72,3 +72,22 @@ select * from t_basic where id=1 and age=1;
 -- echo create index
 create index i_id on t_basic (id);
 -- sort select * from t_basic;
+
+
+
+
+
+// show INDEX
+
+create table Index_table_1(id int, age int, name char, score float);
+CREATE INDEX index_id on Index_table_1(id);
+CREATE INDEX index_age on Index_table_1(age);
+SUCCESS
+SHOW INDEX FROM Index_table_1;
+-INDEX_TABLE_1 | 1 | INDEX_AGE | 1 | AGE
++INDEX_TABLE_1 | 1 | INDEX_AGE | 2 | AGE
+INDEX_TABLE_1 | 1 | INDEX_ID | 1 | ID
+TABLE | NON_UNIQUE | KEY_NAME | SEQ_IN_INDEX | COLUMN_NAME
+2. ERROR
+SHOW INDEX FROM Index_table_no_exist;
+-FAILURE

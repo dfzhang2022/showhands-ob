@@ -60,8 +60,9 @@ class ShowIndexExecutor {
 
       sql_result->set_operator(unique_ptr<PhysicalOperator>(oper));
     } else {
+      rc = RC::INDEX_NOT_FOUND;
       sql_result->set_return_code(RC::INDEX_NOT_FOUND);
-      sql_result->set_state_string("Index not exists");
+      // sql_result->set_state_string("Index not exists");
     }
     return rc;
   }

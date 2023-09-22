@@ -558,9 +558,10 @@ std::vector<std::vector<std::string>> Table::get_index_info() const {
     // non-unique 还没有实现先空着
     index_str.emplace_back("1");
     index_str.emplace_back(index->index_meta().name());
-    index_str.emplace_back(to_string(cnt));
+    index_str.emplace_back(to_string(1));  // 由于当前只考虑一个字段的索引
     index_str.emplace_back(index->index_meta().field());
     cnt++;
+    LOG_INFO("index_str is %s.", index_str.at(3).c_str());
     result_vec_vec.push_back(index_str);
   }
   return result_vec_vec;
