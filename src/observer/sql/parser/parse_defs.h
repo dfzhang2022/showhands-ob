@@ -166,6 +166,14 @@ struct DropTableSqlNode {
 };
 
 /**
+ * @brief 描述一个show index语句
+ * @ingroup SQLParser
+ */
+struct ShowIndexSqlNode {
+  std::string relation_name;  ///< 要查询index的表名
+};
+
+/**
  * @brief 清空所有的表
  * @ingroup SQLParser
  */
@@ -263,6 +271,7 @@ enum SqlCommandFlag {
   SCF_DROP_INDEX,
   SCF_SYNC,
   SCF_SHOW_TABLES,
+  SCF_SHOW_INDEX,
   SCF_DESC_TABLE,
   SCF_BEGIN,  ///< 事务开始语句，可以在这里扩展只读事务
   SCF_COMMIT,
@@ -297,6 +306,7 @@ class ParsedSqlNode {
   ExplainSqlNode explain;
   SetVariableSqlNode set_variable;
   ClearTableSqlNode clear_table;
+  ShowIndexSqlNode show_index;
 
  public:
   ParsedSqlNode();
