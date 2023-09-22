@@ -91,6 +91,7 @@ ArithmeticExpr *create_arithmetic_expression(ArithmeticExpr::Type type,
         DATA
         INFILE
         EXPLAIN
+        CLEAR
         EQ
         LT
         GT
@@ -158,6 +159,7 @@ ArithmeticExpr *create_arithmetic_expression(ArithmeticExpr::Type type,
 %type <sql_node>            rollback_stmt
 %type <sql_node>            load_data_stmt
 %type <sql_node>            explain_stmt
+%type <sql_node>            clear_table_stmt
 %type <sql_node>            set_variable_stmt
 %type <sql_node>            help_stmt
 %type <sql_node>            exit_stmt
@@ -198,6 +200,7 @@ command_wrapper:
   | set_variable_stmt
   | help_stmt
   | exit_stmt
+  | clear_table_stmt
     ;
 
 exit_stmt:      
@@ -240,6 +243,10 @@ drop_table_stmt:    /*drop table 语句的语法解析树*/
       $$ = new ParsedSqlNode(SCF_DROP_TABLE);
       $$->drop_table.relation_name = $3;
       free($3);
+    };
+clear_table_stmt:    /* clear table 语法解析树 */
+    CLEAR TABLE{
+      $$ = new ParsedSqlNode(SCF_CLEAR_TABLE);
     };
 
 show_tables_stmt:
