@@ -1,7 +1,7 @@
 /* Copyright (c) 2021 OceanBase and/or its affiliates. All rights reserved.
 miniob is licensed under Mulan PSL v2.
-You can use this software according to the terms and conditions of the Mulan PSL v2.
-You may obtain a copy of Mulan PSL v2 at:
+You can use this software according to the terms and conditions of the Mulan PSL
+v2. You may obtain a copy of Mulan PSL v2 at:
          http://license.coscl.org.cn/MulanPSL2
 THIS SOFTWARE IS PROVIDED ON AN "AS IS" BASIS, WITHOUT WARRANTIES OF ANY KIND,
 EITHER EXPRESS OR IMPLIED, INCLUDING BUT NOT LIMITED TO NON-INFRINGEMENT,
@@ -14,11 +14,9 @@ See the Mulan PSL v2 for more details. */
 
 #include "sql/operator/join_physical_operator.h"
 
-NestedLoopJoinPhysicalOperator::NestedLoopJoinPhysicalOperator()
-{}
+NestedLoopJoinPhysicalOperator::NestedLoopJoinPhysicalOperator() {}
 
-RC NestedLoopJoinPhysicalOperator::open(Trx *trx)
-{
+RC NestedLoopJoinPhysicalOperator::open(Trx *trx) {
   if (children_.size() != 2) {
     LOG_WARN("nlj operator should have 2 children");
     return RC::INTERNAL;
@@ -35,8 +33,7 @@ RC NestedLoopJoinPhysicalOperator::open(Trx *trx)
   return rc;
 }
 
-RC NestedLoopJoinPhysicalOperator::next()
-{
+RC NestedLoopJoinPhysicalOperator::next() {
   bool left_need_step = (left_tuple_ == nullptr);
   RC rc = RC::SUCCESS;
   if (round_done_) {
@@ -65,8 +62,7 @@ RC NestedLoopJoinPhysicalOperator::next()
   return rc;
 }
 
-RC NestedLoopJoinPhysicalOperator::close()
-{
+RC NestedLoopJoinPhysicalOperator::close() {
   RC rc = left_->close();
   if (rc != RC::SUCCESS) {
     LOG_WARN("failed to close left oper. rc=%s", strrc(rc));
@@ -83,13 +79,11 @@ RC NestedLoopJoinPhysicalOperator::close()
   return rc;
 }
 
-Tuple *NestedLoopJoinPhysicalOperator::current_tuple()
-{
+Tuple *NestedLoopJoinPhysicalOperator::current_tuple() {
   return &joined_tuple_;
 }
 
-RC NestedLoopJoinPhysicalOperator::left_next()
-{
+RC NestedLoopJoinPhysicalOperator::left_next() {
   RC rc = RC::SUCCESS;
   rc = left_->next();
   if (rc != RC::SUCCESS) {
@@ -101,8 +95,7 @@ RC NestedLoopJoinPhysicalOperator::left_next()
   return rc;
 }
 
-RC NestedLoopJoinPhysicalOperator::right_next()
-{
+RC NestedLoopJoinPhysicalOperator::right_next() {
   RC rc = RC::SUCCESS;
   if (round_done_) {
     if (!right_closed_) {
@@ -132,5 +125,42 @@ RC NestedLoopJoinPhysicalOperator::right_next()
 
   right_tuple_ = right_->current_tuple();
   joined_tuple_.set_right(right_tuple_);
+  return rc;
+}
+
+HashJoinPhysicalOperator::HashJoinPhysicalOperator() {}
+
+RC HashJoinPhysicalOperator::open(Trx *trx) {
+  RC rc = RC::SUCCESS;
+
+  // 待实现
+  return RC::UNIMPLENMENT;
+}
+
+RC HashJoinPhysicalOperator::next() {
+  RC rc = RC::SUCCESS;
+
+  // 待实现
+  return RC::UNIMPLENMENT;
+}
+
+RC HashJoinPhysicalOperator::close() {
+  RC rc = RC::SUCCESS;
+
+  // 待实现
+  return RC::UNIMPLENMENT;
+}
+
+Tuple *HashJoinPhysicalOperator::current_tuple() { return &joined_tuple_; }
+
+RC HashJoinPhysicalOperator::left_next() {
+  RC rc = RC::SUCCESS;
+  rc = left_->next();
+  if (rc != RC::SUCCESS) {
+    return rc;
+  }
+
+  left_tuple_ = left_->current_tuple();
+  joined_tuple_.set_left(left_tuple_);
   return rc;
 }
