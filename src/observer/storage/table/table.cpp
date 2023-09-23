@@ -513,9 +513,16 @@ RC Table::delete_record(const Record &record) {
   rc = record_handler_->delete_record(&record.rid());
   return rc;
 }
-
-RC Table::update_record(const Record &record, Record &record) {
-  
+// TODO
+RC Table::update_record(Record &old_record, Record &new_record) {
+  // for (Index *index : indexes_) {
+  //   rc = index->delete_entry(record.data(), &record.rid());
+  //   ASSERT(RC::SUCCESS == rc,
+  //          "failed to delete entry from index. table name=%s, index name=%s,
+  //          " "rid=%s, rc=%s", name(), index->index_meta().name(),
+  //          record.rid().to_string().c_str(), strrc(rc));
+  // }
+  // rc = record_handler_->delete_record(&record.rid());
   return RC::SUCCESS;
 }
 

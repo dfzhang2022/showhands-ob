@@ -153,7 +153,8 @@ class RowTuple : public Tuple {
     return RC::SUCCESS;
   }
 
-  RC update_record_by_attr_name(std::string attribute_name, Value value) {
+  RC update_record_by_attr_name(std::string attribute_name, Value value,
+                                Record *&new_record) {
     RC rc = RC::SCHEMA_FIELD_NOT_EXIST;
     // LOG_INFO("attribute_name is %s", attribute_name.c_str());
     // LOG_INFO("Value is :%d", value.get_int());
@@ -165,10 +166,16 @@ class RowTuple : public Tuple {
         if (field_meta->type() != value.attr_type()) {
           break;
         }
-        LOG_INFO("field_meta->offset() is %d", field_meta->offset());
-        LOG_INFO("field_meta->len() is %d", field_meta->len());
-        std::memcpy(this->record_->data() + field_meta->offset(), value.data(),
-                    value.length());
+        // char *new_rec_data =
+        //     (char *)malloc(this->record_->len());  // 申请新的内存空间
+        // std::memcpy(
+        //     new_rec_data, this->record_->data(),
+        //     this->record_->len());  // 将旧有的数据地址复制到新的record中
+        // LOG_INFO("field_meta->offset() is %d", field_meta->offset());
+        // LOG_INFO("field_meta->len() is %d", field_meta->len());
+        std::memcpy(new_record->data() + field_meta->offset(), value.data(),
+                    value.length());  // 将旧有的数据地址复制到新的record中
+        // new_record->set_data_owner(new_rec_data, this->record_->len());
         rc = RC::SUCCESS;
       }
     }

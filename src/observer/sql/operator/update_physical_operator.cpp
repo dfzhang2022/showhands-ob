@@ -33,7 +33,7 @@ RC UpdatePhysicalOperator::next() {
     return RC::RECORD_EOF;
   }
   PhysicalOperator *child = children_[0].get();
-  std::vector<Record> update_record_vec;
+  std::vector<Record *> update_record_vec;
   while (RC::SUCCESS == (rc = child->next())) {
     Tuple *tuple = child->current_tuple();
     if (nullptr == tuple) {
@@ -43,12 +43,28 @@ RC UpdatePhysicalOperator::next() {
     }
 
     RowTuple *row_tuple = static_cast<RowTuple *>(tuple);
-    Record *new_rec = new Record();
-    rc = row_tuple->update_record_by_attr_name(attribute_name_, value_);
-
+    Record &old_record = row_tuple->record();
+    Record *new_rec = new Record(old_record);
+    rc =
+        row_tuple->update_record_by_attr_name(attribute_name_, value_, new_rec);
     if (rc != RC::SUCCESS) {
-      LOG_WARN("failed to update record: %s", strrc(rc));
+      LOG_WARN("No such field:%s,table_name: %s,attr_name:%s", strrc(rc),
+               table_->name(), attribute_name_.c_str());
       return rc;
+    }
+    update_record_vec.push_back(new_rec);
+
+    rc = trx_->delete_record(table_, old_record);
+    if (rc != RC::SUCCESS) {
+      LOG_WARN("failed to delete record in updating record: %s", strrc(rc));
+      return rc;
+    }
+  }
+
+  for (Record *record_tmp : update_record_vec) {
+    rc = trx_->insert_record(table_, *record_tmp);
+    if (rc != RC::SUCCESS) {
+      LOG_WARN("failed to insert record in updating record. rc=%s", strrc(rc));
     }
   }
 
