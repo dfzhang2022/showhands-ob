@@ -514,6 +514,11 @@ RC Table::delete_record(const Record &record) {
   return rc;
 }
 
+RC Table::update_record(const Record &record, Record &record) {
+  
+  return RC::SUCCESS;
+}
+
 RC Table::insert_entry_of_indexes(const char *record, const RID &rid) {
   RC rc = RC::SUCCESS;
   for (Index *index : indexes_) {

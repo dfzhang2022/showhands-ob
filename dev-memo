@@ -91,3 +91,15 @@ TABLE | NON_UNIQUE | KEY_NAME | SEQ_IN_INDEX | COLUMN_NAME
 2. ERROR
 SHOW INDEX FROM Index_table_no_exist;
 -FAILURE
+
+
+// UPDATE
+
+select * from t;
+update t set age =100 where id=2; 
+update t set age=20; 
+
+insert into t_basic values(1,1, 'a', 1.0);
+update t_basic set age =5 where id=1; 
+
+select * from t_basic;
