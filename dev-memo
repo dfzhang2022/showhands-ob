@@ -105,3 +105,45 @@ update t_basic set age =5 where id=1;
 select * from t_basic;
 
 compile failed,In file included from /home/miniob/miniob_test/players/v1oLet/miniob/src/observer/sql/executor/sql_result.h:20,,                 from /home/miniob/miniob_test/players/v1oLet/miniob/src/observer/event/session_event.h:21,,                 from /home/miniob/miniob_test/players/v1oLet/miniob/src/observer/event/sql_debug.cpp:19:,/home/miniob/miniob_test/players/v1oLet/miniob/src/observer/sql/expr/tuple.h: In member function 'RC RowTuple::update_record_by_attr_name(std::string, Value, Record*&)':,/home/miniob/miniob_test/players/v1oLet/miniob/src/observer/sql/expr/tuple.h:165:21: error: 'strcmp' is not a member of 'std'; did you mean 'strcmp'?,  165 |       if (0 == std::strcmp(field_meta->name(), attribute_name.c_str())) {,      |                     ^~~~~~,In file included from /home/miniob/miniob_test/players/v1oLet/miniob/src/observer/event/session_event.h:17,,                 from /home/miniob/miniob_test/players/v1oLet/miniob/src/observer/event/sql_debug.cpp:19:,/usr/include/string.h:140:12: note: 'strcmp' declared here,  140 | extern int strcmp (const char *__s1, const char *__s2),      |            ^~~~~~,In file included from /home/miniob/miniob_test/players/v1oLet/miniob/src/observer/sql/executor/sql_result.h:20,,                 from /home/miniob/miniob_test/players/v1oLet/miniob/src/observer/event/session_event.h:21,,                 from /home/miniob/miniob_test/players/v1oLet/miniob/src/observer/event/sql_debug.cpp:19:,/home/miniob/miniob_test/players/v1oLet/miniob/src/observer/sql/expr/tuple.h:176:14: error: 'memcpy' is not a member of 'std'; did you mean 'wmemcpy'?,  176 |         std::memcpy(new_record->data() + field_meta->offset(), value.data(),,      |              ^~~~~~,      |              wmemcpy,In file included from /home/miniob/miniob_test/players/v1oLet/miniob/src/observer/sql/executor/sql_result.h:20,,                 from /home/miniob/miniob_test/players/v1oLet/miniob/src/observer/event/session_event.h:21,,                 from /home/miniob/miniob_test/players/v1oLet/miniob/src/observer/event/session_event.cpp:15:,/home/miniob/miniob_test/players/v1oLet/miniob/src/observer/sql/expr/tuple.h: In member function 'RC RowTuple::update_record_by_attr_name(std::string, Value, Record*&)':,/home/miniob/miniob_test/players/v1oLet/miniob/src/observer/sql/expr/tuple.h:165:21: error: 'strcmp' is not a member of 'std'; did you mean 'strcmp'?,  165 |       if (0 == std::strcmp(field_meta->name(), attribute_name.c_str())) {,      |                     ^~~~~~,In file included from /home/miniob/miniob_test/players/v1oLet/miniob/src/observer/event/session_event.h:17,,                 from /home/miniob/miniob_test/players/v1oLet/miniob/src/observer/event/session_event.cpp:15:,/usr/include/string.h:140:12: note: 'strcmp' declared here,  140 | extern int strcmp (const char *__s1, const char *__s2),      |            ^~~~~~,In file included from /home/miniob/miniob_test/players/v1oLet/miniob/src/observer/sql/executor/sql_result.h:20,,                 from /home/miniob/miniob_test/players/v1oLet/miniob/src/observer/event/session_event.h:21,,                 from /home/miniob/miniob_test/players/v1oLet/miniob/src/observer/event/session_event.cpp:15:,/home/miniob/miniob_test/players/v1oLet/miniob/src/observer/sql/expr/tuple.h:176:14: error: 'memcpy' is not a member of 'std'; did you mean 'wmemcpy'?,  176 |         std::memcpy(new_record->data() + field_meta->offset(), value.data(),,      |              ^~~~~~,      |              wmemcpy,make[2]: *** [src/observer/CMakeFiles/observer_static.dir/event/sql_debug.cpp.o] Error 1,make[2]: *** Waiting for unfinished jobs....,In file included from /home/miniob/miniob_test/players/v1oLet/miniob/src/observer/sql/operator/physical_operator.h:22,,                 from /home/miniob/miniob_test/players/v1oLet/miniob/src/observer/sql/optimizer/optimize_stage.h:21,,                 from /home/miniob/miniob_test/players/v1oLet/miniob/src/observer/session/session_stage.h:21,,                 from /home/miniob/miniob_test/players/v1oLet/miniob/src/observer/common/init.cpp:28:,/home/miniob/miniob_test/players/v1oLet/miniob/src/observer/sql/expr/tuple.h: In member function 'RC RowTuple::update_record_by_attr_name(std::string, Value, Record*&)':,/home/miniob/miniob_test/players/v1oLet/miniob/src/observer/sql/expr/tuple.h:165:21: error: 'strcmp' is not a member of 'std'; did you mean 'strcmp'?,  165 |       if (0 == std::strcmp(field_meta->name(), attribute_name.c_str())) {,      |                     ^~~~~~,In file included from /home/miniob/miniob_test/players/v1oLet/miniob/deps/common/log/log.h:21,,                 from /home/miniob/miniob_test/players/v1oLet/miniob/src/observer/common/init.cpp:20:,/usr/include/string.h:140:12: note: 'strcmp' declared here,  140 | extern int strcmp (const char *__s1, const char *__s2),      |            ^~~~~~,In file included from /home/miniob/miniob_test/players/v1oLet/miniob/src/observer/sql/operator/physical_operator.h:22,,                 from /home/miniob/miniob_test/players/v1oLet/miniob/src/observer/sql/optimizer/optimize_stage.h:21,,                 from /home/miniob/miniob_test/players/v1oLet/miniob/src/observer/session/session_stage.h:21,,                 from /home/miniob/miniob_test/players/v1oLet/miniob/src/observer/common/init.cpp:28:,/home/miniob/miniob_test/players/v1oLet/miniob/src/observer/sql/expr/tuple.h:176:14: error: 'memcpy' is not a member of 'std'; did you mean 'wmemcpy'?,  176 |         std::memcpy(new_record->data() + field_meta->offset(), value.data(),,      |              ^~~~~~,      |              wmemcpy,make[2]: *** [src/observer/CMakeFiles/observer_static.dir/event/session_event.cpp.o] Error 1,make[2]: *** [src/observer/CMakeFiles/observer_static.dir/common/init.cpp.o] Error 1,make[1]: *** [src/observer/CMakeFiles/observer_static.dir/all] Error 2,make: *** [all] Error 2,,failed to run make,compile failed
+
+
+
+====DATE_T
+-- echo initialization
+CREATE TABLE date_table(id int, u_date date);
+CREATE INDEX index_id on date_table(u_date);
+
+-- echo 1. insert normal date data
+INSERT INTO date_table VALUES (1,'2020;01;21');
+INSERT INTO date_table VALUES (1, 2020;01;21);
+
+INSERT INTO date_table VALUES (2,'2020-10-21');
+INSERT INTO date_table VALUES (3,'2020-1-01');
+INSERT INTO date_table VALUES (4,'2020-01-1');
+INSERT INTO date_table VALUES (5,'2019-12-21');
+INSERT INTO date_table VALUES (6,'2016-2-29');
+INSERT INTO date_table VALUES (7,'1970-1-1');
+INSERT INTO date_table VALUES (8,'2000-01-01');
+INSERT INTO date_table VALUES (9,'2038-1-19');
+
+SELECT * FROM date_table
+
+-- echo 2. compare date data
+-- sort SELECT * FROM date_table WHERE u_date>'2020-1-20';
+-- sort SELECT * FROM date_table WHERE u_date<'2019-12-31';
+-- sort SELECT * FROM date_table WHERE u_date='2020-1-1';
+
+-- echo 3. delete data
+DELETE FROM date_table WHERE u_date>'2012-2-29';
+-- sort SELECT * FROM date_table;
+
+-- echo 4. check invalid date data
+SELECT * FROM date_table WHERE u_date='2017-2-29';
+SELECT * FROM date_table WHERE u_date='2017-21-29';
+SELECT * FROM date_table WHERE u_date='2017-12-32';
+SELECT * FROM date_table WHERE u_date='2017-11-31';
+
+INSERT INTO date_table VALUES (10,'2017-2-29');
+INSERT INTO date_table VALUES (11,'2017-21-29');
+INSERT INTO date_table VALUES (12,'2017-12-32');
+INSERT INTO date_table VALUES (13,'2017-11-31');

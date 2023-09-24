@@ -40,11 +40,80 @@ AttrType attr_type_from_string(const char *s) {
   return UNDEFINED;
 }
 
+bool check_date(int ymd) {
+  int d = ymd % 100;
+  int m = (ymd / 100) % 100;
+  int y = (ymd / 10000) % 10000;
+
+  static int mon[] = {0, 31, 28, 31, 30, 31, 30, 31, 31, 30, 31, 30, 31};
+  bool leap = (y % 400 == 0 || (y % 100 && y % 4 == 0));
+  return y > 0 && (m > 0) && (m <= 12) && (d > 0) &&
+         (d <= ((m == 2 && leap) ? 1 : 0) + mon[m]);
+}
+bool check_date(int y, int m, int d) {
+  static int mon[] = {0, 31, 28, 31, 30, 31, 30, 31, 31, 30, 31, 30, 31};
+  bool leap = (y % 400 == 0 || (y % 100 && y % 4 == 0));
+  return y > 0 && (m > 0) && (m <= 12) && (d > 0) &&
+         (d <= ((m == 2 && leap) ? 1 : 0) + mon[m]);
+}
+std::string date_to_str(int date) {
+  int d = date % 100;
+  int m = (date / 100) % 100;
+  int y = (date / 10000) % 10000;
+
+  std::stringstream os;
+  os << y << "-";
+  if (m < 10) {
+    os << '0' << m << '-';
+
+  } else
+    os << m << '-';
+  if (d < 10) {
+    os << '0' << d << '-';
+
+  } else
+    os << d;
+  return os.str();
+}
+
+void Value::date_value_init() {
+  if (attr_type_ == AttrType::DATES) {
+    char *str_p = (char *)str_value_.c_str();
+
+    int y, m, d;
+    sscanf(str_p, "%d-%d-%d", &y, &m, &d);
+    bool b = check_date(y, m, d);
+    if (!b) {
+      LOG_ERROR("Date format error, date_str is %s.", str_p);
+      this->set_date(-1);
+      return;
+    }
+
+    int dv = y * 10000 + m * 100 + d;
+    this->set_date(dv);
+    return;
+  } else {
+    LOG_ERROR("Value is not DATE type, type is %d", (int)attr_type_);
+    return;
+  }
+}
+
 Value::Value(int val) { set_int(val); }
 
 Value::Value(float val) { set_float(val); }
 
 Value::Value(bool val) { set_boolean(val); }
+
+Value::Value(int year, int month, int day) {
+  bool b = check_date(year, month, day);
+  if (!b) {
+    LOG_ERROR("Date invalid, y = %d,m = %d,d = %d", year, month, day);
+    this->set_date(-1);
+  } else {
+    int dv = year * 10000 + month * 100 + day;
+    this->set_date(dv);
+  }
+}
 
 Value::Value(const char *s, int len /*= 0*/) { set_string(s, len); }
 
@@ -63,6 +132,10 @@ void Value::set_data(char *data, int length) {
     } break;
     case BOOLEANS: {
       num_value_.bool_value_ = *(int *)data != 0;
+      length_ = length;
+    } break;
+    case DATES: {
+      num_value_.date_value_ = *(int *)data;
       length_ = length;
     } break;
     default: {
@@ -84,6 +157,11 @@ void Value::set_float(float val) {
 void Value::set_boolean(bool val) {
   attr_type_ = BOOLEANS;
   num_value_.bool_value_ = val;
+  length_ = sizeof(val);
+}
+void Value::set_date(int val) {
+  attr_type_ = DATES;
+  num_value_.date_value_ = val;
   length_ = sizeof(val);
 }
 void Value::set_string(const char *s, int len /*= 0*/) {
@@ -114,6 +192,9 @@ void Value::set_value(const Value &value) {
     case UNDEFINED: {
       ASSERT(false, "got an invalid value type");
     } break;
+    case DATES: {
+      set_date(value.get_date());
+    } break;
   }
 }
 
@@ -143,6 +224,9 @@ std::string Value::to_string() const {
     case CHARS: {
       os << str_value_;
     } break;
+    case DATES: {
+      os << date_to_str(num_value_.date_value_);
+    } break;
     default: {
       LOG_WARN("unsupported attr type: %d", attr_type_);
     } break;
@@ -169,6 +253,10 @@ int Value::compare(const Value &other) const {
       case BOOLEANS: {
         return common::compare_int((void *)&this->num_value_.bool_value_,
                                    (void *)&other.num_value_.bool_value_);
+      }
+      case DATES: {
+        return common::compare_int((void *)&this->num_value_.date_value_,
+                                   (void *)&other.num_value_.date_value_);
       }
       default: {
         LOG_WARN("unsupported type: %d", this->attr_type_);
@@ -206,6 +294,9 @@ int Value::get_int() const {
     }
     case BOOLEANS: {
       return (int)(num_value_.bool_value_);
+    }
+    case DATES: {
+      return num_value_.date_value_;
     }
     default: {
       LOG_WARN("unknown data type. type=%d", attr_type_);
@@ -282,4 +373,36 @@ bool Value::get_boolean() const {
     }
   }
   return false;
+}
+
+int Value::get_date() const {
+  switch (attr_type_) {
+    case CHARS: {
+      try {
+        return (int)(std::stol(str_value_));
+      } catch (std::exception const &ex) {
+        LOG_TRACE("failed to convert string to number. s=%s, ex=%s",
+                  str_value_.c_str(), ex.what());
+        return 0;
+      }
+    }
+    case INTS: {
+      if (check_date(num_value_.int_value_)) return num_value_.int_value_;
+      return -1;
+    }
+    case FLOATS: {
+      return -1;
+    }
+    case BOOLEANS: {
+      return -1;
+    }
+    case DATES: {
+      return num_value_.date_value_;
+    }
+    default: {
+      LOG_WARN("unknown data type. type=%d", attr_type_);
+      return 0;
+    }
+  }
+  return 0;
 }

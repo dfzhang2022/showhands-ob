@@ -52,9 +52,12 @@ class Value {
   explicit Value(float val);
   explicit Value(bool val);
   explicit Value(const char *s, int len = 0);
+  explicit Value(int year, int month, int day);
 
   Value(const Value &other) = default;
   Value &operator=(const Value &other) = default;
+
+  void date_value_init();
 
   void set_type(AttrType type) { this->attr_type_ = type; }
   void set_data(char *data, int length);
@@ -65,7 +68,7 @@ class Value {
   void set_float(float val);
   void set_boolean(bool val);
   void set_string(const char *s, int len = 0);
-  // void set_date(const Date *date);
+  void set_date(int val);
   void set_value(const Value &value);
 
   std::string to_string() const;
@@ -86,7 +89,8 @@ class Value {
   float get_float() const;
   std::string get_string() const;
   bool get_boolean() const;
-  // Date get_date() const;
+  int get_date() const;
+  std::string get_date_str() const;
 
  private:
   AttrType attr_type_ = UNDEFINED;
@@ -96,6 +100,7 @@ class Value {
     int int_value_;
     float float_value_;
     bool bool_value_;
+    int date_value_;
   } num_value_;
   std::string str_value_;
   // Date date_value_;
