@@ -43,6 +43,8 @@ class VacuousTrx : public Trx {
   RC delete_record(Table *table, Record &record) override;
   RC update_record(Table *table, Record &old_record,
                    Record &new_record) override;
+  RC update_record(Table *table, Record &old_record, std::string attr_name,
+                   Value &value) override;
   RC visit_record(Table *table, Record &record, bool readonly) override;
   RC start_if_need() override;
   RC commit() override;

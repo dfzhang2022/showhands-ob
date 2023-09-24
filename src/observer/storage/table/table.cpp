@@ -515,14 +515,23 @@ RC Table::delete_record(const Record &record) {
 }
 // TODO
 RC Table::update_record(Record &old_record, Record &new_record) {
-  // for (Index *index : indexes_) {
-  //   rc = index->delete_entry(record.data(), &record.rid());
-  //   ASSERT(RC::SUCCESS == rc,
-  //          "failed to delete entry from index. table name=%s, index name=%s,
-  //          " "rid=%s, rc=%s", name(), index->index_meta().name(),
-  //          record.rid().to_string().c_str(), strrc(rc));
-  // }
-  // rc = record_handler_->delete_record(&record.rid());
+  const int record_size = new_record.len();
+  char *record_data = new_record.data();
+  auto updater = [&new_record, record_data, record_size](Record &record_src) {
+    memcpy(record_src.data(), record_data, record_size);
+  };
+  RC rc = record_handler_->visit_record(old_record.rid(), false /*readonly*/,
+                                        updater);
+  if (rc != RC::SUCCESS) {
+    free(record_data);
+    LOG_WARN("failed to update record. rid=%s, table=%s, rc=%s",
+             old_record.rid().to_string().c_str(), name(), strrc(rc));
+  }
+  return rc;
+}
+
+RC Table::update_record(Record &old_record, std::string attr_name,
+                        Value &value) {
   return RC::SUCCESS;
 }
 

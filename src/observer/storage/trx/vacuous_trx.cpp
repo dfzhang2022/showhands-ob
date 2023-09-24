@@ -43,6 +43,11 @@ RC VacuousTrx::update_record(Table *table, Record &old_record,
                              Record &new_record) {
   return table->update_record(old_record, new_record);
 }
+RC VacuousTrx::update_record(Table *table, Record &old_record,
+                             std::string attr_name, Value &value) {
+  // return table->update_record();
+  return RC::SUCCESS;
+}
 
 RC VacuousTrx::visit_record(Table *table, Record &record, bool readonly) {
   return RC::SUCCESS;

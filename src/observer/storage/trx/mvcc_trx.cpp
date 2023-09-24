@@ -186,6 +186,10 @@ RC MvccTrx::update_record(Table *table, Record &old_record,
                           Record &new_record) {
   return RC::SUCCESS;
 }
+RC MvccTrx::update_record(Table *table, Record &old_record,
+                          std::string attr_name, Value &value) {
+  return RC::SUCCESS;
+}
 
 RC MvccTrx::visit_record(Table *table, Record &record, bool readonly) {
   Field begin_field;

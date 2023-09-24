@@ -139,6 +139,8 @@ class Trx {
   virtual RC delete_record(Table *table, Record &record) = 0;
   virtual RC update_record(Table *table, Record &old_record,
                            Record &new_record) = 0;
+  virtual RC update_record(Table *table, Record &old_record,
+                           std::string attr_name, Value &value) = 0;
   virtual RC visit_record(Table *table, Record &record, bool readonly) = 0;
 
   virtual RC start_if_need() = 0;

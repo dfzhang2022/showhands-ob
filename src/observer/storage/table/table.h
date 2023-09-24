@@ -80,6 +80,8 @@ class Table {
   RC insert_record(Record &record);
   RC delete_record(const Record &record);
   RC update_record(Record &old_record, Record &new_record);
+  RC update_record(Record &old_record, std::string attr_name, Value &value);
+
   RC visit_record(const RID &rid, bool readonly,
                   std::function<void(Record &)> visitor);
   RC get_record(const RID &rid, Record &record);
