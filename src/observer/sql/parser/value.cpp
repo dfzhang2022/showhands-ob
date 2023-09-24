@@ -25,7 +25,7 @@ const char *ATTR_TYPE_NAME[] = {"undefined", "chars",    "ints",
                                 "floats",    "booleans", "dates"};
 
 const char *attr_type_to_string(AttrType type) {
-  if (type >= UNDEFINED && type <= FLOATS) {
+  if (type >= UNDEFINED && type <= DATES) {
     return ATTR_TYPE_NAME[type];
   }
   return "unknown";
@@ -69,7 +69,7 @@ std::string date_to_str(int date) {
   } else
     os << m << '-';
   if (d < 10) {
-    os << '0' << d << '-';
+    os << '0' << d;
 
   } else
     os << d;
