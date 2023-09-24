@@ -1,7 +1,7 @@
 /* Copyright (c) 2021 OceanBase and/or its affiliates. All rights reserved.
 miniob is licensed under Mulan PSL v2.
-You can use this software according to the terms and conditions of the Mulan PSL v2.
-You may obtain a copy of Mulan PSL v2 at:
+You can use this software according to the terms and conditions of the Mulan PSL
+v2. You may obtain a copy of Mulan PSL v2 at:
          http://license.coscl.org.cn/MulanPSL2
 THIS SOFTWARE IS PROVIDED ON AN "AS IS" BASIS, WITHOUT WARRANTIES OF ANY KIND,
 EITHER EXPRESS OR IMPLIED, INCLUDING BUT NOT LIMITED TO NON-INFRINGEMENT,
@@ -13,20 +13,20 @@ See the Mulan PSL v2 for more details. */
 //
 
 #include "sql/optimizer/rewriter.h"
-#include "sql/optimizer/expression_rewriter.h"
-#include "sql/optimizer/predicate_rewrite.h"
-#include "sql/optimizer/predicate_pushdown_rewriter.h"
-#include "sql/operator/logical_operator.h"
 
-Rewriter::Rewriter()
-{
+#include "sql/operator/logical_operator.h"
+#include "sql/optimizer/expression_rewriter.h"
+#include "sql/optimizer/predicate_pushdown_rewriter.h"
+#include "sql/optimizer/predicate_rewrite.h"
+
+Rewriter::Rewriter() {
   rewrite_rules_.emplace_back(new ExpressionRewriter);
   rewrite_rules_.emplace_back(new PredicateRewriteRule);
-  rewrite_rules_.emplace_back(new PredicatePushdownRewriter);
+  // rewrite_rules_.emplace_back(new PredicatePushdownRewriter);
 }
 
-RC Rewriter::rewrite(std::unique_ptr<LogicalOperator> &oper, bool &change_made)
-{
+RC Rewriter::rewrite(std::unique_ptr<LogicalOperator> &oper,
+                     bool &change_made) {
   RC rc = RC::SUCCESS;
 
   change_made = false;
