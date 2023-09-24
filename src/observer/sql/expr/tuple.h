@@ -183,6 +183,35 @@ class RowTuple : public Tuple {
     return rc;
   }
 
+  RC update_record_by_attr_name(std::vector<std::string> attr_name_vec,
+                                std::vector<Value> value_vec,
+                                Record *&new_record) {
+    RC rc = RC::SCHEMA_FIELD_NOT_EXIST;
+    if (attr_name_vec.size() != value_vec.size()) {
+      rc = RC::INVALID_ARGUMENT;
+      LOG_ERROR("attr_num not equal to value_num.");
+    }
+
+    for (size_t i = 0; i < attr_name_vec.size(); i++) {
+      for (int cnt = 0; cnt < speces_.size(); cnt++) {
+        FieldExpr *field_expr = speces_[cnt];
+        const FieldMeta *field_meta = field_expr->field().meta();
+        // LOG_INFO("field_name is %s", field_meta->name());
+        if (0 == std::strcmp(field_meta->name(), attr_name_vec.at(i).c_str())) {
+          if (field_meta->type() != value_vec.at(i).attr_type()) {
+            break;
+          }
+          std::memcpy(
+              new_record->data() + field_meta->offset(), value_vec.at(i).data(),
+              value_vec.at(i).length());  // 将旧有的数据地址复制到新的record中
+
+          rc = RC::SUCCESS;
+        }
+      }
+    }
+    return rc;
+  }
+
   RC find_cell(const TupleCellSpec &spec, Value &cell) const override {
     const char *table_name = spec.table_name();
     const char *field_name = spec.field_name();

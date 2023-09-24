@@ -6,10 +6,10 @@
 
 using namespace std;
 
-UpdatePhysicalOperator::UpdatePhysicalOperator(Table *table,
-                                               std::string attribute_name,
-                                               Value value)
-    : table_(table), attribute_name_(attribute_name), value_(value) {}
+UpdatePhysicalOperator::UpdatePhysicalOperator(
+    Table *table, std::vector<std::string> attribute_names,
+    std::vector<Value> values)
+    : table_(table), attribute_names_(attribute_names), values_(values) {}
 
 RC UpdatePhysicalOperator::open(Trx *trx) {
   if (children_.empty()) {
@@ -46,8 +46,8 @@ RC UpdatePhysicalOperator::next() {
     Record &old_record = row_tuple->record();
 
     Record *new_rec = new Record(old_record);
-    rc =
-        row_tuple->update_record_by_attr_name(attribute_name_, value_, new_rec);
+    rc = row_tuple->update_record_by_attr_name(attribute_names_, values_,
+                                               new_rec);
     if (rc != RC::SUCCESS) {
       LOG_WARN("No such field:%s,table_name: %s,attr_name:%s", strrc(rc),
                table_->name(), attribute_name_.c_str());

@@ -18,11 +18,11 @@ See the Mulan PSL v2 for more details. */
 #include "storage/db/db.h"
 #include "storage/table/table.h"
 
-UpdateStmt::UpdateStmt(Table *table, std::string attribute_name,
-                       const Value *values, int value_amount,
+UpdateStmt::UpdateStmt(Table *table, std::vector<std::string> attribute_names,
+                       std::vector<Value> values, int value_amount,
                        FilterStmt *filter_stmt)
     : table_(table),
-      attribute_name_(attribute_name),
+      attribute_names_(attribute_names),
       values_(values),
       value_amount_(value_amount),
       filter_stmt_(filter_stmt) {}
@@ -59,9 +59,17 @@ RC UpdateStmt::create(Db *db, const UpdateSqlNode &update_sql, Stmt *&stmt) {
     LOG_WARN("failed to create filter statement. rc=%d:%s", rc, strrc(rc));
     return rc;
   }
+  std::vector<std::string> str_vec;
+  std::vector<Value> val_vec;
+  int value_amount = update_sql.update_values.size();
+  for (int i = 0; i < value_amount; i++) {
+    str_vec.emplace_back(update_sql.update_values.at(i).name);
+    val_vec.emplace_back(update_sql.update_values.at(i).value);
+  }
 
   // LOG_INFO("value is %d", update_sql.value.get_int());
-  stmt = new UpdateStmt(table, update_sql.attribute_name, &update_sql.value,
-                        int(1), filter_stmt);
+  // stmt = new UpdateStmt(table, update_sql.attribute_name, &update_sql.value,
+  //                       int(1), filter_stmt);
+  stmt = new UpdateStmt(table, str_vec, val_vec, value_amount, filter_stmt);
   return rc;
 }

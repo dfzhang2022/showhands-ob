@@ -183,10 +183,8 @@ RC LogicalPlanGenerator::create_plan(
     UpdateStmt *update_stmt, unique_ptr<LogicalOperator> &logical_operator) {
   Table *table = update_stmt->table();
   FilterStmt *filter_stmt = update_stmt->filter_stmt();
-  std::string attribute_name = update_stmt->attribute_name();
-  Value *value = new Value();
-  value->set_value(*(update_stmt->values()));
-  LOG_INFO("value is %d", update_stmt->values()->get_int());
+  std::vector<std::string> attribute_names = update_stmt->attribute_names();
+  std::vector<Value> values = update_stmt->values();
 
   std::vector<Field> fields;
   for (int i = table->table_meta().sys_field_num();
@@ -203,7 +201,7 @@ RC LogicalPlanGenerator::create_plan(
     return rc;
   }
   unique_ptr<LogicalOperator> update_oper(
-      new UpdateLogicalOperator(table, attribute_name, *value));
+      new UpdateLogicalOperator(table, attribute_names, values));
 
   if (predicate_oper) {
     predicate_oper->add_child(std::move(table_get_oper));

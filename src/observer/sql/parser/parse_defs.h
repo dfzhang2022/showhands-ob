@@ -124,6 +124,17 @@ struct DeleteSqlNode {
 };
 
 /**
+ * @brief 描述一个update中对某一字段进行更新的值
+ * @ingroup SQLParser
+ * @details 字段+值
+
+ */
+struct UpdateValueSqlNode {
+  std::string name;  ///< Attribute name
+  Value value;       ///< Length of attribute
+};
+
+/**
  * @brief 描述一个update语句
  * @ingroup SQLParser
  */
@@ -132,6 +143,7 @@ struct UpdateSqlNode {
   std::string attribute_name;  ///< 更新的字段，仅支持一个字段
   Value value;                 ///< 更新的值，仅支持一个字段
   std::vector<ConditionSqlNode> conditions;
+  std::vector<UpdateValueSqlNode> update_values;
 };
 
 /**
