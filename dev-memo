@@ -114,7 +114,7 @@ CREATE TABLE date_table(id int, u_date date);
 CREATE INDEX index_id on date_table(u_date);
 
 -- echo 1. insert normal date data
-INSERT INTO date_table VALUES (1,'2020;01;21');
+INSERT INTO date_table VALUES (1,'2020-01-21');
 INSERT INTO date_table VALUES (1, 2020;01;21);
 
 INSERT INTO date_table VALUES (2,'2020-10-21');
@@ -159,3 +159,15 @@ SELECT * FROM date_table WHERE u_date='2020-1-1';
 ID | U_DATE
 3. DELETE DATA
 DELETE FROM date_table WHERE u_date>'2017-5-30';
+
+
+ID | U_DATE
+4. CHECK INVALID DATE DATA
+SELECT * FROM date_table WHERE u_date='2017-2-29';
+-FAILURE
++ID | U_DATE
+SELECT * FROM date_table WHERE u_date='2017-21-29';
+-FAILURE
++ID | U_DATE
+SELECT * FROM date_table WHERE u_date='2017-12-32';
+-FAILURE
