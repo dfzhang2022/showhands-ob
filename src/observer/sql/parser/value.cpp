@@ -373,10 +373,13 @@ RC Value::typecast_to(AttrType dest_type) {
              dest_type == AttrType::INTS) {
     char *this_data =
         (char *)find_number_in_str_using_regex(this->str_value_).c_str();
+    float tmp_float;
     int this_int;
 
     try {
-      this_int = atoi(this_data);
+      tmp_float = atof(this_data);
+      this_int =
+          ((int)tmp_float) + ((((int)(tmp_float * 10)) % 10) >= 5 ? 1 : 0);
     } catch (const std::invalid_argument &e) {
       rc = RC::INVALID_ARGUMENT;
       LOG_ERROR("Cannot typecast, src:%s, dest type:%d.",
