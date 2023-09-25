@@ -244,7 +244,9 @@ RC Value::typecast_to(AttrType dest_type) {
     rc = RC::SUCCESS;
   } else if (this->attr_type_ == AttrType::FLOATS &&
              dest_type == AttrType::INTS) {
-    int this_data = this->num_value_.float_value_;
+    float tmp_float = this->num_value_.float_value_;
+    int this_data =
+        ((int)tmp_float) + ((((int)(tmp_float * 10)) % 10) >= 5 ? 1 : 0);
     this->set_int(this_data);
     rc = RC::SUCCESS;
   } else if (this->attr_type_ == AttrType::CHARS &&
@@ -263,8 +265,9 @@ RC Value::typecast_to(AttrType dest_type) {
     rc = RC::SUCCESS;
   } else if (this->attr_type_ == AttrType::FLOATS &&
              dest_type == AttrType::CHARS) {
-    char *this_data =
-        (char *)std::to_string(this->num_value_.float_value_).c_str();
+    std::stringstream ss;
+    ss << this->num_value_.float_value_;
+    const char *this_data = ss.str().c_str();
     this->set_string(this_data, strlen(this_data));
     rc = RC::SUCCESS;
   } else if (this->attr_type_ == AttrType::CHARS &&

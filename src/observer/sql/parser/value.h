@@ -17,6 +17,7 @@ See the Mulan PSL v2 for more details. */
 #include <stdlib.h>
 
 #include <iostream>
+#include <sstream>
 #include <string>
 
 #include "common/rc.h"

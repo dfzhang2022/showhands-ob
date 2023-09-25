@@ -1,6 +1,8 @@
 ./bin/observer -f ../etc/observer.ini -P cli
 
 create table t_basic(id int, age int, name char, score float);
+create table t_2(id int,  name char,age float);
+insert into t_2 values (1.9,'3.5',11.5);
 
 create index i_id on t_basic (id);
 
@@ -171,3 +173,25 @@ SELECT * FROM date_table WHERE u_date='2017-21-29';
 +ID | U_DATE
 SELECT * FROM date_table WHERE u_date='2017-12-32';
 -FAILURE
+
+===typecast
+
+INSERT INTO Typecast_table_2 VALUES(1.9,'3.5',11.5);
+SUCCESS
+SELECT * FROM Typecast_table_2;
+-0 | 1.5 | 9.5
+-1 | 2.5 | 10.5
+-2 | 3.5 | 11.5
++0 | 1.50 | 9.5
++0 | 2.50 | 10.5
++1 | 3.5 | 11.5
+ID | NAME | AGE
+
+insert into t_2 values (1.6,'2.50','10.5');
+
+
+create table t_3(id int,  name float,age float);
+INSERT INTO t_3 VALUES(1.9,'3.5',11.5);
+insert into t_3 values (1.6,'2.50','10.5');
+insert into t_3 values (0.9,'1.50',9.5000);
+insert into t_3 values (0.9,1.50,9.5000);
