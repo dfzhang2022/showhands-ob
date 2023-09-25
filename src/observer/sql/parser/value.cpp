@@ -44,7 +44,7 @@ std::string find_number_in_str(std::string str) {
   std::string digits = ".0123456789";
   std::string result;
   int begin_pos = str.find_first_of(digits.c_str());
-  if (begin_pos == std::string::npos) return "";
+  if (begin_pos == std::string::npos) return "0";
   int end_pos = str.find_first_not_of(digits.c_str(), begin_pos);
   if (end_pos == std::string::npos) {
     result = str.substr(begin_pos, str.length() - begin_pos);
@@ -52,6 +52,20 @@ std::string find_number_in_str(std::string str) {
     result = str.substr(begin_pos, end_pos - begin_pos);
   }
   return result;
+}
+bool check_like_str_pattern_using_regex(std::string str, std::string like_str) {
+  std::string re;
+  for (int i = 0; i < like_str.size(); i++) {
+    if (like_str[i] == '_')
+      re += ".";
+    else if (like_str[i] == '%')
+      re += ".*";
+    else {
+      re.push_back(like_str[i]);
+    }
+  }
+  std::regex regex(re);
+  return std::regex_match(str, regex);
 }
 
 bool check_like_str_pattern(std::string str, std::string like_str) {
@@ -416,7 +430,8 @@ int Value::compare(const Value &other) const {
     tmp_value->set_like_string(tmp_value->str_value_.c_str());
     char *like_str = (char *)tmp_value->like_str_value_.c_str();
     char *this_str = (char *)this->str_value_.c_str();
-    bool result = check_like_str_pattern(this_str, like_str);
+    // bool result = check_like_str_pattern(this_str, like_str);
+    bool result = check_like_str_pattern_using_regex(this_str, like_str);
     return result ? 0 : -1;
 
   } else if (other.attr_type_ == AttrType::CHARS ||

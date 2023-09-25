@@ -211,3 +211,13 @@ SELECT * FROM Typecast_table_2 WHERE age>'9.5a';
 
 SELECT * FROM t_3 WHERE age>'a9.5';
 SELECT * FROM t_3 WHERE age>'9.5a';
+
+
+create table tb (id int, name char);
+
+insert into tb values (1,'apple'),(3,'pineapple'),(5,'orange'),(2,'grape');
+
+select * from tb;
+
+SELECT * FROM tb WHERE name LIKE '%e';
+SELECT * FROM tb WHERE name LIKE '%pp%';
