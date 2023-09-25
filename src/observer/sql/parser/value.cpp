@@ -39,7 +39,17 @@ AttrType attr_type_from_string(const char *s) {
   }
   return UNDEFINED;
 }
+std::string find_number_in_str_using_regex(std::string str) {
+  std::string digits = ".0123456789";
+  std::string re = "(\\-|\\+)?\\d+(\\.\\d+)?";
+  std::regex regex(re);
+  std::smatch match;
+  if (std::regex_search(str, match, regex)) {
+    return match[0];
+  }
 
+  return "0";
+}
 std::string find_number_in_str(std::string str) {
   std::string digits = ".0123456789";
   std::string result;
@@ -335,7 +345,8 @@ RC Value::typecast_to(AttrType dest_type) {
     rc = RC::SUCCESS;
   } else if (this->attr_type_ == AttrType::CHARS &&
              dest_type == AttrType::FLOATS) {
-    char *this_data = (char *)find_number_in_str(this->str_value_).c_str();
+    char *this_data =
+        (char *)find_number_in_str_using_regex(this->str_value_).c_str();
     float this_float;
     try {
       this_float = atof(this_data);
@@ -356,7 +367,8 @@ RC Value::typecast_to(AttrType dest_type) {
     rc = RC::SUCCESS;
   } else if (this->attr_type_ == AttrType::CHARS &&
              dest_type == AttrType::INTS) {
-    char *this_data = (char *)find_number_in_str(this->str_value_).c_str();
+    char *this_data =
+        (char *)find_number_in_str_using_regex(this->str_value_).c_str();
     int this_int;
 
     try {

@@ -135,7 +135,7 @@ RC FilterStmt::create_filter_unit(
   } else {
     FilterObj filter_obj;
     filter_obj.init_value(condition.right_value);
-    if (comp == CompOp::LIKE) {
+    if (comp == CompOp::LIKE || comp == CompOp::NOT_LIKE) {
       // 说明右值是like_str
       filter_obj.value.set_type(AttrType::LIKE_STR);
     }
