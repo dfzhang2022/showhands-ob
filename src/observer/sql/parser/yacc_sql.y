@@ -94,6 +94,8 @@ ArithmeticExpr *create_arithmetic_expression(ArithmeticExpr::Type type,
         INFILE
         EXPLAIN
         CLEAR
+        NULL_T
+        NULLABLE
         EQ
         LT
         GT
@@ -112,6 +114,8 @@ ArithmeticExpr *create_arithmetic_expression(ArithmeticExpr::Type type,
   AttrInfoSqlNode *                 attr_info;
   UpdateValueSqlNode*               update_value;
   std::vector<UpdateValueSqlNode> * update_value_list;
+  InsertValueSqlNode*               insert_value;
+  std::vector<InsertValueSqlNode> * insert_value_list;
   Expression *                      expression;
   std::vector<Expression *> *       expression_list;
   std::vector<Value> *              value_list;
@@ -147,6 +151,8 @@ ArithmeticExpr *create_arithmetic_expression(ArithmeticExpr::Type type,
 %type <rel_attr_list>       attr_list
 %type <update_value>           set_value
 %type <update_value_list>      set_value_list
+%type <insert_value>   insert_value
+%type <insert_value_list>   insert_value_list
 %type <expression>          expression
 %type <expression_list>     expression_list
 %type <sql_node>            calc_stmt
@@ -345,6 +351,7 @@ attr_def:
       $$->type = (AttrType)$2;
       $$->name = $1;
       $$->length = $4;
+      $$->nullable = false;
       free($1);
     }
     | ID type
@@ -353,6 +360,25 @@ attr_def:
       $$->type = (AttrType)$2;
       $$->name = $1;
       $$->length = 4;
+      $$->nullable = false;
+      free($1);
+    }
+    |ID type LBRACE number RBRACE NULLABLE
+    {
+      $$ = new AttrInfoSqlNode;
+      $$->type = (AttrType)$2;
+      $$->name = $1;
+      $$->length = $4;
+      $$->nullable = true;
+      free($1);
+    }
+    | ID type NULLABLE
+    {
+      $$ = new AttrInfoSqlNode;
+      $$->type = (AttrType)$2;
+      $$->name = $1;
+      $$->length = 4;
+      $$->nullable = true;
       free($1);
     }
     ;
@@ -366,19 +392,51 @@ type:
     | DATE_T    { $$=DATES;}
     ;
 insert_stmt:        /*insert   语句的语法解析树*/
-    INSERT INTO ID VALUES LBRACE value value_list RBRACE 
+    INSERT INTO ID VALUES insert_value insert_value_list
     {
       $$ = new ParsedSqlNode(SCF_INSERT);
       $$->insertion.relation_name = $3;
-      if ($7 != nullptr) {
-        $$->insertion.values.swap(*$7);
-      }
-      $$->insertion.values.emplace_back(*$6);
-      std::reverse($$->insertion.values.begin(), $$->insertion.values.end());
-      delete $6;
       free($3);
+
+      std::vector<InsertValueSqlNode> *src_insertv = $6;
+      if (src_insertv != nullptr) {
+        $$->insertion.insert_values.swap(*src_insertv);
+      }
+      $$->insertion.insert_values.emplace_back(*$5);
+      std::reverse($$->insertion.insert_values.begin(), $$->insertion.insert_values.end());
+      delete $5;
+      
     }
     ;
+insert_value_list:
+    /* empty */
+    {
+      $$ = nullptr;
+    }
+    |COMMA insert_value insert_value_list
+    {
+      if ($3 != nullptr) {
+        $$ = $3;
+      } else {
+        $$ = new std::vector<InsertValueSqlNode>;
+      }
+      $$->emplace_back(*$2);
+      delete $2;
+    }
+    ;
+insert_value:
+    LBRACE value value_list RBRACE
+    {
+        $$ = new InsertValueSqlNode;
+        if($3 != nullptr){
+          $$->values.swap(*$3);
+        }
+        $$->values.emplace_back(*$2);
+        std::reverse($$->values.begin(),$$->values.end());
+        delete $2;
+    }
+    ;
+
 
 value_list:
     /* empty */

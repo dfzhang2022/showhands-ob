@@ -105,13 +105,23 @@ struct CalcSqlNode {
 };
 
 /**
+ * @brief 描述一个insert语句中一个插入的值
+ * @ingroup SQLParser
+ * @details
+ */
+struct InsertValueSqlNode {
+  std::vector<Value> values;  ///< 要插入的值
+};
+
+/**
  * @brief 描述一个insert语句
  * @ingroup SQLParser
  * @details 于Selects类似，也做了很多简化
  */
 struct InsertSqlNode {
-  std::string relation_name;  ///< Relation to insert into
-  std::vector<Value> values;  ///< 要插入的值
+  std::string relation_name;                      ///< Relation to insert into
+  std::vector<Value> values;                      ///< 要插入的值
+  std::vector<InsertValueSqlNode> insert_values;  // 若干个要插入的值
 };
 
 /**
@@ -157,6 +167,8 @@ struct AttrInfoSqlNode {
   AttrType type;     ///< Type of attribute
   std::string name;  ///< Attribute name
   size_t length;     ///< Length of attribute
+  bool nullable;     ///< Is attr nullable; True for nullable, False for not
+                     ///< nullable;
 };
 
 /**

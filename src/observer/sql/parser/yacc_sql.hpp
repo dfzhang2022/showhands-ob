@@ -94,18 +94,20 @@ extern int yydebug;
     INFILE = 295,                  /* INFILE  */
     EXPLAIN = 296,                 /* EXPLAIN  */
     CLEAR = 297,                   /* CLEAR  */
-    EQ = 298,                      /* EQ  */
-    LT = 299,                      /* LT  */
-    GT = 300,                      /* GT  */
-    LE = 301,                      /* LE  */
-    GE = 302,                      /* GE  */
-    NE = 303,                      /* NE  */
-    NUMBER = 304,                  /* NUMBER  */
-    FLOAT = 305,                   /* FLOAT  */
-    ID = 306,                      /* ID  */
-    DATE_STR = 307,                /* DATE_STR  */
-    SSS = 308,                     /* SSS  */
-    UMINUS = 309                   /* UMINUS  */
+    NULL_T = 298,                  /* NULL_T  */
+    NULLABLE = 299,                /* NULLABLE  */
+    EQ = 300,                      /* EQ  */
+    LT = 301,                      /* LT  */
+    GT = 302,                      /* GT  */
+    LE = 303,                      /* LE  */
+    GE = 304,                      /* GE  */
+    NE = 305,                      /* NE  */
+    NUMBER = 306,                  /* NUMBER  */
+    FLOAT = 307,                   /* FLOAT  */
+    ID = 308,                      /* ID  */
+    DATE_STR = 309,                /* DATE_STR  */
+    SSS = 310,                     /* SSS  */
+    UMINUS = 311                   /* UMINUS  */
   };
   typedef enum yytokentype yytoken_kind_t;
 #endif
@@ -114,7 +116,7 @@ extern int yydebug;
 #if ! defined YYSTYPE && ! defined YYSTYPE_IS_DECLARED
 union YYSTYPE
 {
-#line 105 "yacc_sql.y"
+#line 107 "yacc_sql.y"
 
   ParsedSqlNode *                   sql_node;
   ConditionSqlNode *                condition;
@@ -125,6 +127,8 @@ union YYSTYPE
   AttrInfoSqlNode *                 attr_info;
   UpdateValueSqlNode*               update_value;
   std::vector<UpdateValueSqlNode> * update_value_list;
+  InsertValueSqlNode*               insert_value;
+  std::vector<InsertValueSqlNode> * insert_value_list;
   Expression *                      expression;
   std::vector<Expression *> *       expression_list;
   std::vector<Value> *              value_list;
@@ -135,7 +139,7 @@ union YYSTYPE
   int                               number;
   float                             floats;
 
-#line 139 "yacc_sql.hpp"
+#line 143 "yacc_sql.hpp"
 
 };
 typedef union YYSTYPE YYSTYPE;

@@ -20,12 +20,19 @@ See the Mulan PSL v2 for more details. */
 
 InsertStmt::InsertStmt(Table *table, const Value *values, int value_amount)
     : table_(table), values_(values), value_amount_(value_amount) {}
+InsertStmt::InsertStmt(Table *table,
+                       std::vector<std::vector<Value>> insert_values,
+                       int value_amount, int record_amount)
+    : table_(table),
+      insert_values_(insert_values),
+      value_amount_(value_amount),
+      record_amount_(record_amount) {}
 
 RC InsertStmt::create(Db *db, const InsertSqlNode &inserts, Stmt *&stmt) {
   const char *table_name = inserts.relation_name.c_str();
-  if (nullptr == db || nullptr == table_name || inserts.values.empty()) {
+  if (nullptr == db || nullptr == table_name || inserts.insert_values.empty()) {
     LOG_WARN("invalid argument. db=%p, table_name=%p, value_num=%d", db,
-             table_name, static_cast<int>(inserts.values.size()));
+             table_name, static_cast<int>(inserts.insert_values.size()));
     return RC::INVALID_ARGUMENT;
   }
 
@@ -36,45 +43,92 @@ RC InsertStmt::create(Db *db, const InsertSqlNode &inserts, Stmt *&stmt) {
     return RC::SCHEMA_TABLE_NOT_EXIST;
   }
 
-  // init DATE type value;
+  std::vector<std::vector<Value>> insert_values_vec;
+  int record_amount = inserts.insert_values.size();
 
   // check the fields number
-  const Value *values = inserts.values.data();
-  const int value_num = static_cast<int>(inserts.values.size());
   const TableMeta &table_meta = table->table_meta();
   const int field_num = table_meta.field_num() - table_meta.sys_field_num();
-  if (field_num != value_num) {
-    LOG_WARN("schema mismatch. value num=%d, field num in schema=%d", value_num,
-             field_num);
-    return RC::SCHEMA_FIELD_MISSING;
+  for (int cnt = 0; cnt < record_amount; cnt++) {
+    const int value_num =
+        static_cast<int>(inserts.insert_values.at(cnt).values.size());
+    if (field_num != value_num) {
+      LOG_WARN("schema mismatch. value num=%d, field num in schema=%d",
+               value_num, field_num);
+      return RC::SCHEMA_FIELD_MISSING;
+    }
   }
-
   // check fields type
   const int sys_field_num = table_meta.sys_field_num();
-  for (int i = 0; i < value_num; i++) {
-    const FieldMeta *field_meta = table_meta.field(i + sys_field_num);
-    const AttrType field_type = field_meta->type();
-    const AttrType value_type = values[i].attr_type();
-    if (field_type !=
-        value_type) {  // TODO try to convert the value type to field type
-      LOG_WARN(
-          "field type mismatch. table=%s, field=%s, field type=%d, "
-          "value_type=%d",
-          table_name, field_meta->name(), field_type, value_type);
-      return RC::SCHEMA_FIELD_TYPE_MISMATCH;
-    }
-    if (value_type == AttrType::DATES) {
-      if (values[i].get_date() == -1) {
+  const int value_num =
+      static_cast<int>(inserts.insert_values.at(0).values.size());
+  for (int cnt = 0; cnt < record_amount; cnt++) {
+    for (int i = 0; i < value_num; i++) {
+      const FieldMeta *field_meta = table_meta.field(i + sys_field_num);
+      const AttrType field_type = field_meta->type();
+      const AttrType value_type =
+          inserts.insert_values.at(cnt).values.at(i).attr_type();
+      if (field_type !=
+          value_type) {  // TODO try to convert the value type to field type
         LOG_WARN(
-            "Date Invalid. table=%s, field=%s, field type=%d, "
+            "field type mismatch. table=%s, field=%s, field type=%d, "
             "value_type=%d",
             table_name, field_meta->name(), field_type, value_type);
-        return RC::INVALID_ARGUMENT;
+        return RC::SCHEMA_FIELD_TYPE_MISMATCH;
+      }
+      if (value_type == AttrType::DATES) {
+        if (inserts.insert_values.at(cnt).values.at(i).get_date() == -1) {
+          LOG_WARN(
+              "Date Invalid. table=%s, field=%s, field type=%d, "
+              "value_type=%d",
+              table_name, field_meta->name(), field_type, value_type);
+          return RC::INVALID_ARGUMENT;
+        }
       }
     }
   }
+  for (int cnt = 0; cnt < record_amount; cnt++) {
+    insert_values_vec.push_back(inserts.insert_values.at(cnt).values);
+  }
+
+  // check the fields number
+  // const Value *values = inserts.values.data();
+  // const int value_num = static_cast<int>(inserts.values.size());
+  // const TableMeta &table_meta = table->table_meta();
+  // const int field_num = table_meta.field_num() - table_meta.sys_field_num();
+  // if (field_num != value_num) {
+  //   LOG_WARN("schema mismatch. value num=%d, field num in schema=%d",
+  //   value_num,
+  //            field_num);
+  //   return RC::SCHEMA_FIELD_MISSING;
+  // }
+
+  // check fields type
+  // const int sys_field_num = table_meta.sys_field_num();
+  // for (int i = 0; i < value_num; i++) {
+  //   const FieldMeta *field_meta = table_meta.field(i + sys_field_num);
+  //   const AttrType field_type = field_meta->type();
+  //   const AttrType value_type = values[i].attr_type();
+  //   if (field_type !=
+  //       value_type) {  // TODO try to convert the value type to field type
+  //     LOG_WARN(
+  //         "field type mismatch. table=%s, field=%s, field type=%d, "
+  //         "value_type=%d",
+  //         table_name, field_meta->name(), field_type, value_type);
+  //     return RC::SCHEMA_FIELD_TYPE_MISMATCH;
+  //   }
+  //   if (value_type == AttrType::DATES) {
+  //     if (values[i].get_date() == -1) {
+  //       LOG_WARN(
+  //           "Date Invalid. table=%s, field=%s, field type=%d, "
+  //           "value_type=%d",
+  //           table_name, field_meta->name(), field_type, value_type);
+  //       return RC::INVALID_ARGUMENT;
+  //     }
+  //   }
+  // }
 
   // everything alright
-  stmt = new InsertStmt(table, values, value_num);
+  stmt = new InsertStmt(table, insert_values_vec, value_num, record_amount);
   return RC::SUCCESS;
 }
