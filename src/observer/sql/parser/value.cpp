@@ -21,11 +21,11 @@ See the Mulan PSL v2 for more details. */
 #include "common/log/log.h"
 #include "storage/field/field.h"
 
-const char *ATTR_TYPE_NAME[] = {"undefined", "chars",    "ints",
-                                "floats",    "booleans", "dates"};
+const char *ATTR_TYPE_NAME[] = {"undefined", "chars", "ints",  "floats",
+                                "booleans",  "dates", "texts", "like_str"};
 
 const char *attr_type_to_string(AttrType type) {
-  if (type >= UNDEFINED && type <= DATES) {
+  if (type >= UNDEFINED && type <= LIKE_STR) {
     return ATTR_TYPE_NAME[type];
   }
   return "unknown";
@@ -38,6 +38,62 @@ AttrType attr_type_from_string(const char *s) {
     }
   }
   return UNDEFINED;
+}
+
+std::string find_number_in_str(std::string str) {
+  std::string digits = ".0123456789";
+  std::string result;
+  int begin_pos = str.find_first_of(digits.c_str());
+  if (begin_pos == std::string::npos) return "";
+  int end_pos = str.find_first_not_of(digits.c_str(), begin_pos);
+  if (end_pos == std::string::npos) {
+    result = str.substr(begin_pos, str.length() - begin_pos);
+  } else {
+    result = str.substr(begin_pos, end_pos - begin_pos);
+  }
+  return result;
+}
+
+bool check_like_str_pattern(std::string str, std::string like_str) {
+  if (str.length() == 0 || like_str.length() == 0) return false;
+  int str_len = str.length();
+  int like_str_len = like_str.length();
+  int idx_str = 0, idx_like_str = 0;
+  while (idx_like_str < like_str_len) {
+    if (idx_str >= str_len) break;
+    if (like_str[idx_like_str] == '_') {
+      idx_like_str++;
+      idx_str++;
+    } else if (like_str[idx_like_str] == '%') {
+      if (idx_like_str == like_str_len - 1) {
+        // 直到末尾都能匹配
+        return true;
+      }
+      idx_like_str++;
+      char tmp_char = like_str[idx_like_str];
+      while (str[idx_str] != tmp_char && idx_str < str_len) {
+        idx_str++;
+      }
+      if (idx_str == str_len) {
+        // 没有匹配到%后面的一个字符,直接返回false
+        return false;
+      }
+      idx_str++;
+      idx_like_str++;
+    } else {
+      if (str[idx_str] != like_str[idx_like_str]) {
+        return false;
+      }
+
+      idx_str++;
+      idx_like_str++;
+    }
+  }
+  if (idx_like_str < like_str_len) return false;
+  if (idx_str == str_len)
+    return true;
+  else
+    return false;
 }
 
 bool check_date(int ymd) {
@@ -175,6 +231,17 @@ void Value::set_string(const char *s, int len /*= 0*/) {
   length_ = str_value_.length();
 }
 
+void Value::set_like_string(const char *s, int len /*= 0*/) {
+  attr_type_ = LIKE_STR;
+  if (len > 0) {
+    len = strnlen(s, len);
+    like_str_value_.assign(s, len);
+  } else {
+    like_str_value_.assign(s);
+  }
+  length_ = like_str_value_.length();
+}
+
 void Value::set_value(const Value &value) {
   switch (value.attr_type_) {
     case INTS: {
@@ -224,6 +291,9 @@ std::string Value::to_string() const {
     case CHARS: {
       os << str_value_;
     } break;
+    case LIKE_STR: {
+      os << like_str_value_;
+    } break;
     case DATES: {
       os << date_to_str(num_value_.date_value_);
     } break;
@@ -251,7 +321,7 @@ RC Value::typecast_to(AttrType dest_type) {
     rc = RC::SUCCESS;
   } else if (this->attr_type_ == AttrType::CHARS &&
              dest_type == AttrType::FLOATS) {
-    char *this_data = (char *)this->str_value_.c_str();
+    char *this_data = (char *)find_number_in_str(this->str_value_).c_str();
     float this_float;
     try {
       this_float = atof(this_data);
@@ -272,7 +342,7 @@ RC Value::typecast_to(AttrType dest_type) {
     rc = RC::SUCCESS;
   } else if (this->attr_type_ == AttrType::CHARS &&
              dest_type == AttrType::INTS) {
-    char *this_data = (char *)this->str_value_.c_str();
+    char *this_data = (char *)find_number_in_str(this->str_value_).c_str();
     int this_int;
 
     try {
@@ -339,7 +409,45 @@ int Value::compare(const Value &other) const {
   //   return common::compare_float((void *)&this_float,
   //                                (void *)&other.num_value_.float_value_);
   // }
-  else {
+  else if (other.attr_type_ == AttrType::LIKE_STR) {
+    // Here to process like_str pattern;
+    // TO DO
+    Value *tmp_value = new Value(other);
+    tmp_value->set_like_string(tmp_value->str_value_.c_str());
+    char *like_str = (char *)tmp_value->like_str_value_.c_str();
+    char *this_str = (char *)this->str_value_.c_str();
+    bool result = check_like_str_pattern(this_str, like_str);
+    return result ? 0 : -1;
+
+  } else if (other.attr_type_ == AttrType::CHARS ||
+             this->attr_type_ == AttrType::CHARS) {
+    if (this->attr_type_ == AttrType::CHARS) {
+      Value *tmp_value = new Value(*this);
+      RC rc = tmp_value->typecast_to(other.attr_type());
+      if (rc != RC::SUCCESS) {
+        LOG_WARN("Cannot tpecast from %d to %d.", tmp_value->attr_type(),
+                 other.attr_type());
+        return -1;
+      }
+      return tmp_value->compare(other);
+    } else {
+      return -other.compare(*this);
+    }
+  } else if (other.attr_type_ == AttrType::INTS ||
+             this->attr_type_ == AttrType::INTS) {
+    if (this->attr_type_ == AttrType::INTS) {
+      Value *tmp_value = new Value(*this);
+      RC rc = tmp_value->typecast_to(other.attr_type());
+      if (rc != RC::SUCCESS) {
+        LOG_WARN("Cannot tpecast from %d to %d.", tmp_value->attr_type(),
+                 other.attr_type());
+        return -1;
+      }
+      return tmp_value->compare(other);
+    } else {
+      return -other.compare(*this);
+    }
+  } else {
     Value *tmp_value = new Value(*this);
     RC rc = tmp_value->typecast_to(other.attr_type());
     if (rc != RC::SUCCESS) {
@@ -414,6 +522,7 @@ float Value::get_float() const {
 }
 
 std::string Value::get_string() const { return this->to_string(); }
+std::string Value::get_like_string() const { return this->like_str_value_; }
 
 bool Value::get_boolean() const {
   switch (attr_type_) {

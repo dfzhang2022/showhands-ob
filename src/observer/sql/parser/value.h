@@ -36,6 +36,7 @@ enum AttrType {
   BOOLEANS,  ///< boolean类型，当前不是由parser解析出来的，是程序内部使用的
   DATES,     ///< 新添加的DATE类型
   TEXTS,     ///< 未来肯能需要支持的文本类型数据
+  LIKE_STR,  ///< 支持 LIKE 语法的匹配字符串
 };
 
 const char *attr_type_to_string(AttrType type);
@@ -76,6 +77,7 @@ class Value {
   void set_float(float val);
   void set_boolean(bool val);
   void set_string(const char *s, int len = 0);
+  void set_like_string(const char *s, int len = 0);
   void set_date(int val);
   void set_value(const Value &value);
 
@@ -96,6 +98,7 @@ class Value {
   int get_int() const;
   float get_float() const;
   std::string get_string() const;
+  std::string get_like_string() const;
   bool get_boolean() const;
   int get_date() const;
   std::string get_date_str() const;
@@ -111,5 +114,6 @@ class Value {
     int date_value_;
   } num_value_;
   std::string str_value_;
+  std::string like_str_value_;
   // Date date_value_;
 };

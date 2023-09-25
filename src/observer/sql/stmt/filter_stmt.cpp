@@ -135,6 +135,10 @@ RC FilterStmt::create_filter_unit(
   } else {
     FilterObj filter_obj;
     filter_obj.init_value(condition.right_value);
+    if (comp == CompOp::LIKE) {
+      // 说明右值是like_str
+      filter_obj.value.set_type(AttrType::LIKE_STR);
+    }
     filter_unit->set_right(filter_obj);
     if (filter_unit->right().value.attr_type() == AttrType::DATES &&
         filter_unit->right().value.get_date() == -1) {
