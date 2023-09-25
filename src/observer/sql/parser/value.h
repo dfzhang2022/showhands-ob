@@ -14,7 +14,12 @@ See the Mulan PSL v2 for more details. */
 
 #pragma once
 
+#include <stdlib.h>
+
+#include <iostream>
 #include <string>
+
+#include "common/rc.h"
 
 // #include "./date.h"
 
@@ -58,6 +63,8 @@ class Value {
   Value &operator=(const Value &other) = default;
 
   void date_value_init();
+
+  RC typecast_to(AttrType dest_type);
 
   void set_type(AttrType type) { this->attr_type_ = type; }
   void set_data(char *data, int length);

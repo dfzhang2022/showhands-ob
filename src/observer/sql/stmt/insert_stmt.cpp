@@ -70,11 +70,14 @@ RC InsertStmt::create(Db *db, const InsertSqlNode &inserts, Stmt *&stmt) {
           inserts.insert_values.at(cnt).values.at(i).attr_type();
       if (field_type !=
           value_type) {  // TODO try to convert the value type to field type
-        LOG_WARN(
-            "field type mismatch. table=%s, field=%s, field type=%d, "
-            "value_type=%d",
-            table_name, field_meta->name(), field_type, value_type);
-        return RC::SCHEMA_FIELD_TYPE_MISMATCH;
+        Value value = inserts.insert_values.at(cnt).values.at(i);
+        if (value.typecast_to(field_type) != RC::SUCCESS) {
+          LOG_WARN(
+              "field type mismatch. table=%s, field=%s, field type=%d, "
+              "value_type=%d",
+              table_name, field_meta->name(), field_type, value_type);
+          return RC::SCHEMA_FIELD_TYPE_MISMATCH;
+        }
       }
       if (value_type == AttrType::DATES) {
         if (inserts.insert_values.at(cnt).values.at(i).get_date() == -1) {
@@ -89,6 +92,24 @@ RC InsertStmt::create(Db *db, const InsertSqlNode &inserts, Stmt *&stmt) {
   }
   for (int cnt = 0; cnt < record_amount; cnt++) {
     insert_values_vec.push_back(inserts.insert_values.at(cnt).values);
+  }
+  for (int cnt = 0; cnt < record_amount; cnt++) {
+    for (int i = 0; i < value_num; i++) {
+      const FieldMeta *field_meta = table_meta.field(i + sys_field_num);
+      const AttrType field_type = field_meta->type();
+      const AttrType value_type = insert_values_vec.at(cnt).at(i).attr_type();
+      if (field_type !=
+          value_type) {  // TODO try to convert the value type to field type
+        if (insert_values_vec.at(cnt).at(i).typecast_to(field_type) !=
+            RC::SUCCESS) {
+          LOG_WARN(
+              "field type mismatch. table=%s, field=%s, field type=%d, "
+              "value_type=%d",
+              table_name, field_meta->name(), field_type, value_type);
+          return RC::SCHEMA_FIELD_TYPE_MISMATCH;
+        }
+      }
+    }
   }
 
   // check the fields number

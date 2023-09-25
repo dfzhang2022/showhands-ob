@@ -233,6 +233,65 @@ std::string Value::to_string() const {
   }
   return os.str();
 }
+RC Value::typecast_to(AttrType dest_type) {
+  RC rc = RC::SUCCESS;
+  if (this->attr_type() == dest_type) {
+    rc = RC::SUCCESS;
+  } else if (this->attr_type_ == AttrType::INTS &&
+             dest_type == AttrType::FLOATS) {
+    float this_data = this->num_value_.int_value_;
+    this->set_float(this_data);
+    rc = RC::SUCCESS;
+  } else if (this->attr_type_ == AttrType::FLOATS &&
+             dest_type == AttrType::INTS) {
+    int this_data = this->num_value_.float_value_;
+    this->set_int(this_data);
+    rc = RC::SUCCESS;
+  } else if (this->attr_type_ == AttrType::CHARS &&
+             dest_type == AttrType::FLOATS) {
+    char *this_data = (char *)this->str_value_.c_str();
+    float this_float;
+    try {
+      this_float = atof(this_data);
+    } catch (const std::invalid_argument &e) {
+      rc = RC::INVALID_ARGUMENT;
+      LOG_ERROR("Cannot typecast, src:%s, dest type:%d.",
+                this->str_value_.c_str(), dest_type);
+      return rc;
+    }
+    this->set_float(this_float);
+    rc = RC::SUCCESS;
+  } else if (this->attr_type_ == AttrType::FLOATS &&
+             dest_type == AttrType::CHARS) {
+    char *this_data =
+        (char *)std::to_string(this->num_value_.float_value_).c_str();
+    this->set_string(this_data, strlen(this_data));
+    rc = RC::SUCCESS;
+  } else if (this->attr_type_ == AttrType::CHARS &&
+             dest_type == AttrType::INTS) {
+    char *this_data = (char *)this->str_value_.c_str();
+    int this_int;
+
+    try {
+      this_int = atoi(this_data);
+    } catch (const std::invalid_argument &e) {
+      rc = RC::INVALID_ARGUMENT;
+      LOG_ERROR("Cannot typecast, src:%s, dest type:%d.",
+                this->str_value_.c_str(), dest_type);
+      return rc;
+    }
+    this->set_int(this_int);
+    rc = RC::SUCCESS;
+  } else if (this->attr_type_ == AttrType::INTS &&
+             dest_type == AttrType::CHARS) {
+    char *this_data =
+        (char *)std::to_string(this->num_value_.int_value_).c_str();
+    this->set_string(this_data, strlen(this_data));
+    rc = RC::SUCCESS;
+  }
+
+  return rc;
+}
 
 int Value::compare(const Value &other) const {
   if (this->attr_type_ == other.attr_type_) {
@@ -262,15 +321,32 @@ int Value::compare(const Value &other) const {
         LOG_WARN("unsupported type: %d", this->attr_type_);
       }
     }
-  } else if (this->attr_type_ == INTS && other.attr_type_ == FLOATS) {
-    float this_data = this->num_value_.int_value_;
-    return common::compare_float((void *)&this_data,
-                                 (void *)&other.num_value_.float_value_);
-  } else if (this->attr_type_ == FLOATS && other.attr_type_ == INTS) {
-    float other_data = other.num_value_.int_value_;
-    return common::compare_float((void *)&this->num_value_.float_value_,
-                                 (void *)&other_data);
   }
+  // else if (this->attr_type_ == INTS && other.attr_type_ == FLOATS) {
+  //   float this_data = this->num_value_.int_value_;
+  //   return common::compare_float((void *)&this_data,
+  //                                (void *)&other.num_value_.float_value_);
+  // } else if (this->attr_type_ == FLOATS && other.attr_type_ == INTS) {
+  //   float other_data = other.num_value_.int_value_;
+  //   return common::compare_float((void *)&this->num_value_.float_value_,
+  //                                (void *)&other_data);
+  // } else if (this->attr_type_ == CHARS && other.attr_type_ == FLOATS) {
+  //   char *this_data = (char *)this->str_value_.c_str();
+  //   float this_float = strtof(this_data, nullptr);
+  //   return common::compare_float((void *)&this_float,
+  //                                (void *)&other.num_value_.float_value_);
+  // }
+  else {
+    Value *tmp_value = new Value(*this);
+    RC rc = tmp_value->typecast_to(other.attr_type());
+    if (rc != RC::SUCCESS) {
+      LOG_WARN("Cannot tpecast from %d to %d.", tmp_value->attr_type(),
+               other.attr_type());
+      return -1;
+    }
+    return tmp_value->compare(other);
+  }
+
   LOG_WARN("not supported");
   return -1;  // TODO return rc?
 }
