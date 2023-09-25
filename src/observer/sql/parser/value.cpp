@@ -453,31 +453,38 @@ int Value::compare(const Value &other) const {
     bool result = check_like_str_pattern_using_regex(this_str, like_str);
     return result ? 0 : -1;
 
-  } else if (other.attr_type_ == AttrType::CHARS ||
-             this->attr_type_ == AttrType::CHARS) {
-    if (this->attr_type_ == AttrType::CHARS) {
-      Value *tmp_value = new Value(*this);
-      RC rc = tmp_value->typecast_to(other.attr_type());
+  } else if (other.attr_type_ == AttrType::FLOATS ||
+             this->attr_type_ == AttrType::FLOATS) {
+    if (this->attr_type_ == AttrType::FLOATS) {
+      Value *tmp_value = new Value(other);
+      RC rc = tmp_value->typecast_to(this->attr_type());
       if (rc != RC::SUCCESS) {
         LOG_WARN("Cannot tpecast from %d to %d.", tmp_value->attr_type(),
-                 other.attr_type());
+                 this->attr_type());
         return -1;
       }
-      return tmp_value->compare(other);
+      return this->compare(*tmp_value);
     } else {
       return -other.compare(*this);
     }
   } else if (other.attr_type_ == AttrType::INTS ||
              this->attr_type_ == AttrType::INTS) {
-    if (this->attr_type_ == AttrType::INTS) {
+    if (this->attr_type_ != AttrType::INTS) {
       Value *tmp_value = new Value(*this);
-      RC rc = tmp_value->typecast_to(other.attr_type());
+      RC rc = tmp_value->typecast_to(AttrType::FLOATS);
       if (rc != RC::SUCCESS) {
         LOG_WARN("Cannot tpecast from %d to %d.", tmp_value->attr_type(),
-                 other.attr_type());
+                 AttrType::FLOATS);
         return -1;
       }
-      return tmp_value->compare(other);
+      Value *tmp_other_value = new Value(other);
+      rc = tmp_other_value->typecast_to(AttrType::FLOATS);
+      if (rc != RC::SUCCESS) {
+        LOG_WARN("Cannot tpecast from %d to %d.", tmp_other_value->attr_type(),
+                 AttrType::FLOATS);
+        return -1;
+      }
+      return tmp_value->compare(*tmp_other_value);
     } else {
       return -other.compare(*this);
     }
