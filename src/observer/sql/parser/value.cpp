@@ -45,6 +45,10 @@ std::string find_number_in_str_using_regex(std::string str) {
   std::regex regex(re);
   std::smatch match;
   if (std::regex_search(str, match, regex)) {
+    if (str.find(match[0], 0) != 0) {
+      // 找到了数字 但是不是前缀字符串
+      return "0";
+    }
     return match[0];
   }
 
