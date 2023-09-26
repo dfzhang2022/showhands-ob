@@ -24,6 +24,16 @@ RC UpdatePhysicalOperator::open(Trx *trx) {
     LOG_WARN("failed to open child operator: %s", strrc(rc));
     return rc;
   }
+  if (!set_selects_physical_opers_.empty()) {
+    size_t set_select_amount = set_selects_physical_opers_.size();
+    for (size_t i = 0; i < set_select_amount; i++) {
+      rc = set_selects_physical_opers_[i].get()->open(trx);
+      if (rc != RC::SUCCESS) {
+        LOG_WARN("failed to open set_select operator: %s", strrc(rc));
+        return rc;
+      }
+    }
+  }
 
   trx_ = trx;
 
@@ -35,6 +45,45 @@ RC UpdatePhysicalOperator::next() {
   if (children_.empty()) {
     return RC::RECORD_EOF;
   }
+  // 先处理set-select部分
+  if (!set_selects_physical_opers_.empty()) {
+    size_t set_select_amount = set_selects_physical_opers_.size();
+    for (size_t i = 0; i < set_select_amount; i++) {
+      std::string attr_name = set_selects_attr_name_[i];
+      Value tmp_v;
+      while (RC::SUCCESS ==
+             (rc = set_selects_physical_opers_[i].get()->next())) {
+        Tuple *tuple = set_selects_physical_opers_[i].get()->current_tuple();
+        if (nullptr == tuple) {
+          LOG_WARN("failed to get current record in processing set-select: %s",
+                   strrc(rc));
+          return rc;
+        }
+        RowTuple *row_tuple = static_cast<RowTuple *>(tuple);
+        if (row_tuple->cell_num() != 1) {
+          // SET name EQ value 只能单值
+          rc = RC::INVALID_ARGUMENT;
+          LOG_WARN("set-select returns multi-value: %s", strrc(rc));
+          return rc;
+        }
+
+        rc = row_tuple->cell_at(0, tmp_v);
+        if (rc != RC::SUCCESS) {
+          LOG_WARN("Get value fault: %s", strrc(rc));
+          return rc;
+        }
+      }
+
+      // 更新set-select中的值
+      for (size_t cnt = 0; cnt < attribute_names_.size(); cnt++) {
+        if (attribute_names_[cnt] == attr_name) {
+          values_[cnt].set_value(tmp_v);
+          break;
+        }
+      }
+    }
+  }
+
   PhysicalOperator *child = children_[0].get();
   std::vector<Record *> update_record_vec;
   while (RC::SUCCESS == (rc = child->next())) {

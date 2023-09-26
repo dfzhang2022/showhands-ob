@@ -221,3 +221,7 @@ select * from tb;
 
 SELECT * FROM tb WHERE name LIKE '%e';
 SELECT * FROM tb WHERE name LIKE '%pp%';
+
+
+//update select
+update t_basic set age=(select age from t where id=2) where id=2;
