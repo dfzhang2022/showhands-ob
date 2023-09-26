@@ -51,9 +51,18 @@ Table::~Table() {
   LOG_INFO("Table has been closed: %s", name());
 }
 
-RC Table::create(int32_t table_id, const char *path, const char *name,
-                 const char *base_dir, int attribute_count,
-                 const AttrInfoSqlNode attributes[]) {
+RC Table::create(int32_t table_id, 
+                 const char *path, 
+                 const char *name, 
+                 const char *base_dir, 
+                 int attribute_count, 
+                 const AttrInfoSqlNode attributes[])
+{
+  if (table_id < 0) {
+    LOG_WARN("invalid table id. table_id=%d, table_name=%s", table_id, name);
+    return RC::INVALID_ARGUMENT;
+  }
+
   if (common::is_blank(name)) {
     LOG_WARN("Name cannot be empty");
     return RC::INVALID_ARGUMENT;
