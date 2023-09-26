@@ -539,6 +539,16 @@ set_value:
       delete $1;
       delete $3;
     }
+    | ID EQ LBRACE select_stmt RBRACE
+    {
+      $$ = new UpdateValueSqlNode;
+      $$->name = $1;
+      $$->select_sql_node =  $4->selection;
+      $$->is_right_selects = true;
+
+      delete $1;
+      delete $4;
+    }
     ;
 select_stmt:        /*  select 语句的语法解析树*/
     SELECT select_attr FROM ID rel_list where

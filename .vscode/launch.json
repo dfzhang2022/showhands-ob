@@ -5,6 +5,34 @@
     "version": "0.2.0",
     "configurations": [
         {
+            "name": "(gdb) Launch",
+            "type": "cppdbg",
+            "preLaunchTask": "build_debug",
+            "request": "launch",
+            "program": "${workspaceFolder}/${defaultBuildTask}/bin/observer",
+            "args": [ "-f",
+            "${workspaceFolder}/etc/observer.ini",
+            "-P",
+            "cli"],
+            "stopAtEntry": false,
+            "cwd": "${workspaceFolder}/${defaultBuildTask}/",
+            "environment": [],
+            "externalConsole": false,
+            "MIMode": "gdb",
+            "setupCommands": [
+                {
+                    "description": "Enable pretty-printing for gdb",
+                    "text": "-enable-pretty-printing",
+                    "ignoreFailures": true
+                },
+                {
+                    "description": "Set Disassembly Flavor to Intel",
+                    "text": "-gdb-set disassembly-flavor intel",
+                    "ignoreFailures": true
+                }
+            ]
+        },
+        {
             "type": "cppdbg",
             "request": "launch",
             "name": "Debug",

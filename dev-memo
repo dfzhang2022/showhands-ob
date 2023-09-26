@@ -221,3 +221,13 @@ select * from tb;
 
 SELECT * FROM tb WHERE name LIKE '%e';
 SELECT * FROM tb WHERE name LIKE '%pp%';
+
+
+=== UPDATE SELECT
+
+create table t (id int,age int, num int);
+
+update t set age=20,num=10 where id=2;
+update t1 set col1=(select col from t2 where t2.id=1) where t1.id=2;
+
+update t_basic set age=(select age from t where id=1) where id=2;

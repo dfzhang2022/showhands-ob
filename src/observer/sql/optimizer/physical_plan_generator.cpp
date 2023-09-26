@@ -277,13 +277,38 @@ RC PhysicalPlanGenerator::create_plan(UpdateLogicalOperator &update_oper,
       return rc;
     }
   }
+  std::map<std::string, unique_ptr<PhysicalOperator> >  col_name_to_select_physical_oper;
+  if(!update_oper.col_name_to_select_oper().empty()){
+    //select_logical_oper transfer to physical_oper
+
+    std::map<std::string,unique_ptr<LogicalOperator>>::iterator iter =update_oper.col_name_to_select_oper().begin();
+    for(;iter!=update_oper.col_name_to_select_oper().end();iter++){
+
+        unique_ptr<PhysicalOperator> tmp_physical_oper;
+        std::string col_name = iter->first;
+        rc = this->create( *(iter->second),tmp_physical_oper);
+        // rc = this->create( *(static_cast<ProjectLogicalOperator*>(iter->second)),tmp_physical_oper);
+// 
+        if (rc != RC::SUCCESS) {
+          LOG_WARN("failed to create physical operator. rc=%s", strrc(rc));
+          return rc;
+        }
+        // col_name_to_select_physical_oper.emplace(col_name,std::move( tmp_physical_oper));
+        // col_name_to_select_physical_oper.insert({col_name,std::move( tmp_physical_oper)});//jsc version
+        // col_name_to_select_physical_oper.emplace(std::make_pair( col_name,std::move( tmp_physical_oper)));//lyh version
+        col_name_to_select_physical_oper[col_name]=std::move(tmp_physical_oper);
+    }
+    
+  }
 
   oper = unique_ptr<PhysicalOperator>(new UpdatePhysicalOperator(
       update_oper.table(), update_oper.attribute_names(),
-      update_oper.values()));
+      update_oper.values(),col_name_to_select_physical_oper));
   if (child_physical_oper) {
     oper->add_child(std::move(child_physical_oper));
+    
   }
+  
 
   return rc;
 }

@@ -8,8 +8,8 @@ using namespace std;
 
 UpdatePhysicalOperator::UpdatePhysicalOperator(
     Table *table, std::vector<std::string> attribute_names,
-    std::vector<Value> values)
-    : table_(table), attribute_names_(attribute_names), values_(values) {}
+    std::vector<Value> values,std::map<std::string,std::unique_ptr<PhysicalOperator>>  col_name_to_select_physical_oper)
+    : table_(table), attribute_names_(attribute_names), values_(values),col_name_to_select_physical_oper_(col_name_to_select_physical_oper) {}
 
 RC UpdatePhysicalOperator::open(Trx *trx) {
   if (children_.empty()) {
@@ -21,6 +21,7 @@ RC UpdatePhysicalOperator::open(Trx *trx) {
     LOG_WARN("failed to open child operator: %s", strrc(rc));
     return rc;
   }
+  
 
   trx_ = trx;
 
