@@ -187,6 +187,8 @@ RC LogicalPlanGenerator::create_plan(
   FilterStmt *filter_stmt = update_stmt->filter_stmt();
   std::vector<std::string> attribute_names = update_stmt->attribute_names();
   std::vector<Value> values = update_stmt->values();
+  std::map<std::string, SelectStmt *> col_name_to_selects =
+      update_stmt->col_name_to_selects();
 
   std::vector<Field> fields;
   for (int i = table->table_meta().sys_field_num();
@@ -202,8 +204,29 @@ RC LogicalPlanGenerator::create_plan(
   if (rc != RC::SUCCESS) {
     return rc;
   }
-  unique_ptr<LogicalOperator> update_oper(
-      new UpdateLogicalOperator(table, attribute_names, values));
+
+  std::vector<std::string> set_selects_attr_name;
+
+  unique_ptr<UpdateLogicalOperator> update_oper(new UpdateLogicalOperator(
+      table, attribute_names, values, set_selects_attr_name));
+
+  if (!col_name_to_selects.empty()) {
+    // exsits selects in 'SET col EQ value'
+
+    std::map<std::string, SelectStmt *>::iterator iter =
+        col_name_to_selects.begin();
+
+    for (; iter != col_name_to_selects.end(); iter++) {
+      std::string col_name = iter->first;
+      unique_ptr<LogicalOperator> tmp_logical_oper;
+      rc = this->create_plan((iter->second), tmp_logical_oper);
+      if (rc != RC::SUCCESS) {
+        return rc;
+      }
+      // set_selects_attr_name.emplace_back(col_name);
+      update_oper.get()->add_set_selects_oper(std::move(tmp_logical_oper));
+    }
+  }
 
   if (predicate_oper) {
     predicate_oper->add_child(std::move(table_get_oper));

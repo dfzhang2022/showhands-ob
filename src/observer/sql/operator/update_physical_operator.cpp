@@ -8,8 +8,11 @@ using namespace std;
 
 UpdatePhysicalOperator::UpdatePhysicalOperator(
     Table *table, std::vector<std::string> attribute_names,
-    std::vector<Value> values)
-    : table_(table), attribute_names_(attribute_names), values_(values) {}
+    std::vector<Value> values, std::vector<std::string> set_selects_attr_name)
+    : table_(table),
+      attribute_names_(attribute_names),
+      values_(values),
+      set_selects_attr_name_(std::move(set_selects_attr_name)) {}
 
 RC UpdatePhysicalOperator::open(Trx *trx) {
   if (children_.empty()) {

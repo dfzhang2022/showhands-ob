@@ -14,6 +14,7 @@ See the Mulan PSL v2 for more details. */
 
 #pragma once
 
+#include <map>
 #include <string>
 
 #include "common/rc.h"
@@ -21,6 +22,7 @@ See the Mulan PSL v2 for more details. */
 
 class Table;
 class FilterStmt;
+class SelectStmt;
 
 /**
  * @brief 更新语句
@@ -31,7 +33,8 @@ class UpdateStmt : public Stmt {
   UpdateStmt() = default;
   UpdateStmt(Table *table, std::vector<std::string> attribute_names,
              const std::vector<Value> values, int value_amount,
-             FilterStmt *filter_stmt);
+             FilterStmt *filter_stmt,
+             std::map<std::string, SelectStmt *> col_name_to_selects);
   ~UpdateStmt() override;
 
  public:
@@ -45,6 +48,9 @@ class UpdateStmt : public Stmt {
   int value_amount() const { return value_amount_; }
   std::string attribute_name() const { return attribute_name_; }
   std::vector<std::string> attribute_names() { return attribute_names_; }
+  std::map<std::string, SelectStmt *> col_name_to_selects() {
+    return col_name_to_selects_;
+  }
 
   StmtType type() const override { return StmtType::UPDATE; }
 
@@ -57,4 +63,5 @@ class UpdateStmt : public Stmt {
   FilterStmt *filter_stmt_ = nullptr;
   std::string attribute_name_;
   std::vector<std::string> attribute_names_;
+  std::map<std::string, SelectStmt *> col_name_to_selects_;
 };

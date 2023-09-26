@@ -14,7 +14,9 @@ See the Mulan PSL v2 for more details. */
 
 #pragma once
 
+#include <map>
 #include <memory>
+#include <string>
 
 #include "common/rc.h"
 

@@ -278,9 +278,28 @@ RC PhysicalPlanGenerator::create_plan(UpdateLogicalOperator &update_oper,
     }
   }
 
-  oper = unique_ptr<PhysicalOperator>(new UpdatePhysicalOperator(
-      update_oper.table(), update_oper.attribute_names(),
-      update_oper.values()));
+  oper = unique_ptr<UpdatePhysicalOperator>(new UpdatePhysicalOperator(
+      update_oper.table(), update_oper.attribute_names(), update_oper.values(),
+      update_oper.attribute_names()));
+
+  if (!update_oper.set_selects_logical_opers().empty()) {
+    size_t set_selects_num = update_oper.set_selects_logical_opers().size();
+    for (size_t i = 0; i < set_selects_num; i++) {
+      unique_ptr<PhysicalOperator> tmp_physical_oper;
+
+      rc = this->create(*(update_oper.set_selects_logical_opers()[i]),
+                        tmp_physical_oper);
+      if (rc != RC::SUCCESS) {
+        LOG_WARN("failed to create physical operator. rc=%s", strrc(rc));
+        return rc;
+      }
+
+      UpdatePhysicalOperator *tmp_ptr =
+          dynamic_cast<UpdatePhysicalOperator *>(oper.get());
+      tmp_ptr->add_set_selects_physical_oper(std::move(tmp_physical_oper));
+    }
+  }
+
   if (child_physical_oper) {
     oper->add_child(std::move(child_physical_oper));
   }

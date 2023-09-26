@@ -17,7 +17,8 @@ class UpdateStmt;
 class UpdatePhysicalOperator : public PhysicalOperator {
  public:
   UpdatePhysicalOperator(Table *table, std::vector<std::string> attribute_names,
-                         std::vector<Value> values);
+                         std::vector<Value> values,
+                         std::vector<std::string> set_selects_attr_name);
   virtual ~UpdatePhysicalOperator() = default;
 
   PhysicalOperatorType type() const override {
@@ -30,12 +31,22 @@ class UpdatePhysicalOperator : public PhysicalOperator {
 
   Tuple *current_tuple() override { return nullptr; }
 
+  std::vector<std::unique_ptr<PhysicalOperator>> &set_selects_physical_opers() {
+    return set_selects_physical_opers_;
+  }
+  void add_set_selects_physical_oper(std::unique_ptr<PhysicalOperator> oper) {
+    set_selects_physical_opers_.emplace_back(std::move(oper));
+  }
+
  private:
   Table *table_ = nullptr;
   std::string attribute_name_;
   std::vector<std::string> attribute_names_;
   Value value_;
   std::vector<Value> values_;
+
+  std::vector<std::string> set_selects_attr_name_;
+  std::vector<std::unique_ptr<PhysicalOperator>> set_selects_physical_opers_;
 
   Trx *trx_ = nullptr;
 };
