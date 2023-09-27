@@ -51,13 +51,9 @@ Table::~Table() {
   LOG_INFO("Table has been closed: %s", name());
 }
 
-RC Table::create(int32_t table_id, 
-                 const char *path, 
-                 const char *name, 
-                 const char *base_dir, 
-                 int attribute_count, 
-                 const AttrInfoSqlNode attributes[])
-{
+RC Table::create(int32_t table_id, const char *path, const char *name,
+                 const char *base_dir, int attribute_count,
+                 const AttrInfoSqlNode attributes[]) {
   if (table_id < 0) {
     LOG_WARN("invalid table id. table_id=%d, table_name=%s", table_id, name);
     return RC::INVALID_ARGUMENT;
@@ -225,6 +221,7 @@ RC Table::close() {
 }
 
 RC Table::insert_record(Record &record) {
+  // Here to debug
   RC rc = RC::SUCCESS;
   rc = record_handler_->insert_record(record.data(), table_meta_.record_size(),
                                       &record.rid());
@@ -246,7 +243,11 @@ RC Table::insert_record(Record &record) {
     }
     rc2 = record_handler_->delete_record(&record.rid());
     if (rc2 != RC::SUCCESS) {
-      LOG_PANIC(
+      // LOG_PANIC(
+      //     "Failed to rollback record data when insert index entries failed. "
+      //     "table name=%s, rc=%d:%s",
+      //     name(), rc2, strrc(rc2));
+      LOG_ERROR(
           "Failed to rollback record data when insert index entries failed. "
           "table name=%s, rc=%d:%s",
           name(), rc2, strrc(rc2));
@@ -394,7 +395,7 @@ RC Table::get_record_scanner(RecordFileScanner &scanner, Trx *trx,
 }
 
 RC Table::create_index(Trx *trx, const FieldMeta *field_meta,
-                       const char *index_name) {
+                       const char *index_name, bool is_unique) {
   if (common::is_blank(index_name) || nullptr == field_meta) {
     LOG_INFO(
         "Invalid input arguments, table name is %s, index_name is blank or "
@@ -414,6 +415,7 @@ RC Table::create_index(Trx *trx, const FieldMeta *field_meta,
 
   // 创建索引相关数据
   BplusTreeIndex *index = new BplusTreeIndex();
+  index->set_unique(is_unique);
   std::string index_file =
       table_index_file(base_dir_.c_str(), name(), index_name);
   LOG_INFO("Index file name is : %s", index_file.c_str());
@@ -586,7 +588,7 @@ std::vector<std::vector<std::string>> Table::get_index_info() const {
     index_str.emplace_back(table_meta_.name());
     // index_str.emplace_back(std::string(index.is_non_unique()));
     // non-unique 还没有实现先空着
-    index_str.emplace_back("1");
+    index_str.emplace_back(index->is_unique() ? "0" : "1");
     index_str.emplace_back(index->index_meta().name());
     index_str.emplace_back(to_string(1));  // 由于当前只考虑一个字段的索引
     index_str.emplace_back(index->index_meta().field());

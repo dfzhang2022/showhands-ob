@@ -86,12 +86,16 @@ class Index {
    */
   virtual RC sync() = 0;
 
+  bool is_unique() { return is_unique_; }
+  void set_unique(bool flag) { this->is_unique_ = flag; }
+
  protected:
   RC init(const IndexMeta &index_meta, const FieldMeta &field_meta);
 
  protected:
   IndexMeta index_meta_;  ///< 索引的元数据
   FieldMeta field_meta_;  ///< 当前实现仅考虑一个字段的索引
+  bool is_unique_;        ///< 当前索引是否是unique的
 };
 
 /**
