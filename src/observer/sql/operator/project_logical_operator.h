@@ -1,7 +1,7 @@
 /* Copyright (c) 2021 OceanBase and/or its affiliates. All rights reserved.
 miniob is licensed under Mulan PSL v2.
-You can use this software according to the terms and conditions of the Mulan PSL v2.
-You may obtain a copy of Mulan PSL v2 at:
+You can use this software according to the terms and conditions of the Mulan PSL
+v2. You may obtain a copy of Mulan PSL v2 at:
          http://license.coscl.org.cn/MulanPSL2
 THIS SOFTWARE IS PROVIDED ON AN "AS IS" BASIS, WITHOUT WARRANTIES OF ANY KIND,
 EITHER EXPRESS OR IMPLIED, INCLUDING BUT NOT LIMITED TO NON-INFRINGEMENT,
@@ -14,11 +14,11 @@ See the Mulan PSL v2 for more details. */
 
 #pragma once
 
-#include <vector>
 #include <memory>
+#include <vector>
 
-#include "sql/operator/logical_operator.h"
 #include "sql/expr/expression.h"
+#include "sql/operator/logical_operator.h"
 #include "storage/field/field.h"
 
 /**
@@ -26,34 +26,38 @@ See the Mulan PSL v2 for more details. */
  * @ingroup LogicalOperator
  * @details 从表中获取数据后，可能需要过滤，投影，连接等等。
  */
-class ProjectLogicalOperator : public LogicalOperator 
-{
-public:
+class ProjectLogicalOperator : public LogicalOperator {
+ public:
   ProjectLogicalOperator(const std::vector<Field> &fields);
   virtual ~ProjectLogicalOperator() = default;
 
-  LogicalOperatorType type() const override
-  {
+  LogicalOperatorType type() const override {
     return LogicalOperatorType::PROJECTION;
   }
 
-  std::vector<std::unique_ptr<Expression>> &expressions()
-  {
+  std::vector<std::unique_ptr<Expression>> &expressions() {
     return expressions_;
   }
-  const std::vector<std::unique_ptr<Expression>> &expressions() const
-  {
+  const std::vector<std::unique_ptr<Expression>> &expressions() const {
     return expressions_;
   }
-  const std::vector<Field> &fields() const
-  {
-    return fields_;
+  const std::vector<Field> &fields() const { return fields_; }
+  void swap_aggregation_func_queries(
+      std::unordered_map<Field *, AggrFuncType> &aggrfunc_queries_map) {
+    this->aggrfunc_queries_map_.swap(aggrfunc_queries_map);
+  }
+  void add_aggregation_func(Field *fielt_ptr, AggrFuncType type) {
+    this->aggrfunc_queries_map_.insert({fielt_ptr, type});
+  }
+  const std::unordered_map<Field *, AggrFuncType> &aggrfunc_queries_map() {
+    return aggrfunc_queries_map_;  
   }
 
-private:
+ private:
   //! 投影映射的字段名称
   //! 并不是所有的select都会查看表字段，也可能是常量数字、字符串，
   //! 或者是执行某个函数。所以这里应该是表达式Expression。
   //! 不过现在简单处理，就使用字段来描述
   std::vector<Field> fields_;
+  std::unordered_map<Field *, AggrFuncType> aggrfunc_queries_map_;
 };

@@ -75,7 +75,9 @@ See the Mulan PSL v2 for more details. */
   DEFINE_RC(VARIABLE_NOT_VALID)          \
   DEFINE_RC(LOGBUF_FULL)                 \
   DEFINE_RC(INDEX_NOT_FOUND)             \
-  DEFINE_RC(INVALID_DATE)
+  DEFINE_RC(INVALID_DATE)                \
+  DEFINE_RC(AGGR_FUNC_NOT_VALID)  // 表示存在没有聚合函数的列
+                                  // |聚合函数要么全有要么都没有
 
 enum class RC {
 #define DEFINE_RC(name) name,

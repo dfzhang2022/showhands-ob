@@ -37,6 +37,10 @@ public:
     return alias_.c_str();
   }
 
+  void set_alias(std::string new_alias){
+    this->alias_ = new_alias;
+  }
+
 private:
   std::string table_name_;
   std::string field_name_;

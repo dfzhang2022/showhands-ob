@@ -270,6 +270,13 @@ class ProjectTuple : public Tuple {
 
   void set_tuple(Tuple *tuple) { this->tuple_ = tuple; }
 
+  void set_cell_alias_at(int index,std::string new_name){
+    speces_[index]->set_alias(new_name);
+  }
+  std::string cell_alias_at(int index){
+    return speces_[index]->alias();
+  }
+
   void add_cell_spec(TupleCellSpec *spec) { speces_.push_back(spec); }
   int cell_num() const override { return speces_.size(); }
 

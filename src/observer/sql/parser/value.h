@@ -83,6 +83,7 @@ class Value {
   void set_like_string(const char *s, int len = 0);
   void set_date(int val);
   void set_value(const Value &value);
+  RC add_value(const Value &value);
 
   std::string to_string() const;
 

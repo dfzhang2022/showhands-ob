@@ -84,8 +84,8 @@ RC LogicalPlanGenerator::create_plan(
 
 RC LogicalPlanGenerator::create_plan(
     SelectStmt *select_stmt, unique_ptr<LogicalOperator> &logical_operator) {
+  // 构造取数据部分算子树
   unique_ptr<LogicalOperator> table_oper(nullptr);
-
   const std::vector<Table *> &tables = select_stmt->tables();
   const std::vector<Field> &all_fields = select_stmt->query_fields();
   for (Table *table : tables) {
@@ -108,15 +108,17 @@ RC LogicalPlanGenerator::create_plan(
     }
   }
 
+  // 构造谓词判断部分
   unique_ptr<LogicalOperator> predicate_oper;
   RC rc = create_plan(select_stmt->filter_stmt(), predicate_oper);
   if (rc != RC::SUCCESS) {
     LOG_WARN("failed to create predicate logical plan. rc=%s", strrc(rc));
     return rc;
   }
-
+  // 构造投影算子
   unique_ptr<LogicalOperator> project_oper(
       new ProjectLogicalOperator(all_fields));
+
   if (predicate_oper) {
     if (table_oper) {
       predicate_oper->add_child(std::move(table_oper));

@@ -28,6 +28,8 @@ class Expression;
  * @defgroup SQLParser SQL Parser
  */
 
+enum AggrFuncType { NONE, MAX, MIN, CNT, AVG };
+
 /**
  * @brief 描述一个属性
  * @ingroup SQLParser
@@ -38,6 +40,10 @@ class Expression;
 struct RelAttrSqlNode {
   std::string relation_name;   ///< relation name (may be NULL) 表名
   std::string attribute_name;  ///< attribute name              属性名
+  bool is_aggregation_func = false;
+  AggrFuncType aggr_func_type;
+  bool is_syntax_error =
+      false;  ///< 一些涉及聚集函数的存在语法错误但需要输出FAILURE 用这个标记
 };
 
 /**
@@ -219,7 +225,7 @@ struct CreateIndexSqlNode {
   std::string index_name;      ///< Index name
   std::string relation_name;   ///< Relation name
   std::string attribute_name;  ///< Attribute name
-  bool is_unique = false; ///< is this index unique
+  bool is_unique = false;      ///< is this index unique
 };
 
 /**

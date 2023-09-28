@@ -225,3 +225,25 @@ SELECT * FROM tb WHERE name LIKE '%pp%';
 
 //update select
 update t_basic set age=(select age from t where id=2) where id=2;
+
+
+
+// aggregation function
+
+select max(id),name from t where id =1
+
+
+
+https://gitee.com/dfzhang2022/showhands-ob.git
+
+acf851414a82dc42633c56911e15106ee6b1c06f
+
+docker run -d -p 8034:3306 --name my-mysql -e MYSQL_ROOT_PASSWORD=my-secret-pw mysql:latest
+
+docker run -d -p 8034:3306 --name my-mysql -e MYSQL_ROOT_PASSWORD=123456 mysql:latest
+
+mysql -h 10.77.30.153 -P 8034 -u root -p 123456
+
+
+sudo apt install mysql-client-core-8.0
+

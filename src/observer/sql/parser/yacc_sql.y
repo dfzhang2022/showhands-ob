@@ -99,6 +99,10 @@ ArithmeticExpr *create_arithmetic_expression(ArithmeticExpr::Type type,
         CLEAR
         NULL_T
         NULLABLE
+        CNT_FUNC
+        MAX_FUNC
+        MIN_FUNC
+        AVG_FUNC
         EQ
         LT
         GT
@@ -112,6 +116,7 @@ ArithmeticExpr *create_arithmetic_expression(ArithmeticExpr::Type type,
   ConditionSqlNode *                condition;
   Value *                           value;
   enum CompOp                       comp;
+  enum AggrFuncType                 aggr_func;
   RelAttrSqlNode *                  rel_attr;
   std::vector<AttrInfoSqlNode> *    attr_infos;
   AttrInfoSqlNode *                 attr_info;
@@ -158,6 +163,7 @@ ArithmeticExpr *create_arithmetic_expression(ArithmeticExpr::Type type,
 %type <insert_value_list>   insert_value_list
 %type <expression>          expression
 %type <expression_list>     expression_list
+%type <aggr_func>           aggregation_func
 %type <sql_node>            calc_stmt
 %type <sql_node>            select_stmt
 %type <sql_node>            insert_stmt
@@ -660,6 +666,20 @@ select_attr:
       $$->emplace_back(*$1);
       delete $1;
     }
+    ; 
+aggregation_func:
+    MAX_FUNC{
+      $$ = MAX;
+    }
+    | MIN_FUNC{
+      $$ = MIN;
+    }
+    | CNT_FUNC{
+      $$ = CNT;
+    }
+    | AVG_FUNC{
+      $$ = AVG;
+    }
     ;
 
 rel_attr:
@@ -674,6 +694,40 @@ rel_attr:
       $$->attribute_name = $3;
       free($1);
       free($3);
+    }
+    | aggregation_func LBRACE ID RBRACE{
+      $$ = new RelAttrSqlNode;
+      $$->attribute_name = $3;
+      free($3);
+      $$->is_aggregation_func = true;
+      $$->aggr_func_type = $1;
+
+    }
+    | aggregation_func LBRACE ID DOT ID RBRACE{
+      $$ = new RelAttrSqlNode;
+      $$->relation_name  = $3;
+      $$->attribute_name = $5;
+      free($3);
+      free($5);
+      $$->is_aggregation_func = true;
+      $$->aggr_func_type = $1;
+
+    }
+    | aggregation_func LBRACE '*' RBRACE{
+      $$ = new RelAttrSqlNode;
+      $$->relation_name = "";
+      $$->attribute_name = "*";
+      $$->is_aggregation_func = true;
+      $$->aggr_func_type = $1;
+
+    }
+    | aggregation_func LBRACE rel_attr COMMA rel_attr attr_list RBRACE{
+      $$ = new RelAttrSqlNode;
+      $$->is_syntax_error = true;
+      delete $3;
+      delete $5;
+      delete $6;
+
     }
     ;
 
