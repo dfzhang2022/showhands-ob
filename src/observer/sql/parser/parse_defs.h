@@ -41,7 +41,7 @@ struct RelAttrSqlNode {
   std::string relation_name;   ///< relation name (may be NULL) 表名
   std::string attribute_name;  ///< attribute name              属性名
   bool is_aggregation_func = false;
-  AggrFuncType aggr_func_type;
+  AggrFuncType aggr_func_type = AggrFuncType::NONE;
   bool is_syntax_error =
       false;  ///< 一些涉及聚集函数的存在语法错误但需要输出FAILURE 用这个标记
 };
