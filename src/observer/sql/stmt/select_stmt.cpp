@@ -62,21 +62,34 @@ RC SelectStmt::create(Db *db, const SelectSqlNode &select_sql, Stmt *&stmt) {
   }
 
   // collect query fields in `select` statement
-  std::vector<Field> query_fields;
-  std::vector<Field> aggr_query_fields;
+  std::vector<Field> query_fields;       // 投影列
+  std::vector<Field> aggr_query_fields;  // 聚合列
+  // 聚合列和投影列本来是一一对应的 只有出现AGGR(*)时才会出现数量不一致
+  // 其实只有COUNT(*)或COUNT(*.*)
+  // 其实COUNT(*.*)是有语法错误的
   std::map<int, int> aggr_field_to_query_field_map;
-  int aggr_func_count = 0;
+  int aggr_func_count = 0;  // 计算列中的聚合函数数量
+  for (int i = static_cast<int>(select_sql.attributes.size()) - 1; i >= 0;
+       i--) {
+    if (select_sql.attributes[i].aggr_func_type != AggrFuncType::NONE)
+      aggr_func_count++;
+  }
+  if (aggr_func_count != 0 && aggr_func_count != select_sql.attributes.size()) {
+    // 若存在聚合函数但又不全是聚合函数
+    LOG_WARN("All aggr_func or all not");
+    RC::AGGR_FUNC_NOT_VALID;
+  }
 
   for (int i = static_cast<int>(select_sql.attributes.size()) - 1; i >= 0;
        i--) {
     const RelAttrSqlNode &relation_attr = select_sql.attributes[i];
+    if (relation_attr.is_syntax_error)
+      return RC::SQL_SYNTAX;  // 排除语法解析错误
+    // 只剩下两种非法:1. non-aggr和aggr的混用 2.非COUNT(*)以外的AGGR(*)
 
-    if (relation_attr.is_syntax_error) return RC::SQL_SYNTAX;
-
-    if (relation_attr.aggr_func_type != AggrFuncType::NONE) aggr_func_count++;
     if (common::is_blank(relation_attr.relation_name.c_str()) &&
         0 == strcmp(relation_attr.attribute_name.c_str(), "*")) {
-      // 代表 "*"
+      // 代表投影列是 "*"
       for (Table *table : tables) {
         wildcard_fields(table, query_fields);
       }
@@ -110,6 +123,13 @@ RC SelectStmt::create(Db *db, const SelectSqlNode &select_sql, Stmt *&stmt) {
         for (Table *table : tables) {
           wildcard_fields(table, query_fields);
         }
+        if (relation_attr.aggr_func_type != AggrFuncType::NONE) {
+          // 对于聚合函数内部含有多列 应该返回错误
+          LOG_WARN("Too many cols in aggr_func,cols is:%s.%s", table_name,
+                   field_name);
+          return RC::AGGR_FUNC_NOT_VALID;
+        }
+
       } else {
         // 对应"rel.attr"或"rel.*"
         auto iter = table_map.find(table_name);
@@ -121,12 +141,13 @@ RC SelectStmt::create(Db *db, const SelectSqlNode &select_sql, Stmt *&stmt) {
         Table *table = iter->second;
         if (0 == strcmp(field_name, "*")) {
           wildcard_fields(table, query_fields);
-          Field *tmp_field = new Field();
-          tmp_field->set_aggr_func_type(relation_attr.aggr_func_type);
-          tmp_field->set_alias(std::string(table_name) + "." + "*");
-          aggr_query_fields.emplace_back(*tmp_field);
-          aggr_field_to_query_field_map[aggr_query_fields.size() - 1] =
-              query_fields.size() - 1;
+          if (relation_attr.aggr_func_type != AggrFuncType::NONE) {
+            // 对于聚合函数内部含有多列 应该返回错误
+            LOG_WARN("Too many cols in aggr_func,cols is:%s.%s", table_name,
+                     field_name);
+            return RC::AGGR_FUNC_NOT_VALID;
+          }
+
         } else {
           // 对应"rel.attr"
           const FieldMeta *field_meta = table->table_meta().field(field_name);
@@ -142,12 +163,6 @@ RC SelectStmt::create(Db *db, const SelectSqlNode &select_sql, Stmt *&stmt) {
             tmp_field->set_alias(
                 std::string(aggr_func_to_str(relation_attr.aggr_func_type)) +
                 '(' + table_name + "." + field_name + ')');
-            aggr_query_fields.emplace_back(*tmp_field);
-            aggr_field_to_query_field_map[aggr_query_fields.size() - 1] =
-                query_fields.size() - 1;
-          } else {
-            tmp_field->set_alias(std::string(table_name) + "." +
-                                 std::string(field_name));
             aggr_query_fields.emplace_back(*tmp_field);
             aggr_field_to_query_field_map[aggr_query_fields.size() - 1] =
                 query_fields.size() - 1;
@@ -170,7 +185,6 @@ RC SelectStmt::create(Db *db, const SelectSqlNode &select_sql, Stmt *&stmt) {
                  relation_attr.attribute_name.c_str());
         return RC::SCHEMA_FIELD_MISSING;
       }
-
       Field *tmp_field = new Field(table, field_meta);
       tmp_field->set_aggr_func_type(relation_attr.aggr_func_type);
       query_fields.emplace_back(*tmp_field);
@@ -181,11 +195,6 @@ RC SelectStmt::create(Db *db, const SelectSqlNode &select_sql, Stmt *&stmt) {
         aggr_query_fields.emplace_back(*tmp_field);
         aggr_field_to_query_field_map[aggr_query_fields.size() - 1] =
             query_fields.size() - 1;
-      } else {
-        tmp_field->set_alias(field_meta->name());
-        aggr_query_fields.emplace_back(*tmp_field);
-        aggr_field_to_query_field_map[aggr_query_fields.size() - 1] =
-            query_fields.size() - 1;
       }
     }
   }
@@ -193,8 +202,9 @@ RC SelectStmt::create(Db *db, const SelectSqlNode &select_sql, Stmt *&stmt) {
   LOG_INFO("got %d tables in from stmt and %d fields in query stmt",
            tables.size(), query_fields.size());
 
-  if (aggr_func_count != select_sql.attributes.size())
-    return RC::AGGR_FUNC_NOT_VALID;
+  // if (aggr_func_count != 0 && aggr_func_count !=
+  // select_sql.attributes.size())
+  //   return RC::AGGR_FUNC_NOT_VALID;
 
   Table *default_table = nullptr;
   if (tables.size() == 1) {
