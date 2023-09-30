@@ -5,6 +5,10 @@ TOPDIR=$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)
 
 BUILD_SH=$TOPDIR/build.sh
 
+# Navigate to parser directory and run gen_parser.sh
+cd $TOPDIR/src/observer/sql/parser/
+./gen_parser.sh
+
 CMAKE_COMMAND="cmake -DCMAKE_EXPORT_COMPILE_COMMANDS=1 --log-level=STATUS"
 
 ALL_ARGS=("$@")

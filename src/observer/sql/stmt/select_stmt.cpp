@@ -63,6 +63,8 @@ RC SelectStmt::create(Db *db, const SelectSqlNode &select_sql, Stmt *&stmt) {
 
   // collect query fields in `select` statement
   std::vector<Field> query_fields;
+  std::vector<Field> aggr_query_fields;
+  std::map<int, int> aggr_field_to_query_field_map;
 
   for (int i = static_cast<int>(select_sql.attributes.size()) - 1; i >= 0;
        i--) {
@@ -71,28 +73,24 @@ RC SelectStmt::create(Db *db, const SelectSqlNode &select_sql, Stmt *&stmt) {
 
     if (common::is_blank(relation_attr.relation_name.c_str()) &&
         0 == strcmp(relation_attr.attribute_name.c_str(), "*")) {
-      if (relation_attr.aggr_func_type == AggrFuncType::NONE) {
-        // 不存在聚集函数
-        for (Table *table : tables) {
-          wildcard_fields(table, query_fields);
-        }
-      } else if (relation_attr.aggr_func_type == AggrFuncType::CNT) {
-        // Table *table = tables[0];
-        // const FieldMeta *field_meta =
-        //     table->table_meta().field(relation_attr.attribute_name.c_str());
-        // Field *tmp_field = new Field(table, field_meta);
-        // tmp_field->set_aggr_func_type(select_sql.attributes[i].aggr_func_type);
-        // query_fields.push_back(*tmp_field);
-        for (Table *table : tables) {
-          wildcard_fields(table, query_fields);
-        }
-        for (auto query_field : query_fields) {
-          query_field.set_aggr_func_type(AggrFuncType::CNT);
-        }
+      // 代表 "*"
+      for (Table *table : tables) {
+        wildcard_fields(table, query_fields);
+      }
+      if (relation_attr.aggr_func_type != AggrFuncType::NONE) {
+        // 存在聚集函数
+        if (relation_attr.aggr_func_type == AggrFuncType::CNT) {
+          Field *tmp_field = new Field();
+          tmp_field->set_aggr_func_type(AggrFuncType::CNT);
+          tmp_field->set_alias("COUNT(*)");
+          aggr_query_fields.emplace_back(*tmp_field);
+          aggr_field_to_query_field_map[aggr_query_fields.size() - 1] =
+              query_fields.size() - 1;
 
-      } else {
-        LOG_ERROR("These aggr_func doesn't support \"*\".");
-        return RC::AGGR_FUNC_NOT_VALID;
+        } else {
+          LOG_WARN("These aggr_func doesn't support \"*\".");
+          return RC::AGGR_FUNC_NOT_VALID;
+        }
       }
 
     } else if (!common::is_blank(relation_attr.relation_name.c_str())) {
@@ -129,9 +127,16 @@ RC SelectStmt::create(Db *db, const SelectSqlNode &select_sql, Stmt *&stmt) {
             return RC::SCHEMA_FIELD_MISSING;
           }
           Field *tmp_field = new Field(table, field_meta);
-          tmp_field->set_aggr_func_type(
-              select_sql.attributes[i].aggr_func_type);
-          query_fields.push_back(*tmp_field);
+          query_fields.emplace_back(*tmp_field);
+          tmp_field->set_aggr_func_type(relation_attr.aggr_func_type);
+          if (relation_attr.aggr_func_type != AggrFuncType::NONE) {
+            tmp_field->set_alias(
+                std::string(aggr_func_to_str(relation_attr.aggr_func_type)) +
+                '(' + table_name + "." + field_name + ')');
+            aggr_query_fields.emplace_back(*tmp_field);
+            aggr_field_to_query_field_map[aggr_query_fields.size() - 1] =
+                query_fields.size() - 1;
+          }
         }
       }
     } else {
@@ -152,8 +157,16 @@ RC SelectStmt::create(Db *db, const SelectSqlNode &select_sql, Stmt *&stmt) {
       }
 
       Field *tmp_field = new Field(table, field_meta);
-      tmp_field->set_aggr_func_type(select_sql.attributes[i].aggr_func_type);
-      query_fields.push_back(*tmp_field);
+      tmp_field->set_aggr_func_type(relation_attr.aggr_func_type);
+      query_fields.emplace_back(*tmp_field);
+      if (relation_attr.aggr_func_type != AggrFuncType::NONE) {
+        tmp_field->set_alias(
+            std::string(aggr_func_to_str(relation_attr.aggr_func_type)) + "(" +
+            field_meta->name() + ")");
+        aggr_query_fields.emplace_back(*tmp_field);
+        aggr_field_to_query_field_map[aggr_query_fields.size() - 1] =
+            query_fields.size() - 1;
+      }
     }
   }
 
@@ -180,7 +193,9 @@ RC SelectStmt::create(Db *db, const SelectSqlNode &select_sql, Stmt *&stmt) {
   // TODO add expression copy
   select_stmt->tables_.swap(tables);
   select_stmt->query_fields_.swap(query_fields);
-  // select_stmt->aggrfunc_queries_.swap(aggrfunc_queries);
+  select_stmt->aggr_query_fields_.swap(aggr_query_fields);
+  select_stmt->aggr_field_to_query_field_map_.swap(
+      aggr_field_to_query_field_map);
   select_stmt->filter_stmt_ = filter_stmt;
   stmt = select_stmt;
   return RC::SUCCESS;

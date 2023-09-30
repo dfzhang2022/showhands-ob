@@ -44,12 +44,25 @@ class SelectStmt : public Stmt {
  public:
   const std::vector<Table *> &tables() const { return tables_; }
   const std::vector<Field> &query_fields() const { return query_fields_; }
+  const std::vector<Field> &aggr_query_fields() const {
+    return aggr_query_fields_;
+  }
   FilterStmt *filter_stmt() const { return filter_stmt_; }
   // const std::unordered_map<Field *, AggrFuncType> &aggrfunc_queries() {
   //   return aggrfunc_queries_;
   // }
 
+  void add_aggr_to_proj_map(int aggr_index, int proj_index) {
+    aggr_field_to_query_field_map_[aggr_index] = proj_index;
+  }
+  const std::map<int, int> &aggr_field_to_query_field_map() const {
+    return aggr_field_to_query_field_map_;
+  }
+
  private:
+  std::vector<Field> aggr_query_fields_;  // 当存在聚合函数时候会调用该vector
+  std::map<int, int>
+      aggr_field_to_query_field_map_;  // 用于记录聚合列指向投影之后的哪一列
   std::vector<Field> query_fields_;
   std::vector<Table *> tables_;
   FilterStmt *filter_stmt_ = nullptr;

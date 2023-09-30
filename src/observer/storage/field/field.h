@@ -45,6 +45,8 @@ class Field {
 
   const AggrFuncType get_aggr_func_type() const { return aggr_func_type_; }
   void set_aggr_func_type(AggrFuncType type) { aggr_func_type_ = type; }
+  const std::string get_alias() const { return alias_; }
+  void set_alias(std::string in_str) { this->alias_ = in_str; }
 
   const char *get_data(const Record &record);
 
@@ -52,4 +54,6 @@ class Field {
   const Table *table_ = nullptr;
   const FieldMeta *field_ = nullptr;
   AggrFuncType aggr_func_type_ = AggrFuncType::NONE;
+  std::string
+      alias_;  // 记录临时需要的别名("目前的一个用法是用作聚合函数输出表头")
 };

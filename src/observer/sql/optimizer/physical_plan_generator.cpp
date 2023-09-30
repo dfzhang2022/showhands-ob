@@ -18,6 +18,8 @@ See the Mulan PSL v2 for more details. */
 
 #include "common/log/log.h"
 #include "sql/expr/expression.h"
+#include "sql/operator/aggregation_logical_operator.h"
+#include "sql/operator/aggregation_physical_operator.h"
 #include "sql/operator/calc_logical_operator.h"
 #include "sql/operator/calc_physical_operator.h"
 #include "sql/operator/delete_logical_operator.h"
@@ -63,6 +65,10 @@ RC PhysicalPlanGenerator::create(LogicalOperator &logical_operator,
     case LogicalOperatorType::PROJECTION: {
       return create_plan(
           static_cast<ProjectLogicalOperator &>(logical_operator), oper);
+    } break;
+    case LogicalOperatorType::AGGREGATION: {
+      return create_plan(
+          static_cast<AggregationLogicalOperator &>(logical_operator), oper);
     } break;
 
     case LogicalOperatorType::INSERT: {
@@ -211,18 +217,11 @@ RC PhysicalPlanGenerator::create_plan(ProjectLogicalOperator &project_oper,
       return rc;
     }
   }
-  
+
   ProjectPhysicalOperator *project_operator = new ProjectPhysicalOperator;
   const vector<Field> &project_fields = project_oper.fields();
   for (const Field &field : project_fields) {
     project_operator->add_projection(field.table(), field.meta());
-    if (field.get_aggr_func_type()!=AggrFuncType::NONE) {
-      if (field.get_aggr_func_type() == AggrFuncType::NONE) {
-        LOG_ERROR("Not all attr has aggregation func.");
-        return RC::AGGR_FUNC_NOT_VALID;
-      }
-      project_operator->add_aggr_func(field.get_aggr_func_type());
-    }
   }
   if (child_phy_oper) {
     project_operator->add_child(std::move(child_phy_oper));
@@ -231,6 +230,36 @@ RC PhysicalPlanGenerator::create_plan(ProjectLogicalOperator &project_oper,
   oper = unique_ptr<PhysicalOperator>(project_operator);
 
   LOG_TRACE("create a project physical operator");
+  return rc;
+}
+RC PhysicalPlanGenerator::create_plan(AggregationLogicalOperator &aggr_oper,
+                                      std::unique_ptr<PhysicalOperator> &oper) {
+  vector<unique_ptr<LogicalOperator>> &child_opers = aggr_oper.children();
+
+  unique_ptr<PhysicalOperator> child_phy_oper;
+  RC rc = RC::SUCCESS;
+  if (!child_opers.empty()) {
+    LogicalOperator *child_oper = child_opers.front().get();
+    rc = create(*child_oper, child_phy_oper);
+    if (rc != RC::SUCCESS) {
+      LOG_WARN(
+          "failed to create project logical operator's child physical "
+          "operator. rc=%s",
+          strrc(rc));
+      return rc;
+    }
+  }
+  const vector<Field> &aggr_fields = aggr_oper.aggregation_fields();
+  const std::map<int, int> &aggr_field_to_proj_field_map =
+      aggr_oper.aggr_field_to_proj_field_map();
+  AggregationPhysicalOperator *aggr_operator = new AggregationPhysicalOperator(
+      aggr_fields, aggr_field_to_proj_field_map);
+
+  if (child_phy_oper) {
+    aggr_operator->add_child(std::move(child_phy_oper));
+  }
+  oper = unique_ptr<PhysicalOperator>(aggr_operator);
+  LOG_TRACE("create a aggregation physical operator");
   return rc;
 }
 

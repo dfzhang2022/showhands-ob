@@ -28,7 +28,7 @@ class Expression;
  * @defgroup SQLParser SQL Parser
  */
 
-enum AggrFuncType { NONE, MAX, MIN, CNT, AVG };
+
 
 /**
  * @brief 描述一个属性

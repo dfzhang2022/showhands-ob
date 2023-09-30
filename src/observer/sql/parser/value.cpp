@@ -21,6 +21,15 @@ See the Mulan PSL v2 for more details. */
 #include "common/log/log.h"
 #include "storage/field/field.h"
 
+const char *AGGR_FUNC_NAME[] = {"NONE", "MAX", "MIN", "COUNT", "AVG"};
+
+const char *aggr_func_to_str(AggrFuncType type_in) {
+  if (type_in >= AggrFuncType::NONE && type_in <= AggrFuncType::AVG) {
+    return AGGR_FUNC_NAME[type_in];
+  }
+  return "";
+}
+
 const char *ATTR_TYPE_NAME[] = {"undefined", "chars", "ints",  "floats",
                                 "booleans",  "dates", "texts", "like_str"};
 
@@ -292,24 +301,25 @@ void Value::set_value(const Value &value) {
     } break;
   }
 }
-RC Value::add_value(const Value &value){
+RC Value::add_value(const Value &value) {
   RC rc = RC::SUCCESS;
   Value tmp_value(value);
   tmp_value.set_value(value);
-  if(this->attr_type_!=value.attr_type()){
+  if (this->attr_type_ != value.attr_type()) {
     LOG_INFO("Typecasting in add Value.");
     rc = tmp_value.typecast_to(this->attr_type_);
-    if(rc!=RC::SUCCESS){
-      LOG_ERROR("Typecast Error from %s to %s.",value.attr_type(),this->attr_type_);
+    if (rc != RC::SUCCESS) {
+      LOG_ERROR("Typecast Error from %s to %s.", value.attr_type(),
+                this->attr_type_);
       return rc;
     }
   }
   switch (attr_type_) {
     case INTS: {
-      set_int(this->get_int()+tmp_value.get_int());
+      set_int(this->get_int() + tmp_value.get_int());
     } break;
     case FLOATS: {
-      set_float(this->get_float()+tmp_value.get_float());
+      set_float(this->get_float() + tmp_value.get_float());
     } break;
     case CHARS: {
       LOG_ERROR("Cannot add a string to another.");

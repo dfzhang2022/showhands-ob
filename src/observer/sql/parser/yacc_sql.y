@@ -721,10 +721,23 @@ rel_attr:
       $$->aggr_func_type = $1;
 
     }
+    | aggregation_func LBRACE RBRACE{
+      $$ = new RelAttrSqlNode;
+      $$->is_syntax_error = true;
+      $$->aggr_func_type = $1;
+
+    }
     | aggregation_func LBRACE rel_attr COMMA rel_attr attr_list RBRACE{
       $$ = new RelAttrSqlNode;
       $$->is_syntax_error = true;
       delete $3;
+      delete $5;
+      delete $6;
+
+    }
+    | aggregation_func LBRACE '*' COMMA rel_attr attr_list RBRACE{
+      $$ = new RelAttrSqlNode;
+      $$->is_syntax_error = true;
       delete $5;
       delete $6;
 

@@ -27,6 +27,9 @@ See the Mulan PSL v2 for more details. */
 
 // #include "./date.h"
 
+enum AggrFuncType { NONE, MAX, MIN, CNT, AVG };
+const char *aggr_func_to_str(AggrFuncType type_in);
+
 /**
  * @brief 属性的类型
  *

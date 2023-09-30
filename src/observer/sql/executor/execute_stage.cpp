@@ -69,43 +69,15 @@ RC ExecuteStage::handle_request_with_physical_operator(
     case StmtType::SELECT: {
       SelectStmt *select_stmt = static_cast<SelectStmt *>(stmt);
       bool with_table_name = select_stmt->tables().size() > 1;
+      if (!select_stmt->aggr_query_fields().empty()) {
+        // 存在聚合函数
 
-      for (const Field &field : select_stmt->query_fields()) {
-        if (field.get_aggr_func_type() != AggrFuncType::NONE) {
-          std::string alias = "";
-          if (with_table_name) {
-            alias = field.table_name();
-            alias += field.field_name();
-
-          } else {
-            alias = field.field_name();
-          }
-
-          switch (field.get_aggr_func_type()) {
-            case AggrFuncType::AVG: {
-              alias = "AVG(" + alias + ")";
-              schema.append_cell(alias.c_str());
-
-            } break;
-            case AggrFuncType::MAX: {
-              alias = "MAX(" + alias + ")";
-              schema.append_cell(alias.c_str());
-
-            } break;
-            case AggrFuncType::MIN: {
-              alias = "MIN(" + alias + ")";
-              schema.append_cell(alias.c_str());
-
-            } break;
-            case AggrFuncType::CNT: {
-              alias = "COUNT(" + alias + ")";
-              schema.append_cell(alias.c_str());
-            } break;
-            default:
-              break;
-          }
-
-        } else {
+        for (const Field &field : select_stmt->aggr_query_fields()) {
+          std::string alias = field.get_alias();
+          schema.append_cell(alias.c_str());
+        }
+      } else {
+        for (const Field &field : select_stmt->query_fields()) {
           if (with_table_name) {
             schema.append_cell(field.table_name(), field.field_name());
           } else {
@@ -113,6 +85,7 @@ RC ExecuteStage::handle_request_with_physical_operator(
           }
         }
       }
+
     } break;
 
     case StmtType::CALC: {
