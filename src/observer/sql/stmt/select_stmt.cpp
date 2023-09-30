@@ -65,12 +65,15 @@ RC SelectStmt::create(Db *db, const SelectSqlNode &select_sql, Stmt *&stmt) {
   std::vector<Field> query_fields;
   std::vector<Field> aggr_query_fields;
   std::map<int, int> aggr_field_to_query_field_map;
+  int aggr_func_count = 0;
 
   for (int i = static_cast<int>(select_sql.attributes.size()) - 1; i >= 0;
        i--) {
     const RelAttrSqlNode &relation_attr = select_sql.attributes[i];
+
     if (relation_attr.is_syntax_error) return RC::SQL_SYNTAX;
 
+    if (relation_attr.aggr_func_type != AggrFuncType::NONE) aggr_func_count++;
     if (common::is_blank(relation_attr.relation_name.c_str()) &&
         0 == strcmp(relation_attr.attribute_name.c_str(), "*")) {
       // 代表 "*"
@@ -118,6 +121,12 @@ RC SelectStmt::create(Db *db, const SelectSqlNode &select_sql, Stmt *&stmt) {
         Table *table = iter->second;
         if (0 == strcmp(field_name, "*")) {
           wildcard_fields(table, query_fields);
+          Field *tmp_field = new Field();
+          tmp_field->set_aggr_func_type(relation_attr.aggr_func_type);
+          tmp_field->set_alias(std::string(table_name) + "." + "*");
+          aggr_query_fields.emplace_back(*tmp_field);
+          aggr_field_to_query_field_map[aggr_query_fields.size() - 1] =
+              query_fields.size() - 1;
         } else {
           // 对应"rel.attr"
           const FieldMeta *field_meta = table->table_meta().field(field_name);
@@ -133,6 +142,12 @@ RC SelectStmt::create(Db *db, const SelectSqlNode &select_sql, Stmt *&stmt) {
             tmp_field->set_alias(
                 std::string(aggr_func_to_str(relation_attr.aggr_func_type)) +
                 '(' + table_name + "." + field_name + ')');
+            aggr_query_fields.emplace_back(*tmp_field);
+            aggr_field_to_query_field_map[aggr_query_fields.size() - 1] =
+                query_fields.size() - 1;
+          } else {
+            tmp_field->set_alias(std::string(table_name) + "." +
+                                 std::string(field_name));
             aggr_query_fields.emplace_back(*tmp_field);
             aggr_field_to_query_field_map[aggr_query_fields.size() - 1] =
                 query_fields.size() - 1;
@@ -166,12 +181,20 @@ RC SelectStmt::create(Db *db, const SelectSqlNode &select_sql, Stmt *&stmt) {
         aggr_query_fields.emplace_back(*tmp_field);
         aggr_field_to_query_field_map[aggr_query_fields.size() - 1] =
             query_fields.size() - 1;
+      } else {
+        tmp_field->set_alias(field_meta->name());
+        aggr_query_fields.emplace_back(*tmp_field);
+        aggr_field_to_query_field_map[aggr_query_fields.size() - 1] =
+            query_fields.size() - 1;
       }
     }
   }
 
   LOG_INFO("got %d tables in from stmt and %d fields in query stmt",
            tables.size(), query_fields.size());
+
+  if (aggr_func_count != select_sql.attributes.size())
+    return RC::AGGR_FUNC_NOT_VALID;
 
   Table *default_table = nullptr;
   if (tables.size() == 1) {

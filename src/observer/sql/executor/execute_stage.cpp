@@ -73,6 +73,11 @@ RC ExecuteStage::handle_request_with_physical_operator(
         // 存在聚合函数
 
         for (const Field &field : select_stmt->aggr_query_fields()) {
+          if (field.get_aggr_func_type() == AggrFuncType::NONE) {
+            LOG_WARN("All aggr_func or all not.");
+
+            // rc = RC::AGGR_FUNC_NOT_VALID;
+          }
           std::string alias = field.get_alias();
           schema.append_cell(alias.c_str());
         }
