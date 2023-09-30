@@ -21,10 +21,10 @@ See the Mulan PSL v2 for more details. */
 #include "common/log/log.h"
 #include "storage/field/field.h"
 
-const char *AGGR_FUNC_NAME[] = {"NONE", "MAX", "MIN", "COUNT", "AVG"};
+const char *AGGR_FUNC_NAME[] = {"NONE", "MAX", "MIN", "COUNT", "AVG", "SUM"};
 
 const char *aggr_func_to_str(AggrFuncType type_in) {
-  if (type_in >= AggrFuncType::NONE && type_in <= AggrFuncType::AVG) {
+  if (type_in >= AggrFuncType::NONE && type_in <= AggrFuncType::SUM) {
     return AGGR_FUNC_NAME[type_in];
   }
   return "";

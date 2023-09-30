@@ -103,6 +103,7 @@ ArithmeticExpr *create_arithmetic_expression(ArithmeticExpr::Type type,
         MAX_FUNC
         MIN_FUNC
         AVG_FUNC
+        SUM_FUNC
         EQ
         LT
         GT
@@ -679,6 +680,9 @@ aggregation_func:
     }
     | AVG_FUNC{
       $$ = AVG;
+    }
+    | SUM_FUNC{
+      $$ = SUM;
     }
     ;
 

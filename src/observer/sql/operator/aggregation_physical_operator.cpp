@@ -54,6 +54,18 @@ RC AggregationPhysicalOperator::next() {
             }
           }
         } break;
+        case AggrFuncType::SUM: {
+          tuple->cell_at(aggr_field_to_proj_field_map_[i], tmp_value);
+          if (row_index == 0) {
+            values[i].set_value(tmp_value);
+          } else {
+            rc = values[i].add_value(tmp_value);
+            if (rc != RC::SUCCESS) {
+              LOG_ERROR("Error occurs when adding values in AVG func.");
+              return rc;
+            }
+          }
+        } break;
         case AggrFuncType::MAX: {
           tuple->cell_at(aggr_field_to_proj_field_map_[i], tmp_value);
           if (row_index == 0) {
@@ -93,6 +105,9 @@ RC AggregationPhysicalOperator::next() {
         tmp /= row_index;
         values[i].set_float(tmp);
 
+      } break;
+      case AggrFuncType::SUM: {
+        // 已经对对应列完成了求和
       } break;
       case AggrFuncType::MAX: {
         // 已经是MAX
