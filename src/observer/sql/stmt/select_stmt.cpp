@@ -77,7 +77,7 @@ RC SelectStmt::create(Db *db, const SelectSqlNode &select_sql, Stmt *&stmt) {
   if (aggr_func_count != 0 && aggr_func_count != select_sql.attributes.size()) {
     // 若存在聚合函数但又不全是聚合函数
     LOG_WARN("All aggr_func or all not");
-    RC::AGGR_FUNC_NOT_VALID;
+    return RC::AGGR_FUNC_NOT_VALID;
   }
 
   for (int i = static_cast<int>(select_sql.attributes.size()) - 1; i >= 0;
