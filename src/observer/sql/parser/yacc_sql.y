@@ -97,6 +97,7 @@ ArithmeticExpr *create_arithmetic_expression(ArithmeticExpr::Type type,
         INFILE
         EXPLAIN
         CLEAR
+        IS
         NULL_T
         NULLABLE
         CNT_FUNC
@@ -149,6 +150,7 @@ ArithmeticExpr *create_arithmetic_expression(ArithmeticExpr::Type type,
 %type <value>               value
 %type <number>              number
 %type <comp>                comp_op
+%type <number>              null_or_not_null
 %type <rel_attr>            rel_attr
 %type <attr_infos>          attr_def_list
 %type <attr_info>           attr_def
@@ -386,22 +388,22 @@ attr_def:
       $$->nullable = false;
       free($1);
     }
-    |ID type LBRACE number RBRACE NULLABLE
+    |ID type LBRACE number RBRACE null_or_not_null
     {
       $$ = new AttrInfoSqlNode;
       $$->type = (AttrType)$2;
       $$->name = $1;
       $$->length = $4;
-      $$->nullable = true;
+      $$->nullable = $6;
       free($1);
     }
-    | ID type NULLABLE
+    | ID type null_or_not_null
     {
       $$ = new AttrInfoSqlNode;
       $$->type = (AttrType)$2;
       $$->name = $1;
       $$->length = 4;
-      $$->nullable = true;
+      $$->nullable = $3;
       free($1);
     }
     ;
@@ -499,6 +501,13 @@ value:
       char *tmp = common::substr($1,1,strlen($1)-2);
       $$ = new Value(tmp);
       free(tmp);
+    }
+    |null_or_not_null{
+      $$ = new Value(0);
+      if($1 == 1){
+        $$->typecast_to(AttrType::NULL_ATTR);
+      }
+      
     }
     
     ;
@@ -857,6 +866,25 @@ condition:
     }
     ;
 
+null_or_not_null:
+    NULL_T
+    {
+      $$ = 1;
+    }
+    | NOT NULL_T
+    {
+      $$ = 1;
+    }
+    |NULLABLE
+    {
+      $$ = 1;
+    }
+    |NOT NULLABLE
+    {
+      $$ =0;
+    }
+    ;
+
 comp_op:
       EQ { $$ = EQUAL_TO; }
     | LT { $$ = LESS_THAN; }
@@ -864,6 +892,7 @@ comp_op:
     | LE { $$ = LESS_EQUAL; }
     | GE { $$ = GREAT_EQUAL; }
     | NE { $$ = NOT_EQUAL; }
+    | IS { $$ = IS_EQUAL;}
     | LIKE_MARK {$$ = LIKE;}
     | NOT LIKE_MARK {$$ = NOT_LIKE;}
     ;

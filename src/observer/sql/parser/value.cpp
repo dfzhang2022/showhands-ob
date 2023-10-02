@@ -30,11 +30,12 @@ const char *aggr_func_to_str(AggrFuncType type_in) {
   return "";
 }
 
-const char *ATTR_TYPE_NAME[] = {"undefined", "chars", "ints",  "floats",
-                                "booleans",  "dates", "texts", "like_str"};
+const char *ATTR_TYPE_NAME[] = {"undefined", "chars",    "ints",
+                                "floats",    "booleans", "dates",
+                                "texts",     "like_str", "null"};
 
 const char *attr_type_to_string(AttrType type) {
-  if (type >= UNDEFINED && type <= LIKE_STR) {
+  if (type >= UNDEFINED && type <= NULL_ATTR) {
     return ATTR_TYPE_NAME[type];
   }
   return "unknown";
@@ -231,6 +232,9 @@ void Value::set_data(char *data, int length) {
       num_value_.date_value_ = *(int *)data;
       length_ = length;
     } break;
+    case NULL_ATTR: {
+      length_ = length;
+    }
     default: {
       LOG_WARN("unknown data type: %d", attr_type_);
     } break;
@@ -256,6 +260,10 @@ void Value::set_date(int val) {
   attr_type_ = DATES;
   num_value_.date_value_ = val;
   length_ = sizeof(val);
+}
+void Value::set_null() {
+  attr_type_ = NULL_ATTR;
+  length_ = 0;
 }
 void Value::set_string(const char *s, int len /*= 0*/) {
   attr_type_ = CHARS;
@@ -299,6 +307,9 @@ void Value::set_value(const Value &value) {
     case DATES: {
       set_date(value.get_date());
     } break;
+    case NULL_ATTR: {
+      set_null();
+    } break;
   }
 }
 RC Value::add_value(const Value &value) {
@@ -315,6 +326,10 @@ RC Value::add_value(const Value &value) {
     }
   }
   switch (attr_type_) {
+    case NULL_ATTR: {
+      LOG_WARN("Try to add to or add with an null value.");
+      return RC::INVALID_ARGUMENT;
+    } break;
     case INTS: {
       set_int(this->get_int() + tmp_value.get_int());
     } break;
@@ -345,6 +360,9 @@ const char *Value::data() const {
     case CHARS: {
       return str_value_.c_str();
     } break;
+    case NULL_ATTR: {
+      return nullptr;
+    } break;
     default: {
       return (const char *)&num_value_;
     } break;
@@ -372,6 +390,9 @@ std::string Value::to_string() const {
     case DATES: {
       os << date_to_str(num_value_.date_value_);
     } break;
+    case NULL_ATTR: {
+      os << "null";
+    } break;
     default: {
       LOG_WARN("unsupported attr type: %d", attr_type_);
     } break;
@@ -379,9 +400,12 @@ std::string Value::to_string() const {
   return os.str();
 }
 RC Value::typecast_to(AttrType dest_type) {
-  RC rc = RC::SUCCESS;
+  RC rc = RC::TYPECAST_FAILED;
   if (this->attr_type() == dest_type) {
     rc = RC::SUCCESS;
+  } else if (this->attr_type() == AttrType::NULL_ATTR) {
+    LOG_WARN("Null cannot typecast to other types.");
+    return RC::TYPECAST_FAILED;
   } else if (this->attr_type_ == AttrType::INTS &&
              dest_type == AttrType::FLOATS) {
     float this_data = this->num_value_.int_value_;
@@ -440,6 +464,9 @@ RC Value::typecast_to(AttrType dest_type) {
     char *this_data =
         (char *)std::to_string(this->num_value_.int_value_).c_str();
     this->set_string(this_data, strlen(this_data));
+    rc = RC::SUCCESS;
+  } else if (dest_type == AttrType::NULL_ATTR) {
+    this->set_null();
     rc = RC::SUCCESS;
   }
 

@@ -28,8 +28,6 @@ class Expression;
  * @defgroup SQLParser SQL Parser
  */
 
-
-
 /**
  * @brief 描述一个属性
  * @ingroup SQLParser
@@ -54,6 +52,7 @@ enum CompOp {
   EQUAL_TO,     ///< "="
   LESS_EQUAL,   ///< "<="
   NOT_EQUAL,    ///< "<>"
+  IS_EQUAL,     ///< "is"
   LESS_THAN,    ///< "<"
   GREAT_EQUAL,  ///< ">="
   GREAT_THAN,   ///< ">"
