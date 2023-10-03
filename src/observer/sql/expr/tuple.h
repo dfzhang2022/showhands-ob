@@ -209,7 +209,30 @@ class RowTuple : public Tuple {
         const FieldMeta *field_meta = field_expr->field().meta();
         // LOG_INFO("field_name is %s", field_meta->name());
         if (0 == std::strcmp(field_meta->name(), attr_name_vec.at(i).c_str())) {
-          if (field_meta->type() != value_vec.at(i).attr_type()) {
+          if (value_vec.at(i).attr_type() == NULL_ATTR) {
+            switch (field_meta->type()) {
+              case AttrType::DATES: {
+                value_vec.at(i).set_date(
+                    10002000);  // "10002000" represents null date.
+              } break;
+              case AttrType::INTS: {
+                value_vec.at(i).set_int(
+                    104274);  // "104274" represents null int.
+              } break;
+              case AttrType::CHARS: {
+                value_vec.at(i).set_string("ZDF",
+                                           3);  // "ZDF" represents null chars.
+              } break;
+              case AttrType::FLOATS: {
+                value_vec.at(i).set_float(
+                    114.514);  // "114.514" represents null float.
+              } break;
+
+              default: {
+                LOG_WARN("Unimplement type null value.");
+              } break;
+            }
+          } else if (field_meta->type() != value_vec.at(i).attr_type()) {
             break;
           }
           std::memcpy(
