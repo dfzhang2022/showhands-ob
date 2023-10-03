@@ -83,7 +83,15 @@ ComparisonExpr::~ComparisonExpr() {}
 RC ComparisonExpr::compare_value(const Value &left, const Value &right,
                                  bool &result) const {
   RC rc = RC::SUCCESS;
-  int cmp_result = left.compare(right);
+  // int cmp_result = left.compare(right);
+  int cmp_result;
+  rc = left.compare(right, cmp_result);
+  if (rc != RC::SUCCESS) {
+    LOG_WARN("Compare value error, left type:%s, right type:%s.",
+             attr_type_to_string(left.attr_type()),
+             attr_type_to_string(right.attr_type()));
+    // return rc;
+  }
   result = false;
   switch (comp_) {
     case EQUAL_TO: {
@@ -103,6 +111,30 @@ RC ComparisonExpr::compare_value(const Value &left, const Value &right,
     } break;
     case GREAT_THAN: {
       result = (cmp_result > 0);
+    } break;
+    case CompOp::IS_EQUAL: {
+      // 只要两边同时是null即返回通过
+      //  result = (0 == cmp_result);
+      if ((left.attr_type() == AttrType::NULL_ATTR) &&
+          (right.attr_type() == AttrType::NULL_ATTR)) {
+        rc = RC::SUCCESS;
+        result = true;
+      } else {
+        rc = RC::SUCCESS;
+        result = false;
+      }
+    } break;
+    case CompOp::IS_NOT_EQUAL: {
+      // 只要不是两边同时是null即返回通过
+      //  result = (0 == cmp_result);
+      if (!((left.attr_type() == AttrType::NULL_ATTR) &&
+            (right.attr_type() == AttrType::NULL_ATTR))) {
+        rc = RC::SUCCESS;
+        result = true;
+      } else {
+        rc = RC::SUCCESS;
+        result = false;
+      }
     } break;
     case CompOp::LIKE: {
       result = (0 == cmp_result);

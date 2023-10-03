@@ -77,7 +77,8 @@ See the Mulan PSL v2 for more details. */
   DEFINE_RC(INDEX_NOT_FOUND)             \
   DEFINE_RC(INVALID_DATE)                \
   DEFINE_RC(AGGR_FUNC_NOT_VALID)         \
-  DEFINE_RC(TYPECAST_FAILED)
+  DEFINE_RC(TYPECAST_FAILED)             \
+  DEFINE_RC(NULL_COMPARE_ERROR)
 
 enum class RC {
 #define DEFINE_RC(name) name,

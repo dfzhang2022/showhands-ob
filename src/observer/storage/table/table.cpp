@@ -331,6 +331,11 @@ RC Table::make_record(int value_num, const Value *values, Record &record) {
     const FieldMeta *field = table_meta_.field(i + normal_field_start_index);
     const Value &value = values[i];
     if (field->type() != value.attr_type()) {
+      // if (value.attr_type() == NULL_ATTR) {
+      //   // 这里要往记录中写入null值 由于之前已经进行过类型检查
+      //   // 这里一定是插入到了一个nullable的字段
+
+      // }
       LOG_ERROR(
           "Invalid value type. table name =%s, field name=%s, type=%d, but "
           "given=%d",

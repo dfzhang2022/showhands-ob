@@ -150,7 +150,7 @@ ArithmeticExpr *create_arithmetic_expression(ArithmeticExpr::Type type,
 %type <value>               value
 %type <number>              number
 %type <comp>                comp_op
-%type <number>              null_or_not_null
+%type <number>              null_or_nullable
 %type <rel_attr>            rel_attr
 %type <attr_infos>          attr_def_list
 %type <attr_info>           attr_def
@@ -388,22 +388,40 @@ attr_def:
       $$->nullable = false;
       free($1);
     }
-    |ID type LBRACE number RBRACE null_or_not_null
+    |ID type LBRACE number RBRACE NULLABLE
     {
       $$ = new AttrInfoSqlNode;
       $$->type = (AttrType)$2;
       $$->name = $1;
       $$->length = $4;
-      $$->nullable = $6;
+      $$->nullable = true;
       free($1);
     }
-    | ID type null_or_not_null
+    | ID type NULLABLE
     {
       $$ = new AttrInfoSqlNode;
       $$->type = (AttrType)$2;
       $$->name = $1;
       $$->length = 4;
-      $$->nullable = $3;
+      $$->nullable = true;
+      free($1);
+    }
+    |ID type LBRACE number RBRACE NOT NULL_T
+    {
+      $$ = new AttrInfoSqlNode;
+      $$->type = (AttrType)$2;
+      $$->name = $1;
+      $$->length = $4;
+      $$->nullable = false;
+      free($1);
+    }
+    | ID type NOT NULL_T
+    {
+      $$ = new AttrInfoSqlNode;
+      $$->type = (AttrType)$2;
+      $$->name = $1;
+      $$->length = 4;
+      $$->nullable = false;
       free($1);
     }
     ;
@@ -502,11 +520,11 @@ value:
       $$ = new Value(tmp);
       free(tmp);
     }
-    |null_or_not_null{
+    |null_or_nullable{
       $$ = new Value(0);
-      if($1 == 1){
-        $$->typecast_to(AttrType::NULL_ATTR);
-      }
+      
+      $$->set_null(nullptr,4);
+      
       
     }
     
@@ -866,22 +884,14 @@ condition:
     }
     ;
 
-null_or_not_null:
+null_or_nullable:
     NULL_T
-    {
-      $$ = 1;
-    }
-    | NOT NULL_T
     {
       $$ = 1;
     }
     |NULLABLE
     {
       $$ = 1;
-    }
-    |NOT NULLABLE
-    {
-      $$ =0;
     }
     ;
 
@@ -893,6 +903,7 @@ comp_op:
     | GE { $$ = GREAT_EQUAL; }
     | NE { $$ = NOT_EQUAL; }
     | IS { $$ = IS_EQUAL;}
+    | IS NOT{$$ = IS_NOT_EQUAL;}
     | LIKE_MARK {$$ = LIKE;}
     | NOT LIKE_MARK {$$ = NOT_LIKE;}
     ;
