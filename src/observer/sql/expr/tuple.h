@@ -151,6 +151,17 @@ class RowTuple : public Tuple {
     cell.set_type(field_meta->type());
     cell.set_data(this->record_->data() + field_meta->offset(),
                   field_meta->len());
+    if (cell.attr_type() == AttrType::CHARS && cell.get_string() == "ZDF") {
+      cell.set_null(nullptr, 4);
+    } else if (cell.attr_type() == AttrType::INTS && cell.get_int() == 104274) {
+      cell.set_null(nullptr, 4);
+    } else if (cell.attr_type() == AttrType::FLOATS &&
+               cell.get_float() == 114.514) {
+      cell.set_null(nullptr, 4);
+    } else if (cell.attr_type() == AttrType::DATES &&
+               cell.get_date() == 10002000) {
+      cell.set_null(nullptr, 4);
+    }
     return RC::SUCCESS;
   }
 
@@ -270,12 +281,10 @@ class ProjectTuple : public Tuple {
 
   void set_tuple(Tuple *tuple) { this->tuple_ = tuple; }
 
-  void set_cell_alias_at(int index,std::string new_name){
+  void set_cell_alias_at(int index, std::string new_name) {
     speces_[index]->set_alias(new_name);
   }
-  std::string cell_alias_at(int index){
-    return speces_[index]->alias();
-  }
+  std::string cell_alias_at(int index) { return speces_[index]->alias(); }
 
   void add_cell_spec(TupleCellSpec *spec) { speces_.push_back(spec); }
   int cell_num() const override { return speces_.size(); }

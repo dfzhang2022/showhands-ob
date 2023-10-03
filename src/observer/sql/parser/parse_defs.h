@@ -28,8 +28,6 @@ class Expression;
  * @defgroup SQLParser SQL Parser
  */
 
-
-
 /**
  * @brief 描述一个属性
  * @ingroup SQLParser
@@ -51,14 +49,16 @@ struct RelAttrSqlNode {
  * @ingroup SQLParser
  */
 enum CompOp {
-  EQUAL_TO,     ///< "="
-  LESS_EQUAL,   ///< "<="
-  NOT_EQUAL,    ///< "<>"
-  LESS_THAN,    ///< "<"
-  GREAT_EQUAL,  ///< ">="
-  GREAT_THAN,   ///< ">"
-  LIKE,         ///< "LIKE"
-  NOT_LIKE,     ///< "NOT LIKE"
+  EQUAL_TO,      ///< "="
+  LESS_EQUAL,    ///< "<="
+  NOT_EQUAL,     ///< "<>"
+  IS_EQUAL,      ///< "is"
+  IS_NOT_EQUAL,  ///< "is not"
+  LESS_THAN,     ///< "<"
+  GREAT_EQUAL,   ///< ">="
+  GREAT_THAN,    ///< ">"
+  LIKE,          ///< "LIKE"
+  NOT_LIKE,      ///< "NOT LIKE"
   NO_OP
 };
 
