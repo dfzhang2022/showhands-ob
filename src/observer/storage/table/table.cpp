@@ -233,6 +233,11 @@ RC Table::insert_record(Record &record) {
 
   rc = insert_entry_of_indexes(record.data(), record.rid());
   if (rc != RC::SUCCESS) {  // 可能出现了键值重复
+    // int null_bitmap = get_record_bitmap(record);
+    // for(int i =table_meta_.sys_field_num();i<table_meta_.field_num();i++){
+    //   if( 0 == strcmp(table_meta_.field(i)->name(),)  )
+    // }
+
     RC rc2 = delete_entry_of_indexes(record.data(), record.rid(),
                                      false /*error_on_not_exists*/);
     if (rc2 != RC::SUCCESS) {
