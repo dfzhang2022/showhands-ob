@@ -71,6 +71,9 @@ class MvccTrx : public Trx {
                    Record &new_record) override;
   RC update_record(Table *table, Record &old_record, std::string attr_name,
                    Value &value) override;
+  RC update_record(Table *table, Record &old_record,
+                   std::vector<std::string> attr_name_vec,
+                   std::vector<Value> value_vec) override;
 
   /**
    * @brief 当访问到某条数据时，使用此函数来判断是否可见，或者是否有访问冲突

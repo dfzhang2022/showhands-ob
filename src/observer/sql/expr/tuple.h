@@ -151,16 +151,18 @@ class RowTuple : public Tuple {
     cell.set_type(field_meta->type());
     cell.set_data(this->record_->data() + field_meta->offset(),
                   field_meta->len());
-    if (cell.attr_type() == AttrType::CHARS && cell.get_string() == "ZDF") {
-      cell.set_null(nullptr, 4);
-    } else if (cell.attr_type() == AttrType::INTS && cell.get_int() == 104274) {
-      cell.set_null(nullptr, 4);
-    } else if (cell.attr_type() == AttrType::FLOATS &&
-               cell.get_float() == 114.514) {
-      cell.set_null(nullptr, 4);
-    } else if (cell.attr_type() == AttrType::DATES &&
-               cell.get_date() == 10002000) {
-      cell.set_null(nullptr, 4);
+
+    // 判断是否为null值
+    const FieldMeta *null_field_meta =
+        table_->table_meta().field("null_bitmap");
+    Value null_bitmap;
+    null_bitmap.set_type(AttrType::INTS);
+    null_bitmap.set_data(this->record_->data() + null_field_meta->offset(),
+                         null_field_meta->len());
+    if (index > 0) {
+      if (null_bitmap.get_int() & (1 << (index - 1))) {
+        cell.set_null(nullptr, 4);
+      }
     }
     return RC::SUCCESS;
   }
@@ -210,27 +212,22 @@ class RowTuple : public Tuple {
         // LOG_INFO("field_name is %s", field_meta->name());
         if (0 == std::strcmp(field_meta->name(), attr_name_vec.at(i).c_str())) {
           if (value_vec.at(i).attr_type() == NULL_ATTR) {
-            switch (field_meta->type()) {
-              case AttrType::DATES: {
-                value_vec.at(i).set_date(
-                    10002000);  // "10002000" represents null date.
-              } break;
-              case AttrType::INTS: {
-                value_vec.at(i).set_int(
-                    104274);  // "104274" represents null int.
-              } break;
-              case AttrType::CHARS: {
-                value_vec.at(i).set_string("ZDF",
-                                           3);  // "ZDF" represents null chars.
-              } break;
-              case AttrType::FLOATS: {
-                value_vec.at(i).set_float(
-                    114.514);  // "114.514" represents null float.
-              } break;
+            if (field_meta->nullable()) {
+              value_vec.at(i).set_null(nullptr, 4);
+              // 判断是否为null值
+              const FieldMeta *null_field_meta =
+                  table_->table_meta().field("null_bitmap");
+              Value null_bitmap;
+              null_bitmap.set_type(AttrType::INTS);
+              null_bitmap.set_data(
+                  this->record_->data() + null_field_meta->offset(),
+                  null_field_meta->len());
+              int bitmap = null_bitmap.get_int();
+              bitmap = bitmap | (1 << cnt);
+              null_bitmap.set_int(bitmap);
 
-              default: {
-                LOG_WARN("Unimplement type null value.");
-              } break;
+            } else {
+              return RC::NULL_VALUE_ERROR;
             }
           } else if (field_meta->type() != value_vec.at(i).attr_type()) {
             break;

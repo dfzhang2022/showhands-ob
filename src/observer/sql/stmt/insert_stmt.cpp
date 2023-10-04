@@ -74,6 +74,8 @@ RC InsertStmt::create(Db *db, const InsertSqlNode &inserts, Stmt *&stmt) {
           LOG_WARN("Insert null into not null column.");
           return RC::SCHEMA_FIELD_TYPE_MISMATCH;
         }
+        Value value = inserts.insert_values.at(cnt).values.at(i);
+        value.set_null(nullptr,4);
       } else if (field_type != value_type) {  // TODO try to convert the value
                                               // type to field type
         Value value = inserts.insert_values.at(cnt).values.at(i);
@@ -104,32 +106,32 @@ RC InsertStmt::create(Db *db, const InsertSqlNode &inserts, Stmt *&stmt) {
       const FieldMeta *field_meta = table_meta.field(i + sys_field_num);
       const AttrType field_type = field_meta->type();
       const AttrType value_type = insert_values_vec.at(cnt).at(i).attr_type();
-      const bool is_nullable = field_meta->nullable();
+      // const bool is_nullable = field_meta->nullable();
       if (value_type == NULL_ATTR) {
         // 如何把null值体现在记录里
-        switch (field_type) {
-          case AttrType::DATES: {
-            insert_values_vec.at(cnt).at(i).set_date(
-                10002000);  // "10002000" represents null date.
-          } break;
-          case AttrType::INTS: {
-            insert_values_vec.at(cnt).at(i).set_int(
-                104274);  // "104274" represents null int.
-          } break;
-          case AttrType::CHARS: {
-            insert_values_vec.at(cnt).at(i).set_string(
-                "ZDF", 3);  // "ZDF" represents null chars.
-          } break;
-          case AttrType::FLOATS: {
-            insert_values_vec.at(cnt).at(i).set_float(
-                114.514);  // "114.514" represents null float.
-          } break;
+        // switch (field_type) {
+        //   case AttrType::DATES: {
+        //     insert_values_vec.at(cnt).at(i).set_date(
+        //         10002000);  // "10002000" represents null date.
+        //   } break;
+        //   case AttrType::INTS: {
+        //     insert_values_vec.at(cnt).at(i).set_int(
+        //         104274);  // "104274" represents null int.
+        //   } break;
+        //   case AttrType::CHARS: {
+        //     insert_values_vec.at(cnt).at(i).set_string(
+        //         "ZDF", 3);  // "ZDF" represents null chars.
+        //   } break;
+        //   case AttrType::FLOATS: {
+        //     insert_values_vec.at(cnt).at(i).set_float(
+        //         114.514);  // "114.514" represents null float.
+        //   } break;
           
-          default:{
-            LOG_WARN("Unimplement type null value.");
-          }
-            break;
-        }
+        //   default:{
+        //     LOG_WARN("Unimplement type null value.");
+        //   }
+        //     break;
+        // }
       } else if (field_type != value_type) {  // TODO try to convert the value
                                               // type to field type
         if (insert_values_vec.at(cnt).at(i).typecast_to(field_type) !=

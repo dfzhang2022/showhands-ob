@@ -81,6 +81,8 @@ class Table {
   RC delete_record(const Record &record);
   RC update_record(Record &old_record, Record &new_record);
   RC update_record(Record &old_record, std::string attr_name, Value &value);
+  RC update_record(Record &old_record, std::vector<std::string> attr_name_vec,
+                   std::vector<Value> value_vec);
 
   RC visit_record(const RID &rid, bool readonly,
                   std::function<void(Record &)> visitor);
@@ -89,8 +91,8 @@ class Table {
   RC recover_insert_record(Record &record);
 
   // TODO refactor
-  RC create_index(Trx *trx, const FieldMeta *field_meta,
-                  const char *index_name,bool is_unique);
+  RC create_index(Trx *trx, const FieldMeta *field_meta, const char *index_name,
+                  bool is_unique);
 
   RC get_record_scanner(RecordFileScanner &scanner, Trx *trx, bool readonly);
 
@@ -116,6 +118,8 @@ class Table {
   Index *find_index(const char *index_name) const;
   Index *find_index_by_field(const char *field_name) const;
   std::vector<std::vector<std::string>> get_index_info() const;
+
+  int get_record_bitmap(Record &old_record);
 
  private:
   std::string base_dir_;

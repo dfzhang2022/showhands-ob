@@ -60,9 +60,13 @@ RC TableMeta::init(int32_t table_id, const char *name, int field_num,
 
   int field_offset = 0;
   int trx_field_num = 0;
+  int is_null_bitset = 0;
+  // 结构为 trx_field | null_bitmap| col1 | col2 | ...| colN
+  // (总长为trx_field_num + field_num+1)
   const vector<FieldMeta> *trx_fields = TrxKit::instance()->trx_fields();
   if (trx_fields != nullptr) {
-    fields_.resize(field_num + trx_fields->size());
+    fields_.resize(field_num + trx_fields->size() +
+                   1);  // 增加一个需要记录某一列值是否为null的field
 
     for (size_t i = 0; i < trx_fields->size(); i++) {
       const FieldMeta &field_meta = (*trx_fields)[i];
@@ -73,14 +77,24 @@ RC TableMeta::init(int32_t table_id, const char *name, int field_num,
 
     trx_field_num = static_cast<int>(trx_fields->size());
   } else {
-    fields_.resize(field_num);
+    fields_.resize(field_num + 1);
   }
+  // 添加null_bitmap
+  rc = fields_[trx_field_num].init("null_bitmap", AttrType::INTS, field_offset,
+                                   4, false /*visible*/, false);
+  if (rc != RC::SUCCESS) {
+    LOG_ERROR(
+        "Failed to init null bitmap field meta. table name=%s, field name: %s",
+        name, "null_bitmap");
+    return rc;
+  }
+  field_offset += 4;
 
   for (int i = 0; i < field_num; i++) {
     const AttrInfoSqlNode &attr_info = attributes[i];
-    rc = fields_[i + trx_field_num].init(attr_info.name.c_str(), attr_info.type,
-                                         field_offset, attr_info.length,
-                                         true /*visible*/, attr_info.nullable);
+    rc = fields_[i + sys_field_num()].init(
+        attr_info.name.c_str(), attr_info.type, field_offset, attr_info.length,
+        true /*visible*/, attr_info.nullable);
     if (rc != RC::SUCCESS) {
       LOG_ERROR("Failed to init field meta. table name=%s, field name: %s",
                 name, attr_info.name.c_str());
@@ -91,7 +105,6 @@ RC TableMeta::init(int32_t table_id, const char *name, int field_num,
   }
 
   record_size_ = field_offset;
-
   table_id_ = table_id;
   name_ = name;
   LOG_INFO("Sussessfully initialized table meta. table id=%d, name=%s",
@@ -136,11 +149,18 @@ const FieldMeta *TableMeta::find_field_by_offset(int offset) const {
 int TableMeta::field_num() const { return fields_.size(); }
 
 int TableMeta::sys_field_num() const {
+  // const vector<FieldMeta> *trx_fields = TrxKit::instance()->trx_fields();
+  // if (nullptr == trx_fields) {
+  //   return 0;
+  // }
+  // return static_cast<int>(trx_fields->size());
+
+  // 下面是添加了null-bitmap属性的版本 sys_field需要增加一个位置
   const vector<FieldMeta> *trx_fields = TrxKit::instance()->trx_fields();
   if (nullptr == trx_fields) {
-    return 0;
+    return 1;
   }
-  return static_cast<int>(trx_fields->size());
+  return static_cast<int>(trx_fields->size() + 1);
 }
 
 const IndexMeta *TableMeta::index(const char *name) const {

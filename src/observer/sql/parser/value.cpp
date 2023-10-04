@@ -263,7 +263,9 @@ void Value::set_date(int val) {
 }
 void Value::set_null(const char *s, int len /*= 0*/) {
   attr_type_ = NULL_ATTR;
-  length_ = 0;
+  num_value_.int_value_ = 0;
+  str_value_ = "";
+  length_ = 4;
 }
 void Value::set_string(const char *s, int len /*= 0*/) {
   attr_type_ = CHARS;
@@ -361,7 +363,7 @@ const char *Value::data() const {
       return str_value_.c_str();
     } break;
     case NULL_ATTR: {
-      return nullptr;
+      return (const char *)&num_value_;
     } break;
     default: {
       return (const char *)&num_value_;

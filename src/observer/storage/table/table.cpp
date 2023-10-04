@@ -325,28 +325,40 @@ RC Table::make_record(int value_num, const Value *values, Record &record) {
              table_meta_.name());
     return RC::SCHEMA_FIELD_MISSING;
   }
-
+  int null_bitmap = 0;
   const int normal_field_start_index = table_meta_.sys_field_num();
   for (int i = 0; i < value_num; i++) {
     const FieldMeta *field = table_meta_.field(i + normal_field_start_index);
     const Value &value = values[i];
     if (field->type() != value.attr_type()) {
-      // if (value.attr_type() == NULL_ATTR) {
-      //   // 这里要往记录中写入null值 由于之前已经进行过类型检查
-      //   // 这里一定是插入到了一个nullable的字段
+      if (value.attr_type() == NULL_ATTR) {
+        // 这里要往记录中写入null值 由于之前已经进行过类型检查
+        // 这里一定是插入到了一个nullable的字段
+        const bool is_nullable = field->nullable();
+        if (is_nullable) {
+          null_bitmap = null_bitmap | (1 << i);
+        } else {
+          LOG_WARN("Want to insert null to un-nullable column.");
+          return RC::NULL_VALUE_ERROR;
+        }
 
-      // }
-      LOG_ERROR(
-          "Invalid value type. table name =%s, field name=%s, type=%d, but "
-          "given=%d",
-          table_meta_.name(), field->name(), field->type(), value.attr_type());
-      return RC::SCHEMA_FIELD_TYPE_MISMATCH;
+      } else {
+        LOG_ERROR(
+            "Invalid value type. table name =%s, field name=%s, type=%d, but "
+            "given=%d",
+            table_meta_.name(), field->name(), field->type(),
+            value.attr_type());
+        return RC::SCHEMA_FIELD_TYPE_MISMATCH;
+      }
     }
   }
 
   // 复制所有字段的值
   int record_size = table_meta_.record_size();
   char *record_data = (char *)malloc(record_size);
+
+  memcpy(record_data + table_meta_.field("null_bitmap")->offset(), &null_bitmap,
+         4);
 
   for (int i = 0; i < value_num; i++) {
     const FieldMeta *field = table_meta_.field(i + normal_field_start_index);
@@ -550,6 +562,84 @@ RC Table::update_record(Record &old_record, std::string attr_name,
                         Value &value) {
   return RC::SUCCESS;
 }
+RC Table::update_record(Record &old_record,
+                        std::vector<std::string> attr_name_vec,
+                        std::vector<Value> value_vec) {
+  RC rc = RC::SCHEMA_FIELD_NOT_EXIST;
+  if (attr_name_vec.size() != value_vec.size()) {
+    rc = RC::INVALID_ARGUMENT;
+    LOG_ERROR("attr_num not equal to value_num.");
+  }
+  // check if field exits
+  for (size_t i = 0; i < attr_name_vec.size(); i++) {
+    bool attr_exist = false;
+    for (int cnt = 0; cnt < table_meta_.field_metas()->size(); cnt++) {
+      const FieldMeta field_meta = table_meta_.field_metas()->at(cnt);
+      // LOG_INFO("field_name is %s", field_meta->name());
+      if (0 == std::strcmp(field_meta.name(), attr_name_vec.at(i).c_str())) {
+        attr_exist = true;
+      }
+    }
+    if (!attr_exist) {
+      LOG_WARN("Update unexist column. ");
+      return RC::SCHEMA_FIELD_NOT_EXIST;
+    }
+  }
+
+  Record *new_record = new Record(old_record);
+
+  // 获取record中的null_bitmap
+  int null_bitmap = get_record_bitmap(old_record);
+
+  for (size_t i = 0; i < attr_name_vec.size(); i++) {
+    for (int cnt = 0; cnt < table_meta_.field_metas()->size(); cnt++) {
+      const FieldMeta field_meta = table_meta_.field_metas()->at(cnt);
+      // LOG_INFO("field_name is %s", field_meta->name());
+      if (0 == std::strcmp(field_meta.name(), attr_name_vec.at(i).c_str())) {
+        // 找到对应的列
+        if (value_vec.at(i).attr_type() == NULL_ATTR) {
+          if (field_meta.nullable()) {
+            value_vec.at(i).set_null(nullptr, 4);
+            // 判断是否为null值
+            null_bitmap = null_bitmap | (1 << (cnt - 1));  // 更新bitmap
+            std::memcpy(
+                new_record->data() + table_meta_.field("null_bitmap")->offset(),
+                &null_bitmap, table_meta_.field("null_bitmap")->len());
+            std::memcpy(new_record->data() + field_meta.offset(),
+                        value_vec.at(i).data(), field_meta.len());
+
+          } else {
+            LOG_WARN("Update null to un-nullable column.");
+            return RC::NULL_VALUE_ERROR;
+          }
+        } else if (field_meta.type() != value_vec.at(i).attr_type()) {
+          LOG_WARN("Update value with different type.");
+          return RC::SCHEMA_FIELD_TYPE_MISMATCH;
+        } else {
+          null_bitmap = null_bitmap & (~(1 << cnt));  // 更新bitmap
+          std::memcpy(new_record->data() + field_meta.offset(),
+                      value_vec.at(i).data(),
+                      field_meta.len());  // 将旧有的数据地址复制到新的record中
+        }
+
+        rc = RC::SUCCESS;
+      }
+    }
+  }
+  const int record_size = new_record->len();
+  char *record_data = new_record->data();
+  auto updater = [new_record, record_data, record_size](Record &record_src) {
+    memcpy(record_src.data(), record_data, record_size);
+  };
+  rc = record_handler_->visit_record(old_record.rid(), false /*readonly*/,
+                                     updater);
+  if (rc != RC::SUCCESS) {
+    free(record_data);
+    LOG_WARN("failed to update record. rid=%s, table=%s, rc=%s",
+             old_record.rid().to_string().c_str(), name(), strrc(rc));
+  }
+  return rc;
+}
 
 RC Table::insert_entry_of_indexes(const char *record, const RID &rid) {
   RC rc = RC::SUCCESS;
@@ -624,4 +714,13 @@ RC Table::sync() {
   }
   LOG_INFO("Sync table over. table=%s", name());
   return rc;
+}
+
+int Table::get_record_bitmap(Record &old_record) {
+  const FieldMeta *null_field_meta = table_meta_.field("null_bitmap");
+  Value null_bitmap;
+  null_bitmap.set_type(AttrType::INTS);
+  null_bitmap.set_data(old_record.data() + null_field_meta->offset(),
+                       null_field_meta->len());
+  return null_bitmap.get_int();
 }
