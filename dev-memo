@@ -258,3 +258,22 @@ INSERT INTO null_table5 VALUES(null,2);
 + FAILURE
 
 select * from null_table5
+
+
+=====ORDER BY
+
+select id from t_order_by_3 order by id;
+  ID
+  NULL
++ 5
+  NULL
+  2
+  4
+- 5
+-- below are some requests executed before(partial) --
+create table t_order_by_3(id int nullable, score float);
+insert into t_order_by_3 values(4, 2.1);
+insert into t_order_by_3 values(2, 3.1);
+insert into t_order_by_3 values(null, 4.1);
+insert into t_order_by_3 values(5, 5.1);
+insert into t_order_by_3 values(null,5.5);

@@ -629,7 +629,7 @@ int Value::compare(const Value &other) const {
   // }
   else if (other.attr_type_ == AttrType::NULL_ATTR ||
            this->attr_type_ == AttrType::NULL_ATTR) {
-    return -1;
+    return this->attr_type_ == AttrType::NULL_ATTR ? -1 : 1;
   } else if (other.attr_type_ == AttrType::LIKE_STR) {
     // Here to process like_str pattern;
     // TO DO
