@@ -501,7 +501,10 @@ class JoinedTuple : public Tuple {
   virtual ~JoinedTuple() = default;
   JoinedTuple *clone() override {
     // TODO
-    return nullptr;
+    JoinedTuple *ret_tuple = new JoinedTuple();
+    ret_tuple->set_left(this->left_->clone());
+    ret_tuple->set_right(this->right_->clone());
+    return ret_tuple;
   }
 
   void set_left(Tuple *left) { left_ = left; }
