@@ -65,8 +65,8 @@ RC SelectStmt::create(Db *db, const SelectSqlNode &select_sql, Stmt *&stmt) {
   std::vector<Field> query_fields;       // 投影列
   std::vector<Field> aggr_query_fields;  // 聚合列
   // 聚合列和投影列本来是一一对应的 只有出现AGGR(*)时才会出现数量不一致
-  // 其实只有COUNT(*)或COUNT(*.*)
-  // 其实COUNT(*.*)是有语法错误的
+  // 其实只有COUNT(*)
+  // COUNT(*.*)是语法错误
   std::map<int, int> aggr_field_to_query_field_map;
   int aggr_func_count = 0;  // 计算列中的聚合函数数量
   for (int i = static_cast<int>(select_sql.attributes.size()) - 1; i >= 0;
@@ -213,6 +213,7 @@ RC SelectStmt::create(Db *db, const SelectSqlNode &select_sql, Stmt *&stmt) {
 
   // create filter statement in `where` statement
   FilterStmt *filter_stmt = nullptr;
+
   RC rc = FilterStmt::create(
       db, default_table, &table_map, select_sql.conditions.data(),
       static_cast<int>(select_sql.conditions.size()), filter_stmt);
@@ -221,6 +222,71 @@ RC SelectStmt::create(Db *db, const SelectSqlNode &select_sql, Stmt *&stmt) {
     return rc;
   }
 
+  // collect order by fields in 'order by' statement
+  std::vector<Field> order_by_fields;
+  std::vector<OrderByDirection> directions;
+
+  for (int i = static_cast<int>(select_sql.order_by_sql_nodes.size()) - 1;
+       i >= 0; i--) {
+    const RelAttrSqlNode &relation_attr =
+        select_sql.order_by_sql_nodes.at(i).rel_attr;
+    OrderByDirection direction = select_sql.order_by_sql_nodes.at(i).direction;
+    directions.emplace_back(direction);
+
+    const char *table_name = relation_attr.relation_name.c_str();
+    const char *field_name = relation_attr.attribute_name.c_str();
+
+    if (common::is_blank(table_name) && 0 == strcmp(field_name, "*")) {
+      LOG_WARN("Order by clause cannot process * columns.");
+      return RC::INVALID_ARGUMENT;
+    } else if (!common::is_blank(table_name)) {
+      if (0 == strcmp(table_name, "*")) {
+        LOG_WARN("Order by clause cannot process * columns.");
+        return RC::INVALID_ARGUMENT;
+      } else {
+        // 对应"rel.attr"或"rel.*"
+        auto iter = table_map.find(table_name);
+        if (iter == table_map.end()) {
+          LOG_WARN("no such table in from list: %s", table_name);
+          return RC::SCHEMA_FIELD_MISSING;
+        }
+        Table *table = iter->second;
+
+        if (0 == strcmp(field_name, "*")) {
+          // 对应 rel.*
+          LOG_WARN("Order by clause cannot process * columns.");
+          return RC::INVALID_ARGUMENT;
+        } else {
+          // 对应"rel.attr"
+          const FieldMeta *field_meta = table->table_meta().field(field_name);
+          if (nullptr == field_meta) {
+            LOG_WARN("no such field. field=%s.%s.%s", db->name(), table->name(),
+                     field_name);
+            return RC::SCHEMA_FIELD_MISSING;
+          }
+          Field *tmp_field = new Field(table, field_meta);
+          order_by_fields.emplace_back(*tmp_field);
+        }
+      }
+    } else {
+      // 对应 "attr" (没有表名)
+      if (tables.size() != 1) {
+        LOG_WARN("invalid. I do not know the attr's table. attr=%s",
+                 relation_attr.attribute_name.c_str());
+        return RC::SCHEMA_FIELD_MISSING;
+      }
+
+      Table *table = tables[0];
+      const FieldMeta *field_meta = table->table_meta().field(field_name);
+      if (nullptr == field_meta) {
+        LOG_WARN("no such field. field=%s.%s.%s", db->name(), table->name(),
+                 relation_attr.attribute_name.c_str());
+        return RC::SCHEMA_FIELD_MISSING;
+      }
+      Field *tmp_field = new Field(table, field_meta);
+      order_by_fields.emplace_back(*tmp_field);
+    }
+  }
   // everything alright
   SelectStmt *select_stmt = new SelectStmt();
   // TODO add expression copy
@@ -229,6 +295,8 @@ RC SelectStmt::create(Db *db, const SelectSqlNode &select_sql, Stmt *&stmt) {
   select_stmt->aggr_query_fields_.swap(aggr_query_fields);
   select_stmt->aggr_field_to_query_field_map_.swap(
       aggr_field_to_query_field_map);
+  select_stmt->order_by_fields_.swap(order_by_fields);
+  select_stmt->order_by_directions_.swap(directions);
   select_stmt->filter_stmt_ = filter_stmt;
   stmt = select_stmt;
   return RC::SUCCESS;

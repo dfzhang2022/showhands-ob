@@ -30,6 +30,8 @@ See the Mulan PSL v2 for more details. */
 enum AggrFuncType { NONE, MAX, MIN, CNT, AVG, SUM };
 const char *aggr_func_to_str(AggrFuncType type_in);
 
+enum OrderByDirection { ASC_ORDER, DESC_ORDER };
+
 /**
  * @brief 属性的类型
  *

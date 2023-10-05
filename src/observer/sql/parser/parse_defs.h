@@ -63,6 +63,16 @@ enum CompOp {
 };
 
 /**
+ * @brief 描述一个order by语句的列名以及方向
+ * @ingroup SQLParser
+ * @details
+ */
+struct OrderBySqlNode {
+  RelAttrSqlNode rel_attr;  ///< 表名加列名
+  OrderByDirection direction = OrderByDirection::ASC_ORDER;
+};
+
+/**
  * @brief 表示一个条件比较
  * @ingroup SQLParser
  * @details 条件比较就是SQL查询中的 where a>b 这种。
@@ -100,6 +110,8 @@ struct SelectSqlNode {
   std::vector<std::string> relations;      ///< 查询的表
   std::vector<ConditionSqlNode>
       conditions;  ///< 查询条件，使用AND串联起来多个条件
+
+  std::vector<OrderBySqlNode> order_by_sql_nodes;  ///< order by语句
 };
 
 /**
