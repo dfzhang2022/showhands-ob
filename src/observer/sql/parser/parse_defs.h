@@ -38,10 +38,16 @@ class Expression;
 struct RelAttrSqlNode {
   std::string relation_name;   ///< relation name (may be NULL) 表名
   std::string attribute_name;  ///< attribute name              属性名
+
+  // 聚合函数相关
   bool is_aggregation_func = false;
   AggrFuncType aggr_func_type = AggrFuncType::NONE;
   bool is_syntax_error =
       false;  ///< 一些涉及聚集函数的存在语法错误但需要输出FAILURE 用这个标记
+
+  // 别名相关
+  bool is_alias = false;
+  std::string alias;
 };
 
 /**
@@ -59,7 +65,10 @@ enum CompOp {
   GREAT_THAN,    ///< ">"
   LIKE,          ///< "LIKE"
   NOT_LIKE,      ///< "NOT LIKE"
-  NO_OP
+  NO_OP,
+  IN_COMP,
+  NOT_IN_COMP
+
 };
 
 /**
@@ -131,6 +140,7 @@ struct SelectSqlNode {
       conditions;  ///< 查询条件，使用AND串联起来多个条件
 
   std::vector<OrderBySqlNode> order_by_sql_nodes;  ///< order by语句
+  bool is_in_condition = false;
 };
 
 /**

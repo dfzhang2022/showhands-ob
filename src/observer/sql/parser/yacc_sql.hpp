@@ -104,25 +104,27 @@ extern int yydebug;
     EXPLAIN = 305,                 /* EXPLAIN  */
     CLEAR = 306,                   /* CLEAR  */
     IS = 307,                      /* IS  */
-    NULL_T = 308,                  /* NULL_T  */
-    NULLABLE = 309,                /* NULLABLE  */
-    CNT_FUNC = 310,                /* CNT_FUNC  */
-    MAX_FUNC = 311,                /* MAX_FUNC  */
-    MIN_FUNC = 312,                /* MIN_FUNC  */
-    AVG_FUNC = 313,                /* AVG_FUNC  */
-    SUM_FUNC = 314,                /* SUM_FUNC  */
-    EQ = 315,                      /* EQ  */
-    LT = 316,                      /* LT  */
-    GT = 317,                      /* GT  */
-    LE = 318,                      /* LE  */
-    GE = 319,                      /* GE  */
-    NE = 320,                      /* NE  */
-    NUMBER = 321,                  /* NUMBER  */
-    FLOAT = 322,                   /* FLOAT  */
-    ID = 323,                      /* ID  */
-    DATE_STR = 324,                /* DATE_STR  */
-    SSS = 325,                     /* SSS  */
-    UMINUS = 326                   /* UMINUS  */
+    IN = 308,                      /* IN  */
+    AS = 309,                      /* AS  */
+    NULL_T = 310,                  /* NULL_T  */
+    NULLABLE = 311,                /* NULLABLE  */
+    CNT_FUNC = 312,                /* CNT_FUNC  */
+    MAX_FUNC = 313,                /* MAX_FUNC  */
+    MIN_FUNC = 314,                /* MIN_FUNC  */
+    AVG_FUNC = 315,                /* AVG_FUNC  */
+    SUM_FUNC = 316,                /* SUM_FUNC  */
+    EQ = 317,                      /* EQ  */
+    LT = 318,                      /* LT  */
+    GT = 319,                      /* GT  */
+    LE = 320,                      /* LE  */
+    GE = 321,                      /* GE  */
+    NE = 322,                      /* NE  */
+    NUMBER = 323,                  /* NUMBER  */
+    FLOAT = 324,                   /* FLOAT  */
+    ID = 325,                      /* ID  */
+    DATE_STR = 326,                /* DATE_STR  */
+    SSS = 327,                     /* SSS  */
+    UMINUS = 328                   /* UMINUS  */
   };
   typedef enum yytokentype yytoken_kind_t;
 #endif
@@ -131,7 +133,7 @@ extern int yydebug;
 #if ! defined YYSTYPE && ! defined YYSTYPE_IS_DECLARED
 union YYSTYPE
 {
-#line 122 "yacc_sql.y"
+#line 124 "yacc_sql.y"
 
   ParsedSqlNode *                   sql_node;
   ConditionSqlNode *                condition;
@@ -160,7 +162,7 @@ union YYSTYPE
   int                               number;
   float                             floats;
 
-#line 164 "yacc_sql.hpp"
+#line 166 "yacc_sql.hpp"
 
 };
 typedef union YYSTYPE YYSTYPE;

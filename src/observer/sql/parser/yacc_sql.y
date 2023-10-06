@@ -104,6 +104,8 @@ ArithmeticExpr *create_arithmetic_expression(ArithmeticExpr::Type type,
         EXPLAIN
         CLEAR
         IS
+        IN
+        AS 
         NULL_T
         NULLABLE
         CNT_FUNC
@@ -162,6 +164,7 @@ ArithmeticExpr *create_arithmetic_expression(ArithmeticExpr::Type type,
 %type <number>              number
 %type <comp>                comp_op
 %type <number>              null_or_nullable
+%type <string>              as_alias
 %type <rel_attr>            rel_attr
 %type <attr_infos>          attr_def_list
 %type <attr_info>           attr_def
@@ -735,17 +738,27 @@ aggregation_func:
     ;
 
 rel_attr:
-    ID {
+    ID as_alias{
       $$ = new RelAttrSqlNode;
       $$->attribute_name = $1;
       free($1);
+
+      if($2 !=nullptr){
+        $$->alias = $2;
+        free($2);
+      }
     }
-    | ID DOT ID {
+    | ID DOT ID as_alias{
       $$ = new RelAttrSqlNode;
       $$->relation_name  = $1;
       $$->attribute_name = $3;
       free($1);
       free($3);
+
+      if($4 !=nullptr){
+        $$->alias = $4;
+        free($4);
+      }
     }
     | aggregation_func LBRACE ID RBRACE{
       $$ = new RelAttrSqlNode;
@@ -795,7 +808,25 @@ rel_attr:
 
     }
     ;
-
+as_alias:
+    /* empty */
+    {
+      $$ = nullptr;
+    }
+    | AS ID{
+      $$ = (char*)malloc(strlen($2));
+      memcpy($$,$2,strlen($2));
+      free($2);
+    }
+    | AS ID DOT ID{
+      $$ = (char*)malloc(strlen($2)+strlen($4)+1);
+      memcpy($$,$2,strlen($2));
+      memcpy($$+strlen($2),"*",1);
+      memcpy($$+strlen($2)+1,$4,strlen($4));
+      free($2);
+      free($4);
+    }
+    ;
 attr_list:
     /* empty */
     {
@@ -961,6 +992,10 @@ condition:
 
       delete $1;
       delete $3;
+    }
+    | value comp_op LBRACE select_stmt RBRACE
+    {
+      
     }
     ;
 order_by:
