@@ -16,6 +16,8 @@ See the Mulan PSL v2 for more details. */
 
 #include <vector>
 #include "sql/optimizer/rewrite_rule.h"
+#include "sql/operator/logical_operator.h"
+#include "sql/operator/join_logical_operator.h"
 
 /**
  * @brief 将一些谓词表达式下推到表数据扫描中
@@ -31,6 +33,9 @@ public:
   RC rewrite(std::unique_ptr<LogicalOperator> &oper, bool &change_made) override;
 
 private:
+  RC contain_expr(LogicalOperator *oper, std::unique_ptr<Expression> &expr, bool &contain_result);
   RC get_exprs_can_pushdown(
       std::unique_ptr<Expression> &expr, std::vector<std::unique_ptr<Expression>> &pushdown_exprs);
+  RC join_exprs_can_pushdown(
+      JoinLogicalOperator *&join_oper, std::unique_ptr<Expression> &expr, bool &pushdown_result);
 };

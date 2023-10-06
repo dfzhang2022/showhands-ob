@@ -375,8 +375,10 @@ RC PhysicalPlanGenerator::create_plan(JoinLogicalOperator &join_oper,
     return RC::INTERNAL;
   }
 
-  unique_ptr<PhysicalOperator> join_physical_oper(
-      new NestedLoopJoinPhysicalOperator);
+  // unique_ptr<NestedLoopJoinPhysicalOperator> join_physical_oper(
+  //     new NestedLoopJoinPhysicalOperator);
+  unique_ptr<HashJoinPhysicalOperator> join_physical_oper(
+      new HashJoinPhysicalOperator);
   for (auto &child_oper : child_opers) {
     unique_ptr<PhysicalOperator> child_physical_oper;
     rc = create(*child_oper, child_physical_oper);
@@ -387,6 +389,8 @@ RC PhysicalPlanGenerator::create_plan(JoinLogicalOperator &join_oper,
 
     join_physical_oper->add_child(std::move(child_physical_oper));
   }
+  vector<unique_ptr<Expression>> &predicates = join_oper.predicates();
+  join_physical_oper->set_predicates(std::move(predicates));
 
   oper = std::move(join_physical_oper);
   return rc;
