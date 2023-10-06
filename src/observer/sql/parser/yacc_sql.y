@@ -87,6 +87,8 @@ ArithmeticExpr *create_arithmetic_expression(ArithmeticExpr::Type type,
         INTO
         VALUES
         FROM
+        INNER
+        JOIN
         WHERE
         AND
         ORDER
@@ -137,7 +139,10 @@ ArithmeticExpr *create_arithmetic_expression(ArithmeticExpr::Type type,
   std::vector<Value> *              value_list;
   std::vector<ConditionSqlNode> *   condition_list;
   std::vector<RelAttrSqlNode> *     rel_attr_list;
-  std::vector<std::string> *        relation_list;
+  std::vector<RelationSqlNode> *    relation_list;
+  RelationSqlNode*                  relation;
+  JoinedRelationSqlNode*            join_rel;
+  std::vector<JoinedRelationSqlNode>* join_rel_list;
   char *                            string;
   int                               number;
   float                             floats;
@@ -165,6 +170,10 @@ ArithmeticExpr *create_arithmetic_expression(ArithmeticExpr::Type type,
 %type <condition_list>      condition_list
 %type <rel_attr_list>       select_attr
 %type <relation_list>       rel_list
+%type <relation>            rel_element
+%type <join_rel>            join_relation
+%type <join_rel>            inner_join
+%type <join_rel>            inner_join_list
 %type <rel_attr_list>       attr_list
 %type <update_value>        set_value
 %type <update_value_list>   set_value_list
@@ -608,29 +617,28 @@ set_value:
     }
     ;
 select_stmt:        /*  select 语句的语法解析树*/
-    SELECT select_attr FROM ID rel_list where order_by
+    SELECT select_attr FROM rel_list where order_by
     {
       $$ = new ParsedSqlNode(SCF_SELECT);
       if ($2 != nullptr) {
         $$->selection.attributes.swap(*$2);
         delete $2;
       }
-      if ($5 != nullptr) {
-        $$->selection.relations.swap(*$5);
-        delete $5;
-      }
-      $$->selection.relations.push_back($4);
+     
+      $$->selection.relations.swap(*$4);
+      delete $4;
+      
       std::reverse($$->selection.relations.begin(), $$->selection.relations.end());
 
+      if ($5 != nullptr) {
+        $$->selection.conditions.swap(*$5);
+        delete $5;
+      }
       if ($6 != nullptr) {
-        $$->selection.conditions.swap(*$6);
+        $$->selection.order_by_sql_nodes.swap(*$6);
         delete $6;
       }
-      if ($7 != nullptr) {
-        $$->selection.order_by_sql_nodes.swap(*$7);
-        delete $7;
-      }
-      free($4);
+      // free($4);
     }
     ;
 calc_stmt:
@@ -805,20 +813,79 @@ attr_list:
     }
     ;
 
-rel_list:
-    /* empty */
+inner_join:
+    INNER JOIN ID ON condition_list
+    {
+        $$ = new JoinedRelationSqlNode;
+        $$->relations.push_back($3);
+        for(auto iter:*$5){
+          $$->join_on_conditions.emplace_back(iter);
+        }
+        // free($3);
+    }
+    ;
+inner_join_list:
     {
       $$ = nullptr;
     }
-    | COMMA ID rel_list {
-      if ($3 != nullptr) {
-        $$ = $3;
-      } else {
-        $$ = new std::vector<std::string>;
+    | inner_join inner_join_list
+    {
+      $$ = $2;
+      for(auto iter : $1->relations){
+        $$->relations.emplace_back(iter);
       }
+      for(auto iter : $1->join_on_conditions){
+        $$->join_on_conditions.emplace_back(iter);
+      }
+      // free($1);
+    }
+    ;
+join_relation:
+    ID inner_join inner_join_list
+    {
+      $$ = $3;
+      for(auto iter : $2->relations){
+        $$->relations.emplace_back(iter);
+      }
+      for(auto iter : $2->join_on_conditions){
+        $$->join_on_conditions.emplace_back(iter);
+      }
+      $$->relations.push_back($1);
+      std::reverse($$->relations.begin(), $$->relations.end());
+      std::reverse($$->join_on_conditions.begin(), $$->join_on_conditions.end());
+      // free($1);
 
-      $$->push_back($2);
-      free($2);
+    }
+    ;
+
+rel_element:
+    ID
+    {
+      $$ = new RelationSqlNode;
+      $$ -> relation = $1;
+      $$ -> has_inner_join = false;
+      // free($1);
+
+    }
+    |join_relation{
+      $$ = new RelationSqlNode;
+      $$->inner_join_sql_node = *$1;
+      $$ -> has_inner_join = true;
+      // delete $1;
+    }
+    ;
+
+rel_list:
+    rel_element
+    { 
+      $$ = new std::vector<RelationSqlNode>;
+      $$->emplace_back(*$1);
+      // delete $1;
+    }
+    |rel_element COMMA  rel_list {
+      $$ = $3;
+      $$->emplace_back(*$1);
+      // delete $1;
     }
     ;
 where:
