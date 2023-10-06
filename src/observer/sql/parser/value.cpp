@@ -30,11 +30,12 @@ const char *aggr_func_to_str(AggrFuncType type_in) {
   return "";
 }
 
-const char *ATTR_TYPE_NAME[] = {"undefined", "chars", "ints",  "floats",
-                                "booleans",  "dates", "texts", "like_str"};
+const char *ATTR_TYPE_NAME[] = {"undefined", "chars",    "ints",
+                                "floats",    "booleans", "dates",
+                                "texts",     "like_str", "null"};
 
 const char *attr_type_to_string(AttrType type) {
-  if (type >= UNDEFINED && type <= LIKE_STR) {
+  if (type >= UNDEFINED && type <= NULL_ATTR) {
     return ATTR_TYPE_NAME[type];
   }
   return "unknown";
@@ -231,6 +232,9 @@ void Value::set_data(char *data, int length) {
       num_value_.date_value_ = *(int *)data;
       length_ = length;
     } break;
+    case NULL_ATTR: {
+      length_ = length;
+    }
     default: {
       LOG_WARN("unknown data type: %d", attr_type_);
     } break;
@@ -256,6 +260,12 @@ void Value::set_date(int val) {
   attr_type_ = DATES;
   num_value_.date_value_ = val;
   length_ = sizeof(val);
+}
+void Value::set_null(const char *s, int len /*= 0*/) {
+  attr_type_ = NULL_ATTR;
+  num_value_.int_value_ = 0;
+  str_value_ = "";
+  length_ = 4;
 }
 void Value::set_string(const char *s, int len /*= 0*/) {
   attr_type_ = CHARS;
@@ -299,6 +309,9 @@ void Value::set_value(const Value &value) {
     case DATES: {
       set_date(value.get_date());
     } break;
+    case NULL_ATTR: {
+      set_null(nullptr);
+    } break;
   }
 }
 RC Value::add_value(const Value &value) {
@@ -315,6 +328,10 @@ RC Value::add_value(const Value &value) {
     }
   }
   switch (attr_type_) {
+    case NULL_ATTR: {
+      LOG_WARN("Try to add to or add with an null value.");
+      return RC::INVALID_ARGUMENT;
+    } break;
     case INTS: {
       set_int(this->get_int() + tmp_value.get_int());
     } break;
@@ -345,6 +362,9 @@ const char *Value::data() const {
     case CHARS: {
       return str_value_.c_str();
     } break;
+    case NULL_ATTR: {
+      return (const char *)&num_value_;
+    } break;
     default: {
       return (const char *)&num_value_;
     } break;
@@ -372,6 +392,9 @@ std::string Value::to_string() const {
     case DATES: {
       os << date_to_str(num_value_.date_value_);
     } break;
+    case NULL_ATTR: {
+      os << "null";
+    } break;
     default: {
       LOG_WARN("unsupported attr type: %d", attr_type_);
     } break;
@@ -379,9 +402,12 @@ std::string Value::to_string() const {
   return os.str();
 }
 RC Value::typecast_to(AttrType dest_type) {
-  RC rc = RC::SUCCESS;
+  RC rc = RC::TYPECAST_FAILED;
   if (this->attr_type() == dest_type) {
     rc = RC::SUCCESS;
+  } else if (this->attr_type() == AttrType::NULL_ATTR) {
+    LOG_WARN("Null cannot typecast to other types.");
+    return RC::TYPECAST_FAILED;
   } else if (this->attr_type_ == AttrType::INTS &&
              dest_type == AttrType::FLOATS) {
     float this_data = this->num_value_.int_value_;
@@ -441,11 +467,120 @@ RC Value::typecast_to(AttrType dest_type) {
         (char *)std::to_string(this->num_value_.int_value_).c_str();
     this->set_string(this_data, strlen(this_data));
     rc = RC::SUCCESS;
+  } else if (dest_type == AttrType::NULL_ATTR) {
+    // this->set_null(this_data, strlen(this_data));
+    rc = RC::SUCCESS;
   }
 
   return rc;
 }
+RC Value::compare(const Value &other, int &cmp_result) const {
+  RC rc = RC::SUCCESS;
 
+  if (this->attr_type_ == other.attr_type_) {
+    switch (this->attr_type_) {
+      case INTS: {
+        cmp_result = common::compare_int((void *)&this->num_value_.int_value_,
+                                         (void *)&other.num_value_.int_value_);
+      } break;
+      case FLOATS: {
+        cmp_result =
+            common::compare_float((void *)&this->num_value_.float_value_,
+                                  (void *)&other.num_value_.float_value_);
+      } break;
+      case CHARS: {
+        cmp_result = common::compare_string(
+            (void *)this->str_value_.c_str(), this->str_value_.length(),
+            (void *)other.str_value_.c_str(), other.str_value_.length());
+      } break;
+      case BOOLEANS: {
+        cmp_result = common::compare_int((void *)&this->num_value_.bool_value_,
+                                         (void *)&other.num_value_.bool_value_);
+      } break;
+      case DATES: {
+        cmp_result = common::compare_int((void *)&this->num_value_.date_value_,
+                                         (void *)&other.num_value_.date_value_);
+      } break;
+      case NULL_ATTR: {
+        cmp_result = 0;
+        rc = RC::NULL_COMPARE_ERROR;
+      } break;
+      default: {
+        LOG_WARN("unsupported type: %d", this->attr_type_);
+      }
+    }
+    return rc;
+  } else if (other.attr_type_ == AttrType::NULL_ATTR ||
+             this->attr_type_ == AttrType::NULL_ATTR) {
+    rc = RC::NULL_COMPARE_ERROR;
+    return rc;
+  } else if (other.attr_type_ == AttrType::LIKE_STR) {
+    // Here to process like_str pattern;
+    // TO DO
+    Value *tmp_value = new Value(other);
+    tmp_value->set_like_string(tmp_value->str_value_.c_str());
+    char *like_str = (char *)tmp_value->like_str_value_.c_str();
+    char *this_str = (char *)this->str_value_.c_str();
+    // bool result = check_like_str_pattern(this_str, like_str);
+    bool result = check_like_str_pattern_using_regex(this_str, like_str);
+    cmp_result = result ? 0 : -1;
+    return rc;
+  } else if (other.attr_type_ == AttrType::FLOATS ||
+             this->attr_type_ == AttrType::FLOATS) {
+    if (this->attr_type_ == AttrType::FLOATS) {
+      Value *tmp_value = new Value(other);
+      RC rc = tmp_value->typecast_to(this->attr_type());
+      if (rc != RC::SUCCESS) {
+        LOG_WARN("Cannot tpecast from %d to %d.", tmp_value->attr_type(),
+                 this->attr_type());
+        cmp_result = -1;
+      }
+      cmp_result = this->compare(*tmp_value);
+
+    } else {
+      cmp_result = -other.compare(*this);
+    }
+    return rc;
+
+  } else if (other.attr_type_ == AttrType::INTS ||
+             this->attr_type_ == AttrType::INTS) {
+    if (this->attr_type_ != AttrType::INTS) {
+      Value *tmp_value = new Value(*this);
+      RC rc = tmp_value->typecast_to(AttrType::FLOATS);
+      if (rc != RC::SUCCESS) {
+        LOG_WARN("Cannot tpecast from %d to %d.", tmp_value->attr_type(),
+                 AttrType::FLOATS);
+        cmp_result = -1;
+      }
+      Value *tmp_other_value = new Value(other);
+      rc = tmp_other_value->typecast_to(AttrType::FLOATS);
+      if (rc != RC::SUCCESS) {
+        LOG_WARN("Cannot tpecast from %d to %d.", tmp_other_value->attr_type(),
+                 AttrType::FLOATS);
+        cmp_result = -1;
+      }
+      cmp_result = tmp_value->compare(*tmp_other_value);
+    } else {
+      cmp_result = -other.compare(*this);
+    }
+    return rc;
+
+  } else {
+    Value *tmp_value = new Value(*this);
+    RC rc = tmp_value->typecast_to(other.attr_type());
+    if (rc != RC::SUCCESS) {
+      LOG_WARN("Cannot tpecast from %d to %d.", tmp_value->attr_type(),
+               other.attr_type());
+      cmp_result = -1;
+    }
+    cmp_result = tmp_value->compare(other);
+    return rc;
+  }
+
+  LOG_WARN("not supported");
+  cmp_result = -1;  // TODO cmp_result =  rc?
+  return rc;
+}
 int Value::compare(const Value &other) const {
   if (this->attr_type_ == other.attr_type_) {
     switch (this->attr_type_) {
@@ -470,6 +605,9 @@ int Value::compare(const Value &other) const {
         return common::compare_int((void *)&this->num_value_.date_value_,
                                    (void *)&other.num_value_.date_value_);
       }
+      case NULL_ATTR: {
+        return 0;
+      }
       default: {
         LOG_WARN("unsupported type: %d", this->attr_type_);
       }
@@ -489,7 +627,10 @@ int Value::compare(const Value &other) const {
   //   return common::compare_float((void *)&this_float,
   //                                (void *)&other.num_value_.float_value_);
   // }
-  else if (other.attr_type_ == AttrType::LIKE_STR) {
+  else if (other.attr_type_ == AttrType::NULL_ATTR ||
+           this->attr_type_ == AttrType::NULL_ATTR) {
+    return this->attr_type_ == AttrType::NULL_ATTR ? -1 : 1;
+  } else if (other.attr_type_ == AttrType::LIKE_STR) {
     // Here to process like_str pattern;
     // TO DO
     Value *tmp_value = new Value(other);

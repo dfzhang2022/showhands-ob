@@ -31,6 +31,8 @@ See the Mulan PSL v2 for more details. */
 #include "sql/operator/insert_physical_operator.h"
 #include "sql/operator/join_logical_operator.h"
 #include "sql/operator/join_physical_operator.h"
+#include "sql/operator/order_by_logical_operator.h"
+#include "sql/operator/order_by_physical_operator.h"
 #include "sql/operator/predicate_logical_operator.h"
 #include "sql/operator/predicate_physical_operator.h"
 #include "sql/operator/project_logical_operator.h"
@@ -61,7 +63,10 @@ RC PhysicalPlanGenerator::create(LogicalOperator &logical_operator,
       return create_plan(
           static_cast<PredicateLogicalOperator &>(logical_operator), oper);
     } break;
-
+    case LogicalOperatorType::ORDER_BY: {
+      return create_plan(
+          static_cast<OrderByLogicalOperator &>(logical_operator), oper);
+    } break;
     case LogicalOperatorType::PROJECTION: {
       return create_plan(
           static_cast<ProjectLogicalOperator &>(logical_operator), oper);
@@ -398,5 +403,35 @@ RC PhysicalPlanGenerator::create_plan(CalcLogicalOperator &logical_oper,
   CalcPhysicalOperator *calc_oper =
       new CalcPhysicalOperator(std::move(logical_oper.expressions()));
   oper.reset(calc_oper);
+  return rc;
+}
+
+RC PhysicalPlanGenerator::create_plan(OrderByLogicalOperator &order_by_oper,
+                                      std::unique_ptr<PhysicalOperator> &oper) {
+  vector<unique_ptr<LogicalOperator>> &child_opers = order_by_oper.children();
+
+  unique_ptr<PhysicalOperator> child_phy_oper;
+  RC rc = RC::SUCCESS;
+  if (!child_opers.empty()) {
+    LogicalOperator *child_oper = child_opers.front().get();
+    rc = create(*child_oper, child_phy_oper);
+    if (rc != RC::SUCCESS) {
+      LOG_WARN(
+          "failed to create project logical operator's child physical "
+          "operator. rc=%s",
+          strrc(rc));
+      return rc;
+    }
+  }
+  // const std::map<Field *, OrderByDirection> &field_direction_map =
+  //     order_by_oper.field_direction_map();
+  OrderByPhysicalOperator *order_by_operator = new OrderByPhysicalOperator(
+      order_by_oper.fields(), order_by_oper.directions());
+
+  if (child_phy_oper) {
+    order_by_operator->add_child(std::move(child_phy_oper));
+  }
+  oper = unique_ptr<PhysicalOperator>(order_by_operator);
+  LOG_TRACE("create an Order_by physical operator");
   return rc;
 }

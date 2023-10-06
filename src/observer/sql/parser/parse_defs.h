@@ -28,8 +28,6 @@ class Expression;
  * @defgroup SQLParser SQL Parser
  */
 
-
-
 /**
  * @brief 描述一个属性
  * @ingroup SQLParser
@@ -51,15 +49,27 @@ struct RelAttrSqlNode {
  * @ingroup SQLParser
  */
 enum CompOp {
-  EQUAL_TO,     ///< "="
-  LESS_EQUAL,   ///< "<="
-  NOT_EQUAL,    ///< "<>"
-  LESS_THAN,    ///< "<"
-  GREAT_EQUAL,  ///< ">="
-  GREAT_THAN,   ///< ">"
-  LIKE,         ///< "LIKE"
-  NOT_LIKE,     ///< "NOT LIKE"
+  EQUAL_TO,      ///< "="
+  LESS_EQUAL,    ///< "<="
+  NOT_EQUAL,     ///< "<>"
+  IS_EQUAL,      ///< "is"
+  IS_NOT_EQUAL,  ///< "is not"
+  LESS_THAN,     ///< "<"
+  GREAT_EQUAL,   ///< ">="
+  GREAT_THAN,    ///< ">"
+  LIKE,          ///< "LIKE"
+  NOT_LIKE,      ///< "NOT LIKE"
   NO_OP
+};
+
+/**
+ * @brief 描述一个order by语句的列名以及方向
+ * @ingroup SQLParser
+ * @details
+ */
+struct OrderBySqlNode {
+  RelAttrSqlNode rel_attr;  ///< 表名加列名
+  OrderByDirection direction = OrderByDirection::ASC_ORDER;
 };
 
 /**
@@ -100,6 +110,8 @@ struct SelectSqlNode {
   std::vector<std::string> relations;      ///< 查询的表
   std::vector<ConditionSqlNode>
       conditions;  ///< 查询条件，使用AND串联起来多个条件
+
+  std::vector<OrderBySqlNode> order_by_sql_nodes;  ///< order by语句
 };
 
 /**

@@ -27,8 +27,10 @@ See the Mulan PSL v2 for more details. */
 
 // #include "./date.h"
 
-enum AggrFuncType { NONE, MAX, MIN, CNT, AVG,SUM };
+enum AggrFuncType { NONE, MAX, MIN, CNT, AVG, SUM };
 const char *aggr_func_to_str(AggrFuncType type_in);
+
+enum OrderByDirection { ASC_ORDER, DESC_ORDER };
 
 /**
  * @brief 属性的类型
@@ -43,6 +45,7 @@ enum AttrType {
   DATES,     ///< 新添加的DATE类型
   TEXTS,     ///< 未来肯能需要支持的文本类型数据
   LIKE_STR,  ///< 支持 LIKE 语法的匹配字符串
+  NULL_ATTR,  ///< 支持null类型数据
 };
 
 const char *attr_type_to_string(AttrType type);
@@ -84,6 +87,7 @@ class Value {
   void set_boolean(bool val);
   void set_string(const char *s, int len = 0);
   void set_like_string(const char *s, int len = 0);
+  void set_null(const char *s, int len = 0);
   void set_date(int val);
   void set_value(const Value &value);
   RC add_value(const Value &value);
@@ -91,6 +95,7 @@ class Value {
   std::string to_string() const;
 
   int compare(const Value &other) const;
+  RC compare(const Value &other, int &cmp_result) const;
 
   const char *data() const;
   int length() const { return length_; }

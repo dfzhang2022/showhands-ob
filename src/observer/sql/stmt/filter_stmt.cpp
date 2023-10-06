@@ -138,7 +138,11 @@ RC FilterStmt::create_filter_unit(
     if (comp == CompOp::LIKE || comp == CompOp::NOT_LIKE) {
       // 说明右值是like_str
       filter_obj.value.set_type(AttrType::LIKE_STR);
+    } else if (comp == CompOp::IS_EQUAL) {
+      // 比较语句是IS
+      // filter_obj.value.set_type(AttrType::LIKE_STR);
     }
+
     filter_unit->set_right(filter_obj);
     if (filter_unit->right().value.attr_type() == AttrType::DATES &&
         filter_unit->right().value.get_date() == -1) {

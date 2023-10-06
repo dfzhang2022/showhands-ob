@@ -72,6 +72,11 @@ class Tuple {
   Tuple() = default;
   virtual ~Tuple() = default;
 
+  // Copy Constructor
+  Tuple(const Tuple &other) = default;
+
+  virtual Tuple *clone() = 0;
+
   /**
    * @brief 获取元组中的Cell的个数
    * @details 个数应该与tuple_schema一致
@@ -111,6 +116,47 @@ class Tuple {
     }
     return str;
   }
+  static bool compareTuples(const Tuple *a, const Tuple *b, const Field *field,
+                            OrderByDirection direction) {
+    // Function implementation here
+    Value tmp_v1, tmp_v2;
+    a->find_cell(TupleCellSpec(field->table_name(), field->field_name()),
+                 tmp_v1);
+    b->find_cell(TupleCellSpec(field->table_name(), field->field_name()),
+                 tmp_v2);
+    if (direction == OrderByDirection::ASC_ORDER) {
+      return tmp_v1.compare(tmp_v2) < 0;
+    } else {
+      return tmp_v2.compare(tmp_v1) < 0;
+    }
+  }
+
+  static bool compareTuples(const Tuple *a, const Tuple *b,
+                            const std::vector<Field> fields,
+                            std::vector<OrderByDirection> directions) {
+    // Function implementation here
+    Value tmp_v1, tmp_v2;
+    int tmp_result = 0;
+    for (size_t i = 0; i < fields.size(); i++) {
+      a->find_cell(
+          TupleCellSpec(fields[i].table_name(), fields[i].field_name()),
+          tmp_v1);
+      b->find_cell(
+          TupleCellSpec(fields[i].table_name(), fields[i].field_name()),
+          tmp_v2);
+      tmp_result = tmp_v1.compare(tmp_v2);
+      if (tmp_result == 0) {
+        continue;
+      } else {
+        if (directions[i] == OrderByDirection::ASC_ORDER) {
+          return tmp_result < 0;
+        } else {
+          return tmp_result > 0;
+        }
+      }
+    }
+    return false;
+  }
 };
 
 /**
@@ -127,6 +173,22 @@ class RowTuple : public Tuple {
     }
     speces_.clear();
   }
+  // Copy Constructor
+  RowTuple(const RowTuple &other) {
+    // rowSpecificProperty = other.rowSpecificProperty;
+    // Record *record_ = new Record(*other.record_);
+
+    // this->set_record((Record *)&other.record());
+    this->table_ = new Table(*other.table_);
+    char *tmp_data = (char *)malloc(table_->table_meta().record_size());
+    memcpy(tmp_data, other.record().data(), table_->table_meta().record_size());
+    this->record_ = new Record();
+    this->record_->set_data(tmp_data, table_->table_meta().record_size());
+    for (auto iter : other.speces_) {
+      this->speces_.push_back(new FieldExpr(*iter));
+    }
+  }
+  RowTuple *clone() override { return new RowTuple(*this); }
 
   void set_record(Record *record) { this->record_ = record; }
 
@@ -151,6 +213,19 @@ class RowTuple : public Tuple {
     cell.set_type(field_meta->type());
     cell.set_data(this->record_->data() + field_meta->offset(),
                   field_meta->len());
+
+    // 判断是否为null值
+    const FieldMeta *null_field_meta =
+        table_->table_meta().field("null_bitmap");
+    Value null_bitmap;
+    null_bitmap.set_type(AttrType::INTS);
+    null_bitmap.set_data(this->record_->data() + null_field_meta->offset(),
+                         null_field_meta->len());
+    if (index > 0) {
+      if (null_bitmap.get_int() & (1 << (index - 1))) {
+        cell.set_null(nullptr, 4);
+      }
+    }
     return RC::SUCCESS;
   }
 
@@ -198,7 +273,25 @@ class RowTuple : public Tuple {
         const FieldMeta *field_meta = field_expr->field().meta();
         // LOG_INFO("field_name is %s", field_meta->name());
         if (0 == std::strcmp(field_meta->name(), attr_name_vec.at(i).c_str())) {
-          if (field_meta->type() != value_vec.at(i).attr_type()) {
+          if (value_vec.at(i).attr_type() == NULL_ATTR) {
+            if (field_meta->nullable()) {
+              value_vec.at(i).set_null(nullptr, 4);
+              // 判断是否为null值
+              const FieldMeta *null_field_meta =
+                  table_->table_meta().field("null_bitmap");
+              Value null_bitmap;
+              null_bitmap.set_type(AttrType::INTS);
+              null_bitmap.set_data(
+                  this->record_->data() + null_field_meta->offset(),
+                  null_field_meta->len());
+              int bitmap = null_bitmap.get_int();
+              bitmap = bitmap | (1 << cnt);
+              null_bitmap.set_int(bitmap);
+
+            } else {
+              return RC::NULL_VALUE_ERROR;
+            }
+          } else if (field_meta->type() != value_vec.at(i).attr_type()) {
             break;
           }
           std::memcpy(
@@ -267,15 +360,30 @@ class ProjectTuple : public Tuple {
     }
     speces_.clear();
   }
+  // Copy Constructor
+  ProjectTuple(const ProjectTuple &other) : Tuple(other) {
+    // rowSpecificProperty = other.rowSpecificProperty;
+    this->tuple_ = new RowTuple(*(static_cast<RowTuple *>(other.tuple_)));
+
+    for (auto iter : other.speces_) {
+      this->speces_.push_back(new TupleCellSpec(*iter));
+    }
+  }
+  ProjectTuple *clone() override {
+    ProjectTuple *ret_tuple = new ProjectTuple();
+    ret_tuple->tuple_ = this->tuple_->clone();  // TODO
+    for (auto iter : this->speces_) {
+      ret_tuple->speces_.push_back(new TupleCellSpec(*iter));
+    }
+    return ret_tuple;
+  }
 
   void set_tuple(Tuple *tuple) { this->tuple_ = tuple; }
 
-  void set_cell_alias_at(int index,std::string new_name){
+  void set_cell_alias_at(int index, std::string new_name) {
     speces_[index]->set_alias(new_name);
   }
-  std::string cell_alias_at(int index){
-    return speces_[index]->alias();
-  }
+  std::string cell_alias_at(int index) { return speces_[index]->alias(); }
 
   void add_cell_spec(TupleCellSpec *spec) { speces_.push_back(spec); }
   int cell_num() const override { return speces_.size(); }
@@ -317,6 +425,10 @@ class ExpressionTuple : public Tuple {
       : expressions_(expressions) {}
 
   virtual ~ExpressionTuple() {}
+  ExpressionTuple *clone() override {
+    // TODO
+    return nullptr;
+  }
 
   int cell_num() const override { return expressions_.size(); }
 
@@ -350,6 +462,10 @@ class ValueListTuple : public Tuple {
  public:
   ValueListTuple() = default;
   virtual ~ValueListTuple() = default;
+  ValueListTuple *clone() override {
+    // TODO
+    return nullptr;
+  }
 
   void set_cells(const std::vector<Value> &cells) { cells_ = cells; }
 
@@ -383,6 +499,13 @@ class JoinedTuple : public Tuple {
  public:
   JoinedTuple() = default;
   virtual ~JoinedTuple() = default;
+  JoinedTuple *clone() override {
+    // TODO
+    JoinedTuple *ret_tuple = new JoinedTuple();
+    ret_tuple->set_left(this->left_->clone());
+    ret_tuple->set_right(this->right_->clone());
+    return ret_tuple;
+  }
 
   void set_left(Tuple *left) { left_ = left; }
   void set_right(Tuple *right) { right_ = right; }

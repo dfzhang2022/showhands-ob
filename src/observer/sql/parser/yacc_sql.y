@@ -64,6 +64,7 @@ ArithmeticExpr *create_arithmetic_expression(ArithmeticExpr::Type type,
         CALC
         SELECT
         DESC
+        ASC
         SHOW
         SYNC
         INSERT
@@ -88,6 +89,9 @@ ArithmeticExpr *create_arithmetic_expression(ArithmeticExpr::Type type,
         FROM
         WHERE
         AND
+        ORDER
+        GROUP
+        BY
         SET
         ON
         LIKE_MARK
@@ -97,6 +101,7 @@ ArithmeticExpr *create_arithmetic_expression(ArithmeticExpr::Type type,
         INFILE
         EXPLAIN
         CLEAR
+        IS
         NULL_T
         NULLABLE
         CNT_FUNC
@@ -127,6 +132,8 @@ ArithmeticExpr *create_arithmetic_expression(ArithmeticExpr::Type type,
   std::vector<InsertValueSqlNode> * insert_value_list;
   Expression *                      expression;
   std::vector<Expression *> *       expression_list;
+  OrderBySqlNode*                   order;
+  std::vector<OrderBySqlNode> *     order_list;
   std::vector<Value> *              value_list;
   std::vector<ConditionSqlNode> *   condition_list;
   std::vector<RelAttrSqlNode> *     rel_attr_list;
@@ -149,6 +156,7 @@ ArithmeticExpr *create_arithmetic_expression(ArithmeticExpr::Type type,
 %type <value>               value
 %type <number>              number
 %type <comp>                comp_op
+%type <number>              null_or_nullable
 %type <rel_attr>            rel_attr
 %type <attr_infos>          attr_def_list
 %type <attr_info>           attr_def
@@ -158,12 +166,15 @@ ArithmeticExpr *create_arithmetic_expression(ArithmeticExpr::Type type,
 %type <rel_attr_list>       select_attr
 %type <relation_list>       rel_list
 %type <rel_attr_list>       attr_list
-%type <update_value>           set_value
-%type <update_value_list>      set_value_list
-%type <insert_value>   insert_value
+%type <update_value>        set_value
+%type <update_value_list>   set_value_list
+%type <insert_value>        insert_value
 %type <insert_value_list>   insert_value_list
 %type <expression>          expression
 %type <expression_list>     expression_list
+%type <order_list>          order_by
+%type <order>               order
+%type <order_list>          order_list
 %type <aggr_func>           aggregation_func
 %type <sql_node>            calc_stmt
 %type <sql_node>            select_stmt
@@ -404,6 +415,24 @@ attr_def:
       $$->nullable = true;
       free($1);
     }
+    |ID type LBRACE number RBRACE NOT NULL_T
+    {
+      $$ = new AttrInfoSqlNode;
+      $$->type = (AttrType)$2;
+      $$->name = $1;
+      $$->length = $4;
+      $$->nullable = false;
+      free($1);
+    }
+    | ID type NOT NULL_T
+    {
+      $$ = new AttrInfoSqlNode;
+      $$->type = (AttrType)$2;
+      $$->name = $1;
+      $$->length = 4;
+      $$->nullable = false;
+      free($1);
+    }
     ;
 number:
     NUMBER {$$ = $1;}
@@ -500,6 +529,13 @@ value:
       $$ = new Value(tmp);
       free(tmp);
     }
+    |null_or_nullable{
+      $$ = new Value(0);
+      
+      $$->set_null(nullptr,4);
+      
+      
+    }
     
     ;
     
@@ -572,7 +608,7 @@ set_value:
     }
     ;
 select_stmt:        /*  select 语句的语法解析树*/
-    SELECT select_attr FROM ID rel_list where
+    SELECT select_attr FROM ID rel_list where order_by
     {
       $$ = new ParsedSqlNode(SCF_SELECT);
       if ($2 != nullptr) {
@@ -589,6 +625,10 @@ select_stmt:        /*  select 语句的语法解析树*/
       if ($6 != nullptr) {
         $$->selection.conditions.swap(*$6);
         delete $6;
+      }
+      if ($7 != nullptr) {
+        $$->selection.order_by_sql_nodes.swap(*$7);
+        delete $7;
       }
       free($4);
     }
@@ -856,6 +896,58 @@ condition:
       delete $3;
     }
     ;
+order_by:
+    /* empty */
+    {
+      $$ = nullptr;
+    }
+    | ORDER BY order_list {
+      $$ = $3;
+    }
+    ;
+order:
+    rel_attr {
+      $$ = new OrderBySqlNode;
+      $$->rel_attr = *$1;
+      $$->direction = OrderByDirection::ASC_ORDER;
+    }
+    |rel_attr DESC {
+      $$ = new OrderBySqlNode;
+      $$->rel_attr = *$1;
+      $$->direction = OrderByDirection::DESC_ORDER;
+    }
+    |rel_attr ASC {
+      $$ = new OrderBySqlNode;
+      $$->rel_attr = *$1;
+      $$->direction = OrderByDirection::ASC_ORDER;
+    }
+    ;
+order_list:
+    /* empty */
+    {
+      $$ = nullptr;
+    }
+    | order{
+        $$ = new std::vector<OrderBySqlNode>;
+        $$->emplace_back(*$1);
+        delete $1;
+    }
+    | order COMMA order_list{
+      $$ = $3;
+      $$->emplace_back(*$1);
+      delete $1;
+    }
+
+null_or_nullable:
+    NULL_T
+    {
+      $$ = 1;
+    }
+    |NULLABLE
+    {
+      $$ = 1;
+    }
+    ;
 
 comp_op:
       EQ { $$ = EQUAL_TO; }
@@ -864,6 +956,8 @@ comp_op:
     | LE { $$ = LESS_EQUAL; }
     | GE { $$ = GREAT_EQUAL; }
     | NE { $$ = NOT_EQUAL; }
+    | IS { $$ = IS_EQUAL;}
+    | IS NOT{$$ = IS_NOT_EQUAL;}
     | LIKE_MARK {$$ = LIKE;}
     | NOT LIKE_MARK {$$ = NOT_LIKE;}
     ;

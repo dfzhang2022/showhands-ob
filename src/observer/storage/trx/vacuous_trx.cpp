@@ -48,6 +48,11 @@ RC VacuousTrx::update_record(Table *table, Record &old_record,
   // return table->update_record();
   return RC::SUCCESS;
 }
+RC VacuousTrx::update_record(Table *table, Record &old_record,
+                             std::vector<std::string> attr_name_vec,
+                             std::vector<Value> value_vec) {
+  return table->update_record(old_record, attr_name_vec, value_vec);
+}
 
 RC VacuousTrx::visit_record(Table *table, Record &record, bool readonly) {
   return RC::SUCCESS;

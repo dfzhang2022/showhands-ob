@@ -92,8 +92,18 @@ RC BplusTreeIndex::insert_entry(const char *record, const RID *rid) {
     rc = index_handler_.get_entry(record + field_meta_.offset(),
                                   field_meta_.len(), tmp_rids);
     if (!tmp_rids.empty()) {
-      LOG_WARN("Try to insert exist key on an indexed column.");
-      return RC::RECORD_DUPLICATE_KEY;
+      int offset = field_meta_.offset();
+      int index = offset / 4 - 1;
+      int bitmap = 0;
+      memcpy(&bitmap, record, 4);
+      if (bitmap & (1 << index)) {
+        // 插入值为null
+        return index_handler_.insert_entry(record + field_meta_.offset(), rid);
+      } else {
+        LOG_WARN("Try to insert exist key on an indexed column.");
+        index_handler_.insert_entry(record + field_meta_.offset(), rid);
+        return RC::RECORD_DUPLICATE_KEY;
+      }
     }
   }
 

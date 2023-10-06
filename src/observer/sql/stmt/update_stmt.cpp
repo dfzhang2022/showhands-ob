@@ -69,6 +69,11 @@ RC UpdateStmt::create(Db *db, const UpdateSqlNode &update_sql, Stmt *&stmt) {
   for (int i = 0; i < value_amount; i++) {
     std::string attr_name = update_sql.update_values.at(i).name;
     str_vec.emplace_back(attr_name);
+    if (update_sql.update_values.at(i).value.attr_type() == NULL_ATTR &&
+        !table->table_meta().field(attr_name.c_str())->nullable()) {
+      LOG_WARN("Try to update un-nullbale attr to null.");
+      return RC::NULL_COMPARE_ERROR;
+    }
     if (update_sql.update_values.at(i).is_right_selects) {
       // right value is select statement
       Stmt *stmt = nullptr;

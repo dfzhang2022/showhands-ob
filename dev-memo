@@ -247,3 +247,33 @@ mysql -h 10.77.30.153 -P 8034 -u root -p 123456
 
 sudo apt install mysql-client-core-8.0
 
+CREATE TABLE null_table5(id int nullable, num int);
+CREATE TABLE null_table5(id int , num int not NULL);
+CREATE UNIQUE INDEX index_id on null_table5(id);
+INSERT INTO null_table5 VALUES(1,1);
+INSERT INTO null_table5 VALUES(1,1);
+INSERT INTO null_table5 VALUES(null,1);
+INSERT INTO null_table5 VALUES(null,2);
+- SUCCESS
++ FAILURE
+
+select * from null_table5
+
+
+=====ORDER BY
+
+select id from t_order_by_3 order by id;
+  ID
+  NULL
++ 5
+  NULL
+  2
+  4
+- 5
+-- below are some requests executed before(partial) --
+create table t_order_by_3(id int nullable, score float);
+insert into t_order_by_3 values(4, 2.1);
+insert into t_order_by_3 values(2, 3.1);
+insert into t_order_by_3 values(null, 4.1);
+insert into t_order_by_3 values(5, 5.1);
+insert into t_order_by_3 values(null,5.5);

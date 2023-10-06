@@ -46,8 +46,8 @@ class ProjectLogicalOperator : public LogicalOperator {
       std::unordered_map<Field *, AggrFuncType> &aggrfunc_queries_map) {
     this->aggrfunc_queries_map_.swap(aggrfunc_queries_map);
   }
-  void add_aggregation_func(Field *fielt_ptr, AggrFuncType type) {
-    this->aggrfunc_queries_map_.insert({fielt_ptr, type});
+  void add_aggregation_func(Field *field_ptr, AggrFuncType type) {
+    this->aggrfunc_queries_map_.insert({field_ptr, type});
   }
   const std::unordered_map<Field *, AggrFuncType> &aggrfunc_queries_map() {
     return aggrfunc_queries_map_;  
