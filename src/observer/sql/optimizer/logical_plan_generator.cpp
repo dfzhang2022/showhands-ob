@@ -239,6 +239,9 @@ RC LogicalPlanGenerator::create_plan(
   }
 
   std::vector<std::string> set_selects_attr_name;
+  for (auto iter : col_name_to_selects) {
+    set_selects_attr_name.push_back(iter.first);
+  }
 
   unique_ptr<UpdateLogicalOperator> update_oper(new UpdateLogicalOperator(
       table, attribute_names, values, set_selects_attr_name));

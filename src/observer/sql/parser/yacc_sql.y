@@ -865,7 +865,11 @@ inner_join_list:
     }
     | inner_join inner_join_list
     {
-      $$ = $2;
+      if($2!=nullptr){
+        $$ = $2;
+      }else{
+        $$ = new JoinedRelationSqlNode;
+      }
       for(auto iter : $1->relations){
         $$->relations.emplace_back(iter);
       }
@@ -878,7 +882,11 @@ inner_join_list:
 join_relation:
     ID inner_join inner_join_list
     {
-      $$ = $3;
+      if($3!=nullptr){
+        $$ = $3;
+      }else{
+        $$ = new JoinedRelationSqlNode;
+      }
       for(auto iter : $2->relations){
         $$->relations.emplace_back(iter);
       }

@@ -325,7 +325,7 @@ RC PhysicalPlanGenerator::create_plan(UpdateLogicalOperator &update_oper,
 
   oper = unique_ptr<UpdatePhysicalOperator>(new UpdatePhysicalOperator(
       update_oper.table(), update_oper.attribute_names(), update_oper.values(),
-      update_oper.attribute_names()));
+      update_oper.set_selects_attr_name()));
 
   if (!update_oper.set_selects_logical_opers().empty()) {
     size_t set_selects_num = update_oper.set_selects_logical_opers().size();
