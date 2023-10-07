@@ -51,6 +51,7 @@ enum class PhysicalOperatorType {
   UPDATE,
   AGGREGATION,
   ORDER_BY,  ///< 进行order by排序
+  GROUP_BY,  ///< 进行group by分组
 };
 
 /**

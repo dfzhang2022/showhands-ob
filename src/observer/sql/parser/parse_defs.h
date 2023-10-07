@@ -84,6 +84,15 @@ struct OrderBySqlNode {
 };
 
 /**
+ * @brief 描述一个group by语句的列名
+ * @ingroup SQLParser
+ * @details
+ */
+struct GroupBySqlNode {
+  std::vector<RelAttrSqlNode*> rel_attrs;  ///< 表名加列名
+};
+
+/**
  * @brief 表示一个条件比较
  * @ingroup SQLParser
  * @details 条件比较就是SQL查询中的 where a>b 这种。
@@ -150,6 +159,8 @@ struct SelectSqlNode {
 
   std::vector<OrderBySqlNode> order_by_sql_nodes;  ///< order by语句
   bool is_in_condition = false;
+
+  std::vector<RelAttrSqlNode> group_by_attributes;  ///< group by 语句
 };
 
 /**

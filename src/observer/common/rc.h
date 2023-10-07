@@ -81,7 +81,8 @@ See the Mulan PSL v2 for more details. */
   DEFINE_RC(AGGR_FUNC_NOT_VALID)         \
   DEFINE_RC(TYPECAST_FAILED)             \
   DEFINE_RC(NULL_COMPARE_ERROR)          \
-  DEFINE_RC(NULL_VALUE_ERROR)
+  DEFINE_RC(NULL_VALUE_ERROR)            \
+  DEFINE_RC(RECORD_END_GROUP)
 
 enum class RC {
 #define DEFINE_RC(name) name,

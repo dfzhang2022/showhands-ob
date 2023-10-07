@@ -104,6 +104,68 @@ RC SelectStmt::create(Db *db, const SelectSqlNode &select_sql, Stmt *&stmt) {
     }
   }
 
+  // 处理group_by语句
+  std::vector<Field> group_by_fields;
+
+  for (int i = static_cast<int>(select_sql.group_by_attributes.size()) - 1;
+       i >= 0; i--) {
+    const RelAttrSqlNode &relation_attr = select_sql.group_by_attributes.at(i);
+
+    const char *table_name = relation_attr.relation_name.c_str();
+    const char *field_name = relation_attr.attribute_name.c_str();
+
+    if (common::is_blank(table_name) && 0 == strcmp(field_name, "*")) {
+      LOG_WARN("Group by clause cannot process * columns.");
+      return RC::INVALID_ARGUMENT;
+    } else if (!common::is_blank(table_name)) {
+      if (0 == strcmp(table_name, "*")) {
+        LOG_WARN("Group by clause cannot process * columns.");
+        return RC::INVALID_ARGUMENT;
+      } else {
+        // 对应"rel.attr"或"rel.*"
+        auto iter = table_map.find(table_name);
+        if (iter == table_map.end()) {
+          LOG_WARN("no such table in from list: %s", table_name);
+          return RC::SCHEMA_FIELD_MISSING;
+        }
+        Table *table = iter->second;
+
+        if (0 == strcmp(field_name, "*")) {
+          // 对应 rel.*
+          LOG_WARN("Order by clause cannot process * columns.");
+          return RC::INVALID_ARGUMENT;
+        } else {
+          // 对应"rel.attr"
+          const FieldMeta *field_meta = table->table_meta().field(field_name);
+          if (nullptr == field_meta) {
+            LOG_WARN("no such field. field=%s.%s.%s", db->name(), table->name(),
+                     field_name);
+            return RC::SCHEMA_FIELD_MISSING;
+          }
+          Field *tmp_field = new Field(table, field_meta);
+          group_by_fields.emplace_back(*tmp_field);
+        }
+      }
+    } else {
+      // 对应 "attr" (没有表名)
+      if (tables.size() != 1) {
+        LOG_WARN("invalid. I do not know the attr's table. attr=%s",
+                 relation_attr.attribute_name.c_str());
+        return RC::SCHEMA_FIELD_MISSING;
+      }
+
+      Table *table = tables[0];
+      const FieldMeta *field_meta = table->table_meta().field(field_name);
+      if (nullptr == field_meta) {
+        LOG_WARN("no such field. field=%s.%s.%s", db->name(), table->name(),
+                 relation_attr.attribute_name.c_str());
+        return RC::SCHEMA_FIELD_MISSING;
+      }
+      Field *tmp_field = new Field(table, field_meta);
+      group_by_fields.emplace_back(*tmp_field);
+    }
+  }
+
   // collect query fields in `select` statement
   std::vector<Field> query_fields;       // 投影列
   std::vector<Field> aggr_query_fields;  // 聚合列
@@ -117,7 +179,9 @@ RC SelectStmt::create(Db *db, const SelectSqlNode &select_sql, Stmt *&stmt) {
     if (select_sql.attributes[i].aggr_func_type != AggrFuncType::NONE)
       aggr_func_count++;
   }
-  if (aggr_func_count != 0 && aggr_func_count != select_sql.attributes.size()) {
+  // 如果聚合列和非聚合列共存 那么非聚合列必须等于在group by的列
+  if (aggr_func_count != 0 && aggr_func_count + group_by_fields.size() !=
+                                  select_sql.attributes.size()) {
     // 若存在聚合函数但又不全是聚合函数
     LOG_WARN("All aggr_func or all not");
     return RC::AGGR_FUNC_NOT_VALID;
@@ -213,12 +277,17 @@ RC SelectStmt::create(Db *db, const SelectSqlNode &select_sql, Stmt *&stmt) {
           }
           query_fields.emplace_back(*tmp_field);
           tmp_field->set_aggr_func_type(relation_attr.aggr_func_type);
-          if (relation_attr.aggr_func_type != AggrFuncType::NONE) {
-            tmp_field->set_alias(
-                std::string(aggr_func_to_str(relation_attr.aggr_func_type)) +
-                '(' + table_name + "." + field_name + ')');
-            tmp_field->set_has_alias(true);
+          if (aggr_func_count != 0) {
+            if (relation_attr.aggr_func_type != AggrFuncType::NONE) {
+              tmp_field->set_alias(
+                  std::string(aggr_func_to_str(relation_attr.aggr_func_type)) +
+                  '(' + table_name + "." + field_name + ')');
+            } else {
+              tmp_field->set_alias(std::string(std::string(table_name) + '.' +
+                                               std::string(field_name)));
+            }
 
+            tmp_field->set_has_alias(true);
             if (select_sql.attributes[i].has_alias) {
               tmp_field->set_alias(select_sql.attributes[i].alias);
             } else if (table->has_alias()) {
@@ -255,10 +324,16 @@ RC SelectStmt::create(Db *db, const SelectSqlNode &select_sql, Stmt *&stmt) {
         tmp_field->set_has_alias(true);
       }
       query_fields.emplace_back(*tmp_field);
-      if (relation_attr.aggr_func_type != AggrFuncType::NONE) {
-        tmp_field->set_alias(
-            std::string(aggr_func_to_str(relation_attr.aggr_func_type)) + "(" +
-            field_meta->name() + ")");
+      if (aggr_func_count != 0) {
+        if (relation_attr.aggr_func_type != AggrFuncType::NONE) {
+          tmp_field->set_alias(
+              std::string(aggr_func_to_str(relation_attr.aggr_func_type)) +
+              "(" + field_meta->name() + ")");
+
+        } else {
+          tmp_field->set_alias(field_meta->name());
+        }
+
         tmp_field->set_has_alias(true);
         if (select_sql.attributes[i].has_alias) {
           tmp_field->set_alias(select_sql.attributes[i].alias);
@@ -357,6 +432,7 @@ RC SelectStmt::create(Db *db, const SelectSqlNode &select_sql, Stmt *&stmt) {
       order_by_fields.emplace_back(*tmp_field);
     }
   }
+
   // everything alright
   SelectStmt *select_stmt = new SelectStmt();
   // TODO add expression copy
@@ -367,6 +443,7 @@ RC SelectStmt::create(Db *db, const SelectSqlNode &select_sql, Stmt *&stmt) {
       aggr_field_to_query_field_map);
   select_stmt->order_by_fields_.swap(order_by_fields);
   select_stmt->order_by_directions_.swap(directions);
+  select_stmt->group_by_fields_.swap(group_by_fields);
   select_stmt->filter_stmt_ = filter_stmt;
   stmt = select_stmt;
   return RC::SUCCESS;

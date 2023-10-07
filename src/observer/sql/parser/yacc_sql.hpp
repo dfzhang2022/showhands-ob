@@ -158,11 +158,12 @@ union YYSTYPE
   RelationSqlNode*                  relation;
   JoinedRelationSqlNode*            join_rel;
   std::vector<JoinedRelationSqlNode>* join_rel_list;
+  GroupBySqlNode*                   group_by;
   char *                            string;
   int                               number;
   float                             floats;
 
-#line 166 "yacc_sql.hpp"
+#line 167 "yacc_sql.hpp"
 
 };
 typedef union YYSTYPE YYSTYPE;

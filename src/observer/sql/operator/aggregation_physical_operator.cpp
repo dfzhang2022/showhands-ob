@@ -19,10 +19,12 @@ RC AggregationPhysicalOperator::open(Trx* trx) {
 }
 
 RC AggregationPhysicalOperator::next() {
-  if (is_dirty_) return RC::RECORD_EOF;
+  if (is_dirty_ && children_[0].get()->type() != PhysicalOperatorType::GROUP_BY)
+    return RC::RECORD_EOF;
   if (children_.empty()) {
     return RC::RECORD_EOF;
   }
+
   RC rc;
   is_dirty_ = true;
   std::vector<Value> values;
@@ -115,12 +117,15 @@ RC AggregationPhysicalOperator::next() {
             is_modified[i]++;
           }
         } break;
-        default:
-          break;
+        default: {
+          tuple->cell_at(aggr_field_to_proj_field_map_[i], tmp_value);
+          values[i].set_value(tmp_value);
+        } break;
       }
     }
     row_index++;
   }
+
   // 处理聚合函数最终结果
   for (size_t i = 0; i < aggregation_fields_.size(); i++) {
     switch (aggregation_fields_[i].get_aggr_func_type()) {
@@ -167,6 +172,8 @@ RC AggregationPhysicalOperator::next() {
     }
   }
   this->tuple_.set_cells(values);
+
+  if (rc == RC::RECORD_END_GROUP) return RC::RECORD_EOF;
   return RC::SUCCESS;
 }
 
