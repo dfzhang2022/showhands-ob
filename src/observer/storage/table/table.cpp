@@ -618,8 +618,16 @@ RC Table::update_record(Record &old_record,
             return RC::NULL_VALUE_ERROR;
           }
         } else if (field_meta.type() != value_vec.at(i).attr_type()) {
-          LOG_WARN("Update value with different type.");
-          return RC::SCHEMA_FIELD_TYPE_MISMATCH;
+          Value tmp_value;
+          tmp_value.set_value(value_vec.at(i));
+          rc = tmp_value.typecast_to(field_meta.type());
+          if (rc != RC::SUCCESS) {
+            LOG_WARN("Update value with different type.");
+            return RC::SCHEMA_FIELD_TYPE_MISMATCH;
+          } else {
+            std::memcpy(new_record->data() + field_meta.offset(),
+                        tmp_value.data(), field_meta.len());
+          }
         } else {
           null_bitmap = null_bitmap & (~(1 << cnt));  // 更新bitmap
           std::memcpy(new_record->data() + field_meta.offset(),
