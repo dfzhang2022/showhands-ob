@@ -92,6 +92,25 @@ struct ConditionSqlNode {
                               ///< TRUE 右边的属性
   Value right_value;  ///< right-hand side value if right_is_attr = FALSE
 };
+/**
+ * @brief 描述一个多表join的表
+ * @ingroup SQLParser
+ * @details 一个多表join应该包含
+ *          t1 inner join t2 [on t1.id = t2.id] [inner join t3 on ...][...]
+ */
+struct JoinedRelationSqlNode {
+  std::vector<std::string> relations;  ///< 将要做join的表
+
+  std::vector<ConditionSqlNode> join_on_conditions;  ///< join on
+};
+
+struct RelationSqlNode {
+  std::string relation;  ///< 查询的表
+
+  // 处理inner join
+  bool has_inner_join = false;
+  JoinedRelationSqlNode inner_join_sql_node;  ///< inner join表
+};
 
 /**
  * @brief 描述一个select语句
@@ -107,7 +126,7 @@ struct ConditionSqlNode {
 
 struct SelectSqlNode {
   std::vector<RelAttrSqlNode> attributes;  ///< attributes in select clause
-  std::vector<std::string> relations;      ///< 查询的表
+  std::vector<RelationSqlNode> relations;  ///< relations in from clause
   std::vector<ConditionSqlNode>
       conditions;  ///< 查询条件，使用AND串联起来多个条件
 
