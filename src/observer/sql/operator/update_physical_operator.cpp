@@ -51,6 +51,7 @@ RC UpdatePhysicalOperator::next() {
     for (size_t i = 0; i < set_select_amount; i++) {
       std::string attr_name = set_selects_attr_name_[i];
       Value tmp_v;
+      int row_cnt = 0;
       while (RC::SUCCESS ==
              (rc = set_selects_physical_opers_[i].get()->next())) {
         Tuple *tuple = set_selects_physical_opers_[i].get()->current_tuple();
@@ -68,10 +69,15 @@ RC UpdatePhysicalOperator::next() {
         }
 
         rc = row_tuple->cell_at(0, tmp_v);
+        row_cnt++;
         if (rc != RC::SUCCESS) {
           LOG_WARN("Get value fault: %s", strrc(rc));
           return rc;
         }
+      }
+      if (row_cnt != 1) {
+        LOG_WARN("Cannot set value to multiple values.");
+        return RC::AGGR_FUNC_NOT_VALID;
       }
 
       // 更新set-select中的值
