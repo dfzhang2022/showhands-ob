@@ -145,6 +145,7 @@ ArithmeticExpr *create_arithmetic_expression(ArithmeticExpr::Type type,
   RelationSqlNode*                  relation;
   JoinedRelationSqlNode*            join_rel;
   std::vector<JoinedRelationSqlNode>* join_rel_list;
+  GroupBySqlNode*                   group_by;
   char *                            string;
   int                               number;
   float                             floats;
@@ -187,6 +188,7 @@ ArithmeticExpr *create_arithmetic_expression(ArithmeticExpr::Type type,
 %type <order_list>          order_by
 %type <order>               order
 %type <order_list>          order_list
+%type <rel_attr_list>       group_by
 %type <aggr_func>           aggregation_func
 %type <sql_node>            calc_stmt
 %type <sql_node>            select_stmt
@@ -620,7 +622,7 @@ set_value:
     }
     ;
 select_stmt:        /*  select 语句的语法解析树*/
-    SELECT select_attr FROM rel_list where order_by
+    SELECT select_attr FROM rel_list where order_by group_by
     {
       $$ = new ParsedSqlNode(SCF_SELECT);
       if ($2 != nullptr) {
@@ -629,7 +631,7 @@ select_stmt:        /*  select 语句的语法解析树*/
       }
      
       $$->selection.relations.swap(*$4);
-      // delete $4;
+      delete $4;
       
       std::reverse($$->selection.relations.begin(), $$->selection.relations.end());
 
@@ -641,7 +643,12 @@ select_stmt:        /*  select 语句的语法解析树*/
         $$->selection.order_by_sql_nodes.swap(*$6);
         delete $6;
       }
-      // free($4);
+
+      if($7 != nullptr){
+        $$->selection.group_by_attributes.swap (*$7);
+        delete $7;
+      }
+
     }
     ;
 calc_stmt:
@@ -1066,6 +1073,22 @@ condition:
 
       // delete $2;
       delete $5;
+    }
+    ;
+
+group_by:
+    {
+      $$ = nullptr;
+    }
+    | GROUP BY rel_attr attr_list {
+      $$ = new std::vector<RelAttrSqlNode>;
+      if ($4 != nullptr) {
+        $$ = $4;
+      } else {
+        $$ = new std::vector<RelAttrSqlNode>;
+      }
+      $$->emplace_back(*$3);
+      delete $3;
     }
     ;
 order_by:

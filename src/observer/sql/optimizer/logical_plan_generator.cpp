@@ -18,6 +18,7 @@ See the Mulan PSL v2 for more details. */
 #include "sql/operator/calc_logical_operator.h"
 #include "sql/operator/delete_logical_operator.h"
 #include "sql/operator/explain_logical_operator.h"
+#include "sql/operator/group_by_logical_operator.h"
 #include "sql/operator/insert_logical_operator.h"
 #include "sql/operator/join_logical_operator.h"
 #include "sql/operator/logical_operator.h"
@@ -92,6 +93,7 @@ RC LogicalPlanGenerator::create_plan(
   const std::vector<Field> &all_fields = select_stmt->query_fields();
   const std::vector<Field> &aggr_fields = select_stmt->aggr_query_fields();
   const std::vector<Field> &order_by_fields = select_stmt->order_by_fields();
+  const std::vector<Field> &group_by_fields = select_stmt->group_by_fields();
   for (Table *table : tables) {
     std::vector<Field> fields;
     for (const Field &field : all_fields) {
@@ -133,34 +135,33 @@ RC LogicalPlanGenerator::create_plan(
       project_oper->add_child(std::move(table_oper));
     }
   }
+
+  unique_ptr<LogicalOperator> root_ptr = std::move(project_oper);
+  if (!group_by_fields.empty()) {
+    // 存在group by
+    unique_ptr<LogicalOperator> group_by_oper(
+        new GroupByLogicalOperator(group_by_fields));
+    group_by_oper->add_child(std::move(root_ptr));
+    root_ptr = std::move(group_by_oper);
+  }
+
   if (!order_by_fields.empty()) {
     // 存在order by
     unique_ptr<LogicalOperator> order_by_oper(new OrderByLogicalOperator(
         order_by_fields, select_stmt->order_by_directions()));
-    order_by_oper->add_child(std::move(project_oper));
-    if (!aggr_fields.empty()) {
-      // 存在聚合函数
-      unique_ptr<LogicalOperator> aggr_oper(new AggregationLogicalOperator(
-          aggr_fields, select_stmt->aggr_field_to_query_field_map()));
-      aggr_oper->add_child(std::move(order_by_oper));
-      logical_operator.swap(aggr_oper);
-
-    } else {
-      logical_operator.swap(order_by_oper);
-    }
-
-  } else {
-    if (!aggr_fields.empty()) {
-      // 存在聚合函数
-      unique_ptr<LogicalOperator> aggr_oper(new AggregationLogicalOperator(
-          aggr_fields, select_stmt->aggr_field_to_query_field_map()));
-      aggr_oper->add_child(std::move(project_oper));
-      logical_operator.swap(aggr_oper);
-
-    } else {
-      logical_operator.swap(project_oper);
-    }
+    order_by_oper->add_child(std::move(root_ptr));
+    root_ptr = std::move(order_by_oper);
   }
+
+  if (!aggr_fields.empty()) {
+    // 存在聚合函数
+    unique_ptr<LogicalOperator> aggr_oper(new AggregationLogicalOperator(
+        aggr_fields, select_stmt->aggr_field_to_query_field_map()));
+    aggr_oper->add_child(std::move(root_ptr));
+    root_ptr = std::move(aggr_oper);
+  }
+  logical_operator.swap(root_ptr);
+
 
   return RC::SUCCESS;
 }

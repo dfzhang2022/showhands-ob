@@ -26,6 +26,8 @@ See the Mulan PSL v2 for more details. */
 #include "sql/operator/delete_physical_operator.h"
 #include "sql/operator/explain_logical_operator.h"
 #include "sql/operator/explain_physical_operator.h"
+#include "sql/operator/group_by_logical_operator.h"
+#include "sql/operator/group_by_physical_operator.h"
 #include "sql/operator/index_scan_physical_operator.h"
 #include "sql/operator/insert_logical_operator.h"
 #include "sql/operator/insert_physical_operator.h"
@@ -66,6 +68,10 @@ RC PhysicalPlanGenerator::create(LogicalOperator &logical_operator,
     case LogicalOperatorType::ORDER_BY: {
       return create_plan(
           static_cast<OrderByLogicalOperator &>(logical_operator), oper);
+    } break;
+    case LogicalOperatorType::GROUP_BY: {
+      return create_plan(
+          static_cast<GroupByLogicalOperator &>(logical_operator), oper);
     } break;
     case LogicalOperatorType::PROJECTION: {
       return create_plan(
@@ -389,7 +395,7 @@ RC PhysicalPlanGenerator::create_plan(JoinLogicalOperator &join_oper,
   vector<unique_ptr<Expression>> &predicates = join_oper.predicates();
   if (predicates.size() == 1) {
     if (predicates.front()->type() == ExprType::COMPARISON) {
-      auto comp_expr = static_cast<ComparisonExpr*>(predicates.front().get());
+      auto comp_expr = static_cast<ComparisonExpr *>(predicates.front().get());
       if (comp_expr->comp() == CompOp::EQUAL_TO) {
         unique_ptr<HashJoinPhysicalOperator> join_physical_oper(
             new HashJoinPhysicalOperator);
@@ -461,5 +467,33 @@ RC PhysicalPlanGenerator::create_plan(OrderByLogicalOperator &order_by_oper,
   }
   oper = unique_ptr<PhysicalOperator>(order_by_operator);
   LOG_TRACE("create an Order_by physical operator");
+  return rc;
+}
+
+RC PhysicalPlanGenerator::create_plan(GroupByLogicalOperator &group_by_oper,
+                                      std::unique_ptr<PhysicalOperator> &oper) {
+  vector<unique_ptr<LogicalOperator>> &child_opers = group_by_oper.children();
+
+  unique_ptr<PhysicalOperator> child_phy_oper;
+  RC rc = RC::SUCCESS;
+  if (!child_opers.empty()) {
+    LogicalOperator *child_oper = child_opers.front().get();
+    rc = create(*child_oper, child_phy_oper);
+    if (rc != RC::SUCCESS) {
+      LOG_WARN(
+          "failed to create project logical operator's child physical "
+          "operator. rc=%s",
+          strrc(rc));
+      return rc;
+    }
+  }
+
+  GroupByPhysicalOperator *group_by_operator =
+      new GroupByPhysicalOperator(group_by_oper.fields());
+  if (child_phy_oper) {
+    group_by_operator->add_child(std::move(child_phy_oper));
+  }
+  oper = unique_ptr<PhysicalOperator>(group_by_operator);
+  LOG_TRACE("create an Group_by physical operator");
   return rc;
 }

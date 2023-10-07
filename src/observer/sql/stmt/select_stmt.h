@@ -48,6 +48,7 @@ class SelectStmt : public Stmt {
     return aggr_query_fields_;
   }
   const std::vector<Field> &order_by_fields() const { return order_by_fields_; }
+  const std::vector<Field> &group_by_fields() const { return group_by_fields_; }
   const std::vector<OrderByDirection> &order_by_directions() const {
     return order_by_directions_;
   }
@@ -73,4 +74,6 @@ class SelectStmt : public Stmt {
   // std::unordered_map<Field *, AggrFuncType> aggrfunc_queries_;
   std::vector<Field> order_by_fields_;
   std::vector<OrderByDirection> order_by_directions_;
+
+  std::vector<Field> group_by_fields_;  // 用于group by
 };
