@@ -220,7 +220,7 @@ RC HashJoinPhysicalOperator::open(Trx *trx) {
   size_t hash;
   std::vector<Tuple*> empty_bucket;
   while((rc = right_->next()) == RC::SUCCESS) {
-    right_tuple_ = right_->current_tuple();
+    right_tuple_ = right_->current_tuple()->clone();
     right_tuple_->find_cell(*tuple_cell_spec, value);
     hash = hasher(value.to_string());
     hash_table_[hash].emplace_back(right_tuple_);
@@ -308,6 +308,9 @@ RC HashJoinPhysicalOperator::left_next() {
   size_t hash;
   left_tuple_ = left_->current_tuple();
   left_tuple_->find_cell(*tuple_cell_spec, value);
+  if (value.attr_type() == AttrType::NULL_ATTR) {
+    return RC::VALUE_NOT_EXISTS;
+  }
   hash = hasher(value.to_string());
   if (!hash_table_.count(hash)) {
     return RC::VALUE_NOT_EXISTS;
