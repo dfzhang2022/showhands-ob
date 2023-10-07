@@ -203,6 +203,8 @@ class ComparisonExpr : public Expression {
   std::unique_ptr<Expression> &left() { return left_; }
   std::unique_ptr<Expression> &right() { return right_; }
 
+  void swap_left_right() { swap(left_, right_); }
+
   /**
    * 尝试在没有tuple的情况下获取当前表达式的值
    * 在优化的时候，可能会使用到

@@ -629,7 +629,7 @@ select_stmt:        /*  select 语句的语法解析树*/
       }
      
       $$->selection.relations.swap(*$4);
-      delete $4;
+      // delete $4;
       
       std::reverse($$->selection.relations.begin(), $$->selection.relations.end());
 
@@ -867,7 +867,7 @@ inner_join_list:
     {
       if($2!=nullptr){
         $$ = $2;
-      }else{
+      }else {
         $$ = new JoinedRelationSqlNode;
       }
       for(auto iter : $1->relations){
@@ -890,9 +890,14 @@ join_relation:
       for(auto iter : $2->relations){
         $$->relations.emplace_back(iter);
       }
-      for(auto iter : $2->join_on_conditions){
-        $$->join_on_conditions.emplace_back(iter);
-      }
+      // $$->relations.insert($$->relations.end(), $2->relations.begin(), $2->relations.end());
+      $$->join_on_conditions.insert($$->join_on_conditions.end(), $2->join_on_conditions.begin(), $2->join_on_conditions.end());
+      // for(auto iter : $2->relations){
+      //   $$->relations.emplace_back(iter);
+      // }
+      // for(auto iter : $2->join_on_conditions){
+      //   $$->join_on_conditions.emplace_back(iter);
+      // }
       $$->relations.push_back($1);
       std::reverse($$->relations.begin(), $$->relations.end());
       std::reverse($$->join_on_conditions.begin(), $$->join_on_conditions.end());

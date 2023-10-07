@@ -118,7 +118,8 @@ RC PhysicalPlanGenerator::create_plan(TableGetLogicalOperator &table_get_oper,
     if (expr->type() == ExprType::COMPARISON) {
       auto comparison_expr = static_cast<ComparisonExpr *>(expr.get());
       // 简单处理，就找等值查询
-      if (comparison_expr->comp() != EQUAL_TO) {
+      // 先不使用索引
+      if (comparison_expr->comp() != NO_OP) {
         continue;
       }
 
@@ -385,7 +386,29 @@ RC PhysicalPlanGenerator::create_plan(JoinLogicalOperator &join_oper,
     return RC::INTERNAL;
   }
 
-  unique_ptr<PhysicalOperator> join_physical_oper(
+  vector<unique_ptr<Expression>> &predicates = join_oper.predicates();
+  if (predicates.size() == 1) {
+    if (predicates.front()->type() == ExprType::COMPARISON) {
+      auto comp_expr = static_cast<ComparisonExpr*>(predicates.front().get());
+      if (comp_expr->comp() == CompOp::EQUAL_TO) {
+        unique_ptr<HashJoinPhysicalOperator> join_physical_oper(
+            new HashJoinPhysicalOperator);
+        for (auto &child_oper : child_opers) {
+          unique_ptr<PhysicalOperator> child_physical_oper;
+          rc = create(*child_oper, child_physical_oper);
+          if (rc != RC::SUCCESS) {
+            LOG_WARN("failed to create physical child oper. rc=%s", strrc(rc));
+            return rc;
+          }
+          join_physical_oper->add_child(std::move(child_physical_oper));
+        }
+        join_physical_oper->set_predicates(std::move(predicates));
+        oper = std::move(join_physical_oper);
+        return rc;
+      }
+    }
+  }
+  unique_ptr<NestedLoopJoinPhysicalOperator> join_physical_oper(
       new NestedLoopJoinPhysicalOperator);
   for (auto &child_oper : child_opers) {
     unique_ptr<PhysicalOperator> child_physical_oper;
@@ -394,11 +417,11 @@ RC PhysicalPlanGenerator::create_plan(JoinLogicalOperator &join_oper,
       LOG_WARN("failed to create physical child oper. rc=%s", strrc(rc));
       return rc;
     }
-
     join_physical_oper->add_child(std::move(child_physical_oper));
   }
-
+  join_physical_oper->set_predicates(std::move(predicates));
   oper = std::move(join_physical_oper);
+
   return rc;
 }
 

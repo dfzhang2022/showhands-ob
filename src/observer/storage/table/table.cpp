@@ -607,10 +607,10 @@ RC Table::update_record(Record &old_record,
             value_vec.at(i).set_null(nullptr, 4);
             // 判断是否为null值
             null_bitmap = null_bitmap | (1 << (cnt - 1));  // 更新bitmap
-            std::memcpy(
+            memcpy(
                 new_record->data() + table_meta_.field("null_bitmap")->offset(),
                 &null_bitmap, table_meta_.field("null_bitmap")->len());
-            std::memcpy(new_record->data() + field_meta.offset(),
+            memcpy(new_record->data() + field_meta.offset(),
                         value_vec.at(i).data(), field_meta.len());
 
           } else {
@@ -630,7 +630,7 @@ RC Table::update_record(Record &old_record,
           }
         } else {
           null_bitmap = null_bitmap & (~(1 << cnt));  // 更新bitmap
-          std::memcpy(new_record->data() + field_meta.offset(),
+          memcpy(new_record->data() + field_meta.offset(),
                       value_vec.at(i).data(),
                       field_meta.len());  // 将旧有的数据地址复制到新的record中
         }

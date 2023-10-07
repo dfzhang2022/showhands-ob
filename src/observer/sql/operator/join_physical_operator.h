@@ -14,6 +14,7 @@ See the Mulan PSL v2 for more details. */
 
 #pragma once
 
+#include <unordered_map>
 #include "sql/operator/physical_operator.h"
 #include "sql/parser/parse.h"
 
@@ -36,6 +37,10 @@ class NestedLoopJoinPhysicalOperator : public PhysicalOperator {
   RC close() override;
   Tuple *current_tuple() override;
 
+  void set_predicates(std::vector<std::unique_ptr<Expression>> &&exprs);
+  std::vector<std::unique_ptr<Expression>> &predicates();
+  RC filter(JoinedTuple &tuple, bool &result);
+
  private:
   RC left_next();   //! 左表遍历下一条数据
   RC right_next();  //! 右表遍历下一条数据，如果上一轮结束了就重新开始新的一轮
@@ -51,6 +56,7 @@ class NestedLoopJoinPhysicalOperator : public PhysicalOperator {
   JoinedTuple joined_tuple_;  //! 当前关联的左右两个tuple
   bool round_done_ = true;    //! 右表遍历的一轮是否结束
   bool right_closed_ = true;  //! 右表算子是否已经关闭
+  std::vector<std::unique_ptr<Expression>> predicates_;
 };
 
 /**
@@ -72,6 +78,10 @@ class HashJoinPhysicalOperator : public PhysicalOperator {
   RC close() override;
   Tuple *current_tuple() override;
 
+  void set_predicates(std::vector<std::unique_ptr<Expression>> &&exprs);
+  std::vector<std::unique_ptr<Expression>> &predicates();
+  RC filter(JoinedTuple &tuple, bool &result);
+
  private:
   RC left_next();   //! 左表遍历下一条数据
   RC right_next();  //! 右表遍历下一条数据，如果上一轮结束了就重新开始新的一轮
@@ -85,5 +95,9 @@ class HashJoinPhysicalOperator : public PhysicalOperator {
   Tuple *right_tuple_ = nullptr;
   JoinedTuple joined_tuple_;  //! 当前关联的左右两个tuple
   bool round_done_ = true;    //! 右表遍历的一轮是否结束
-  bool right_closed_ = true;  //! 右表算子是否已经关闭
+  std::vector<std::unique_ptr<Expression>> predicates_;
+  std::hash<std::string> hasher;
+  std::vector<Tuple *>::iterator iter_;
+  std::vector<Tuple *> current_bin_;
+  std::map<size_t, std::vector<Tuple *>> hash_table_;
 };
