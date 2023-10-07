@@ -24,6 +24,8 @@ See the Mulan PSL v2 for more details. */
 
 class Expression;
 
+struct SelectSqlNode;
+
 /**
  * @defgroup SQLParser SQL Parser
  */
@@ -46,8 +48,8 @@ struct RelAttrSqlNode {
       false;  ///< 一些涉及聚集函数的存在语法错误但需要输出FAILURE 用这个标记
 
   // 别名相关
-  bool is_alias = false;
-  std::string alias;
+  bool has_alias = false;
+  std::string alias = "";
 };
 
 /**
@@ -92,14 +94,18 @@ struct OrderBySqlNode {
 struct ConditionSqlNode {
   int left_is_attr;  ///< TRUE if left-hand side is an attribute
                      ///< 1时，操作符左边是属性名，0时，是属性值
+                     ///< 2时,是select子查询
   Value left_value;          ///< left-hand side value if left_is_attr = FALSE
   RelAttrSqlNode left_attr;  ///< left-hand side attribute
-  CompOp comp;               ///< comparison operator
-  int right_is_attr;         ///< TRUE if right-hand side is an attribute
+  SelectSqlNode* left_selects;  ///< left-hand side select_sql
+  CompOp comp;                  ///< comparison operator
+  int right_is_attr;            ///< TRUE if right-hand side is an attribute
                       ///< 1时，操作符右边是属性名，0时，是属性值
+                      ///< 2时,是select子查询
   RelAttrSqlNode right_attr;  ///< right-hand side attribute if right_is_attr =
                               ///< TRUE 右边的属性
   Value right_value;  ///< right-hand side value if right_is_attr = FALSE
+  SelectSqlNode* right_selects;  ///< right-hand side select_sql
 };
 /**
  * @brief 描述一个多表join的表
@@ -119,6 +125,9 @@ struct RelationSqlNode {
   // 处理inner join
   bool has_inner_join = false;
   JoinedRelationSqlNode inner_join_sql_node;  ///< inner join表
+
+  bool has_alias = false;
+  std::string alias = "";
 };
 
 /**
@@ -148,7 +157,7 @@ struct SelectSqlNode {
  * @ingroup SQLParser
  */
 struct CalcSqlNode {
-  std::vector<Expression *> expressions;  ///< calc clause
+  std::vector<Expression*> expressions;  ///< calc clause
 
   ~CalcSqlNode();
 };
@@ -398,7 +407,7 @@ class ParsedSqlNode {
 class ParsedSqlResult {
  public:
   void add_sql_node(std::unique_ptr<ParsedSqlNode> sql_node);
-  std::vector<std::unique_ptr<ParsedSqlNode>> &sql_nodes() {
+  std::vector<std::unique_ptr<ParsedSqlNode>>& sql_nodes() {
     return sql_nodes_;
   }
 

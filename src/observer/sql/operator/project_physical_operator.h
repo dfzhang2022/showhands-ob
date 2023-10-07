@@ -31,6 +31,8 @@ class ProjectPhysicalOperator : public PhysicalOperator {
 
   }
   void add_projection(const Table *table, const FieldMeta *field);
+  void add_projection(const Table *table, const FieldMeta *field_meta,
+                      const std::string field_alias);
   void add_aggr_func(AggrFuncType type) { aggr_funcs_type_.emplace_back(type); }
   const std::vector<AggrFuncType> aggr_funcs_type() { return aggr_funcs_type_; }
 

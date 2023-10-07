@@ -743,7 +743,9 @@ rel_attr:
       $$->attribute_name = $1;
       free($1);
 
+     
       if($2 !=nullptr){
+        $$->has_alias = true;
         $$->alias = $2;
         free($2);
       }
@@ -754,8 +756,10 @@ rel_attr:
       $$->attribute_name = $3;
       free($1);
       free($3);
+      
 
       if($4 !=nullptr){
+        $$->has_alias = true;
         $$->alias = $4;
         free($4);
       }
@@ -814,15 +818,15 @@ as_alias:
       $$ = nullptr;
     }
     | AS ID{
-      $$ = (char*)malloc(strlen($2));
-      memcpy($$,$2,strlen($2));
+      $$ = (char*)malloc(strlen($2)+1);
+      strcpy($$,$2);
       free($2);
     }
     | AS ID DOT ID{
-      $$ = (char*)malloc(strlen($2)+strlen($4)+1);
-      memcpy($$,$2,strlen($2));
-      memcpy($$+strlen($2),"*",1);
-      memcpy($$+strlen($2)+1,$4,strlen($4));
+      $$ = (char*)malloc(strlen($2)+strlen($4)+2);
+      strcpy($$,$2);
+      strcpy($$+strlen($2),".");
+      strcpy($$+strlen($2)+1,$4);
       free($2);
       free($4);
     }
@@ -890,19 +894,28 @@ join_relation:
     ;
 
 rel_element:
-    ID
+    ID as_alias
     {
       $$ = new RelationSqlNode;
       $$ -> relation = $1;
       $$ -> has_inner_join = false;
-      // free($1);
+      free($1);
+
+      
+      if($2 !=nullptr){
+        $$->alias = $2;
+        $$->has_alias = true;
+        free($2);
+      }
 
     }
-    |join_relation{
+    |join_relation 
+    {
       $$ = new RelationSqlNode;
       $$->inner_join_sql_node = *$1;
       $$ -> has_inner_join = true;
       // delete $1;
+
     }
     ;
 
@@ -995,7 +1008,51 @@ condition:
     }
     | value comp_op LBRACE select_stmt RBRACE
     {
-      
+      $$ = new ConditionSqlNode;
+      $$->left_is_attr = 0;
+      $$->left_value = *$1;
+      $$->right_is_attr =2;
+      // $$->right_selects = static_cast<SelectSqlNode*>($4);
+      $$->comp = $2;
+
+      delete $1;
+      // delete $4;
+    }
+    | rel_attr comp_op LBRACE select_stmt RBRACE
+    {
+      $$ = new ConditionSqlNode;
+      $$->left_is_attr = 1;
+      $$->left_attr = *$1;
+      $$->right_is_attr = 2;
+      // $$->right_selects = static_cast<SelectSqlNode*>($4);
+      $$->comp = $2;
+
+      delete $1;
+      // delete $4;
+    }
+    | LBRACE select_stmt RBRACE comp_op  value
+    {
+      $$ = new ConditionSqlNode;
+      $$->left_is_attr = 2;
+      // $$->left_selects = static_cast<SelectSqlNode*>($2);
+      $$->right_is_attr =0;
+      $$->right_value = *$5;
+      $$->comp = $4;
+
+      // delete $2;
+      delete $5;
+    }
+    | LBRACE select_stmt RBRACE comp_op rel_attr
+    {
+      $$ = new ConditionSqlNode;
+      $$->left_is_attr = 2;
+      // $$->left_selects = static_cast<SelectSqlNode*>($2);
+      $$->right_is_attr = 1;
+      $$->right_attr = *$5;
+      $$->comp = $4;
+
+      // delete $2;
+      delete $5;
     }
     ;
 order_by:

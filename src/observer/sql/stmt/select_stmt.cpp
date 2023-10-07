@@ -31,7 +31,12 @@ static void wildcard_fields(Table *table, std::vector<Field> &field_metas) {
   const TableMeta &table_meta = table->table_meta();
   const int field_num = table_meta.field_num();
   for (int i = table_meta.sys_field_num(); i < field_num; i++) {
-    field_metas.push_back(Field(table, table_meta.field(i)));
+    Field tmp_field(table, table_meta.field(i));
+    if (table->has_alias()) {
+      tmp_field.set_alias(table->get_alias() + "." + tmp_field.field_name());
+      tmp_field.set_has_alias(true);
+    }
+    field_metas.push_back(tmp_field);
   }
 }
 
@@ -46,6 +51,7 @@ RC SelectStmt::create(Db *db, const SelectSqlNode &select_sql, Stmt *&stmt) {
   std::unordered_map<std::string, Table *> table_map;
   for (size_t i = 0; i < select_sql.relations.size(); i++) {
     const char *table_name = select_sql.relations[i].relation.c_str();
+    const char *table_alias = select_sql.relations[i].alias.c_str();
     if (nullptr == table_name) {
       LOG_WARN("invalid argument. relation name is null. index=%d", i);
       return RC::INVALID_ARGUMENT;
@@ -57,6 +63,11 @@ RC SelectStmt::create(Db *db, const SelectSqlNode &select_sql, Stmt *&stmt) {
       return RC::SCHEMA_TABLE_NOT_EXIST;
     }
 
+    if (select_sql.relations[i].has_alias) {
+      table->set_has_alias(true);
+      table->set_alias(select_sql.relations[i].alias);
+      table_map.insert(std::pair<std::string, Table *>(table_alias, table));
+    }
     tables.push_back(table);
     table_map.insert(std::pair<std::string, Table *>(table_name, table));
   }
@@ -99,6 +110,9 @@ RC SelectStmt::create(Db *db, const SelectSqlNode &select_sql, Stmt *&stmt) {
           Field *tmp_field = new Field();
           tmp_field->set_aggr_func_type(AggrFuncType::CNT);
           tmp_field->set_alias("COUNT(*)");
+          if (select_sql.attributes[i].has_alias) {
+            tmp_field->set_alias(select_sql.attributes[i].alias);
+          }
           aggr_query_fields.emplace_back(*tmp_field);
           aggr_field_to_query_field_map[aggr_query_fields.size() - 1] =
               query_fields.size() - 1;
@@ -157,12 +171,29 @@ RC SelectStmt::create(Db *db, const SelectSqlNode &select_sql, Stmt *&stmt) {
             return RC::SCHEMA_FIELD_MISSING;
           }
           Field *tmp_field = new Field(table, field_meta);
+          if (select_sql.attributes[i].has_alias) {
+            tmp_field->set_alias(select_sql.attributes[i].alias);
+            tmp_field->set_has_alias(true);
+
+          } else if (table->has_alias()) {
+            tmp_field->set_alias(table->get_alias() + "." + field_name);
+            tmp_field->set_has_alias(true);
+          }
           query_fields.emplace_back(*tmp_field);
           tmp_field->set_aggr_func_type(relation_attr.aggr_func_type);
           if (relation_attr.aggr_func_type != AggrFuncType::NONE) {
             tmp_field->set_alias(
                 std::string(aggr_func_to_str(relation_attr.aggr_func_type)) +
                 '(' + table_name + "." + field_name + ')');
+            tmp_field->set_has_alias(true);
+
+            if (select_sql.attributes[i].has_alias) {
+              tmp_field->set_alias(select_sql.attributes[i].alias);
+            } else if (table->has_alias()) {
+              tmp_field->set_alias(
+                  std::string(aggr_func_to_str(relation_attr.aggr_func_type)) +
+                  '(' + table->get_alias() + "." + field_name + ')');
+            }
             aggr_query_fields.emplace_back(*tmp_field);
             aggr_field_to_query_field_map[aggr_query_fields.size() - 1] =
                 query_fields.size() - 1;
@@ -187,11 +218,19 @@ RC SelectStmt::create(Db *db, const SelectSqlNode &select_sql, Stmt *&stmt) {
       }
       Field *tmp_field = new Field(table, field_meta);
       tmp_field->set_aggr_func_type(relation_attr.aggr_func_type);
+      if (select_sql.attributes[i].has_alias) {
+        tmp_field->set_alias(select_sql.attributes[i].alias);
+        tmp_field->set_has_alias(true);
+      }
       query_fields.emplace_back(*tmp_field);
       if (relation_attr.aggr_func_type != AggrFuncType::NONE) {
         tmp_field->set_alias(
             std::string(aggr_func_to_str(relation_attr.aggr_func_type)) + "(" +
             field_meta->name() + ")");
+        tmp_field->set_has_alias(true);
+        if (select_sql.attributes[i].has_alias) {
+          tmp_field->set_alias(select_sql.attributes[i].alias);
+        }
         aggr_query_fields.emplace_back(*tmp_field);
         aggr_field_to_query_field_map[aggr_query_fields.size() - 1] =
             query_fields.size() - 1;

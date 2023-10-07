@@ -26,7 +26,11 @@ class Field {
  public:
   Field() = default;
   Field(const Table *table, const FieldMeta *field)
-      : table_(table), field_(field) {}
+      : table_(table), field_(field) {
+    // if (table->has_alias()) {
+    //   this->set_alias(table->get_alias() + "." + field->name());
+    // }
+  }
   Field(const Field &) = default;
 
   const Table *table() const { return table_; }
@@ -45,6 +49,9 @@ class Field {
 
   const AggrFuncType get_aggr_func_type() const { return aggr_func_type_; }
   void set_aggr_func_type(AggrFuncType type) { aggr_func_type_ = type; }
+
+  const bool has_alias() const { return has_alias_; }
+  void set_has_alias(bool flag) { this->has_alias_ = flag; }
   const std::string get_alias() const { return alias_; }
   void set_alias(std::string in_str) { this->alias_ = in_str; }
 
@@ -54,6 +61,8 @@ class Field {
   const Table *table_ = nullptr;
   const FieldMeta *field_ = nullptr;
   AggrFuncType aggr_func_type_ = AggrFuncType::NONE;
+
+  bool has_alias_ = false;
   std::string
       alias_;  // 记录临时需要的别名("目前的一个用法是用作聚合函数输出表头")
 };

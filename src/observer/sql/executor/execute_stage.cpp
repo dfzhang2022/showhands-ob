@@ -84,9 +84,17 @@ RC ExecuteStage::handle_request_with_physical_operator(
       } else {
         for (const Field &field : select_stmt->query_fields()) {
           if (with_table_name) {
-            schema.append_cell(field.table_name(), field.field_name());
+            if (field.has_alias()) {
+              schema.append_cell(field.get_alias().c_str());
+            } else {
+              schema.append_cell(field.table_name(), field.field_name());
+            }
           } else {
-            schema.append_cell(field.field_name());
+            if (field.has_alias()) {
+              schema.append_cell(field.get_alias().c_str());
+            } else {
+              schema.append_cell(field.field_name());
+            }
           }
         }
       }

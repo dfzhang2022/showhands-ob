@@ -121,10 +121,20 @@ class Table {
 
   int get_record_bitmap(Record &old_record);
 
+ public:
+  const bool &has_alias() const { return has_alias_; }
+  void set_has_alias(bool flag) { this->has_alias_ = flag; }
+  const std::string &get_alias() const { return this->alias_; }
+  void set_alias(std::string alias) { this->alias_ = alias; }
+
  private:
   std::string base_dir_;
   TableMeta table_meta_;
   DiskBufferPool *data_buffer_pool_ = nullptr;  /// 数据文件关联的buffer pool
   RecordFileHandler *record_handler_ = nullptr;  /// 记录操作
   std::vector<Index *> indexes_;
+
+  // 别名相关
+  bool has_alias_ = false;  /// 该表是否有别名
+  std::string alias_;       /// 该表别名
 };

@@ -61,6 +61,11 @@ RC get_table_and_field(Db *db, Table *default_table,
     auto iter = tables->find(attr.relation_name);
     if (iter != tables->end()) {
       table = iter->second;
+    } else {
+      iter = tables->find(attr.alias);
+      if (iter != tables->end()) {
+        table = iter->second;
+      }
     }
   } else {
     table = db->find_table(attr.relation_name.c_str());
