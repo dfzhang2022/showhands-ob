@@ -75,14 +75,14 @@ RC PredicatePushdownRewriter::rewrite(std::unique_ptr<LogicalOperator> &oper,
     }
 
     std::unique_ptr<Expression> &predicate_expr = predicate_oper_exprs.front();
-    {
+    /*{
       // 这段代码用于在condition数量小于3时 不进行下推
       ConjunctionExpr *conjunction_expr =
           static_cast<ConjunctionExpr *>(predicate_expr.get());
       std::vector<std::unique_ptr<Expression>> &child_exprs =
           conjunction_expr->children();
       if (child_exprs.size() <= 2) return rc;
-    }
+    }*/
 
     bool pushdown_result = false;
     rc = join_exprs_can_pushdown(join_oper, predicate_expr, pushdown_result);
