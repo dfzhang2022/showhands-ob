@@ -633,7 +633,7 @@ RC Table::update_record(Record &old_record,
             return RC::SCHEMA_FIELD_TYPE_MISMATCH;
           } else {
             LOG_INFO("Typecasting in update clause.");
-            std::memcpy(new_record->data() + field_meta.offset(),
+            memcpy(new_record->data() + field_meta.offset(),
                         tmp_value.data(), field_meta.len());
           }
         } else {
