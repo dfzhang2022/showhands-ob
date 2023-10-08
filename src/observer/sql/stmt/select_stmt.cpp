@@ -50,6 +50,8 @@ RC SelectStmt::create(Db *db, const SelectSqlNode &select_sql, Stmt *&stmt) {
   std::vector<Table *> tables;
   std::unordered_map<std::string, Table *> table_map;
   std::vector<ConditionSqlNode> conditions = select_sql.conditions;
+  std::vector<ConditionSqlNode> having_conditions =
+      select_sql.having_conditions;
   for (size_t i = 0; i < select_sql.relations.size(); i++) {
     const char *table_name = select_sql.relations[i].relation.c_str();
     const char *table_alias = select_sql.relations[i].alias.c_str();
@@ -433,6 +435,18 @@ RC SelectStmt::create(Db *db, const SelectSqlNode &select_sql, Stmt *&stmt) {
     }
   }
 
+  // 存在having子句
+  // create filter statement in `having` statement
+  FilterStmt *having_filter_stmt = nullptr;
+
+  rc = FilterStmt::create(
+      db, default_table, &table_map, having_conditions.data(),
+      static_cast<int>(having_conditions.size()), having_filter_stmt);
+  if (rc != RC::SUCCESS) {
+    LOG_WARN("cannot construct having filter stmt");
+    return rc;
+  }
+
   // everything alright
   SelectStmt *select_stmt = new SelectStmt();
   // TODO add expression copy
@@ -445,6 +459,8 @@ RC SelectStmt::create(Db *db, const SelectSqlNode &select_sql, Stmt *&stmt) {
   select_stmt->order_by_directions_.swap(directions);
   select_stmt->group_by_fields_.swap(group_by_fields);
   select_stmt->filter_stmt_ = filter_stmt;
+  select_stmt->having_filter_stmt_ = having_filter_stmt;
+
   stmt = select_stmt;
   return RC::SUCCESS;
 }

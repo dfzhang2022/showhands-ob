@@ -53,6 +53,7 @@ class SelectStmt : public Stmt {
     return order_by_directions_;
   }
   FilterStmt *filter_stmt() const { return filter_stmt_; }
+  FilterStmt *having_filter_stmt() const { return having_filter_stmt_; }
   // const std::unordered_map<Field *, AggrFuncType> &aggrfunc_queries() {
   //   return aggrfunc_queries_;
   // }
@@ -76,4 +77,6 @@ class SelectStmt : public Stmt {
   std::vector<OrderByDirection> order_by_directions_;
 
   std::vector<Field> group_by_fields_;  // 用于group by
+
+  FilterStmt *having_filter_stmt_ = nullptr;  // 用于having子句
 };

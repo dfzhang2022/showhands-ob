@@ -111,7 +111,11 @@ RC FilterStmt::create_filter_unit(
       return rc;
     }
     FilterObj filter_obj;
-    filter_obj.init_attr(Field(table, field));
+    Field tmp_field(table, field);
+    if (condition.left_attr.is_aggregation_func) {
+      tmp_field.set_aggr_func_type(condition.left_attr.aggr_func_type);
+    }
+    filter_obj.init_attr(tmp_field);
     filter_unit->set_left(filter_obj);
   } else {
     FilterObj filter_obj;
@@ -135,7 +139,11 @@ RC FilterStmt::create_filter_unit(
       return rc;
     }
     FilterObj filter_obj;
-    filter_obj.init_attr(Field(table, field));
+    Field tmp_field(table, field);
+    if (condition.right_attr.is_aggregation_func) {
+      tmp_field.set_aggr_func_type(condition.right_attr.aggr_func_type);
+    }
+    filter_obj.init_attr(tmp_field);
     filter_unit->set_right(filter_obj);
   } else {
     FilterObj filter_obj;

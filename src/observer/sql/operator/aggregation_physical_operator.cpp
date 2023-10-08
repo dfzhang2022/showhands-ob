@@ -15,6 +15,21 @@ RC AggregationPhysicalOperator::open(Trx* trx) {
     return rc;
   }
 
+  std::vector<TupleCellSpec*> speces;
+  for (int i = 0; i < aggregation_fields_.size(); i++) {
+    TupleCellSpec* tmp_cell;
+    if (aggregation_fields_[i].table() == nullptr) {
+      tmp_cell = new TupleCellSpec(nullptr, nullptr,
+                                   aggregation_fields_[i].get_alias().c_str());
+    } else {
+      tmp_cell = new TupleCellSpec(aggregation_fields_[i].table_name(),
+                                   aggregation_fields_[i].field_name(),
+                                   aggregation_fields_[i].get_alias().c_str());
+    }
+    speces.push_back(tmp_cell);
+  }
+  this->tuple_.set_speces(speces);
+
   return RC::SUCCESS;
 }
 

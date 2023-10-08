@@ -160,8 +160,20 @@ RC LogicalPlanGenerator::create_plan(
     aggr_oper->add_child(std::move(root_ptr));
     root_ptr = std::move(aggr_oper);
   }
-  logical_operator.swap(root_ptr);
 
+  // 构造having谓词判断部分
+  unique_ptr<LogicalOperator> having_predicate_oper;
+  rc = create_plan(select_stmt->having_filter_stmt(), having_predicate_oper);
+  if (rc != RC::SUCCESS) {
+    LOG_WARN("failed to create predicate logical plan. rc=%s", strrc(rc));
+    return rc;
+  }
+  if (having_predicate_oper) {
+    having_predicate_oper->add_child(std::move(root_ptr));
+    root_ptr = std::move(having_predicate_oper);
+  }
+
+  logical_operator.swap(root_ptr);
 
   return RC::SUCCESS;
 }
