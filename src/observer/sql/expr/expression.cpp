@@ -19,6 +19,8 @@ See the Mulan PSL v2 for more details. */
 using namespace std;
 
 RC FieldExpr::get_value(const Tuple &tuple, Value &value) const {
+  if (field_.get_aggr_func_type() != AggrFuncType::NONE) {
+  }
   return tuple.find_cell(TupleCellSpec(table_name(), field_name()), value);
 }
 
