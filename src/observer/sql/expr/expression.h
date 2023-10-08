@@ -194,6 +194,24 @@ class ComparisonExpr : public Expression {
 
   ExprType type() const override { return ExprType::COMPARISON; }
 
+  ExprType left_type() const { return left_->type(); }
+  ExprType right_type() const { return right_->type(); }
+
+  Field *left_field() const {
+    if (left_type() == ExprType::FIELD) {
+      return &static_cast<FieldExpr *>(left_.get())->field();
+    } else {
+      return nullptr;
+    }
+  }
+  Field *right_field() const {
+    if (right_type() == ExprType::FIELD) {
+      return &static_cast<FieldExpr *>(right_.get())->field();
+    } else {
+      return nullptr;
+    }
+  }
+
   RC get_value(const Tuple &tuple, Value &value) const override;
 
   AttrType value_type() const override { return BOOLEANS; }
@@ -223,6 +241,15 @@ class ComparisonExpr : public Expression {
     }
     swap(left_, right_);
   }
+  ComparisonExpr *clone();
+
+  void set_left_expr(std::unique_ptr<Expression> exp) {
+    left_ = std::move(exp);
+  }
+  void set_right_expr(std::unique_ptr<Expression> exp) {
+    right_ = std::move(exp);
+  }
+
 
   /**
    * 尝试在没有tuple的情况下获取当前表达式的值

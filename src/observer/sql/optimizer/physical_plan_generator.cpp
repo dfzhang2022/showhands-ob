@@ -272,6 +272,12 @@ RC PhysicalPlanGenerator::create_plan(AggregationLogicalOperator &aggr_oper,
   AggregationPhysicalOperator *aggr_operator = new AggregationPhysicalOperator(
       aggr_fields, aggr_field_to_proj_field_map);
 
+  std::vector<std::unique_ptr<Expression>> &exprs = aggr_oper.expressions();
+  for (size_t i = 0; i < exprs.size(); i++) {
+    unique_ptr<Expression> expression = std::move(exprs.at(i));
+    aggr_operator->add_expression(std::move(expression));
+  }
+
   if (child_phy_oper) {
     aggr_operator->add_child(std::move(child_phy_oper));
   }

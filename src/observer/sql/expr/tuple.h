@@ -461,13 +461,21 @@ class ExpressionTuple : public Tuple {
 class ValueListTuple : public Tuple {
  public:
   ValueListTuple() = default;
-  virtual ~ValueListTuple() = default;
+  virtual ~ValueListTuple() {
+    for (TupleCellSpec *spec : speces_) {
+      delete spec;
+    }
+    speces_.clear();
+  }
   ValueListTuple *clone() override {
     // TODO
     return nullptr;
   }
 
   void set_cells(const std::vector<Value> &cells) { cells_ = cells; }
+  void set_speces(const std::vector<TupleCellSpec *> &speces) {
+    speces_ = speces;
+  }
 
   virtual int cell_num() const override {
     return static_cast<int>(cells_.size());
@@ -483,10 +491,16 @@ class ValueListTuple : public Tuple {
   }
 
   virtual RC find_cell(const TupleCellSpec &spec, Value &cell) const override {
-    return RC::INTERNAL;
+    for (size_t i = 0; i < speces_.size(); i++) {
+      if (speces_.at(i)->compareTo(spec)) {
+        return cell_at(i, cell);
+      }
+    }
+    return RC::NOTFOUND;
   }
 
  private:
+  std::vector<TupleCellSpec *> speces_;
   std::vector<Value> cells_;
 };
 

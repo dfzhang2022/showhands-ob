@@ -161,6 +161,9 @@ struct SelectSqlNode {
   bool is_in_condition = false;
 
   std::vector<RelAttrSqlNode> group_by_attributes;  ///< group by 语句
+
+  std::vector<ConditionSqlNode>
+      having_conditions;  ///< having子句条件，使用AND串联起来多个条件
 };
 
 /**

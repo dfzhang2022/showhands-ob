@@ -19,6 +19,8 @@ See the Mulan PSL v2 for more details. */
 using namespace std;
 
 RC FieldExpr::get_value(const Tuple &tuple, Value &value) const {
+  if (field_.get_aggr_func_type() != AggrFuncType::NONE) {
+  }
   return tuple.find_cell(TupleCellSpec(table_name(), field_name()), value);
 }
 
@@ -149,6 +151,34 @@ RC ComparisonExpr::compare_value(const Value &left, const Value &right,
   }
 
   return rc;
+}
+
+ComparisonExpr *ComparisonExpr::clone() {
+  std::unique_ptr<Expression> new_left;
+  std::unique_ptr<Expression> new_right;
+
+  if (left_type() == ExprType::FIELD) {
+    Field *tmp_field = left_field();
+    new_left = std::move(unique_ptr<Expression>(
+        static_cast<Expression *>(new FieldExpr(*tmp_field))));
+  } else {
+    Value tmp_value = static_cast<ValueExpr *>(left().get())->get_value();
+    new_left = std::move(unique_ptr<Expression>(
+        static_cast<Expression *>(new ValueExpr(tmp_value))));
+  }
+
+  if (right_type() == ExprType::FIELD) {
+    Field *tmp_field = right_field();
+    new_right = std::move(unique_ptr<Expression>(
+        static_cast<Expression *>(new FieldExpr(*tmp_field))));
+  } else {
+    Value tmp_value = static_cast<ValueExpr *>(right().get())->get_value();
+    new_right = std::move(unique_ptr<Expression>(
+        static_cast<Expression *>(new ValueExpr(tmp_value))));
+  }
+
+  return new ComparisonExpr(this->comp(), std::move(new_left),
+                            std::move(new_right));
 }
 
 RC ComparisonExpr::try_get_value(Value &cell) const {

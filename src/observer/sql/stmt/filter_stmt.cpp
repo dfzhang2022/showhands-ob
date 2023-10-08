@@ -104,15 +104,31 @@ RC FilterStmt::create_filter_unit(
   if (condition.left_is_attr) {
     Table *table = nullptr;
     const FieldMeta *field = nullptr;
-    rc = get_table_and_field(db, default_table, tables, condition.left_attr,
-                             table, field);
-    if (rc != RC::SUCCESS) {
-      LOG_WARN("cannot find attr");
-      return rc;
+    if (condition.left_attr.is_aggregation_func &&
+        condition.left_attr.aggr_func_type == AggrFuncType::CNT &&
+        0 == strcmp("*", condition.left_attr.attribute_name.c_str())) {
+      // 对于COUNT(*)>value做单独的处理
+      FilterObj filter_obj;
+      Field tmp_field;
+      tmp_field.set_aggr_func_type(condition.left_attr.aggr_func_type);
+      filter_obj.init_attr(tmp_field);
+      filter_unit->set_left(filter_obj);
+    } else {
+      rc = get_table_and_field(db, default_table, tables, condition.left_attr,
+                               table, field);
+      if (rc != RC::SUCCESS) {
+        LOG_WARN("cannot find attr");
+        return rc;
+      }
+      FilterObj filter_obj;
+      Field tmp_field(table, field);
+      if (condition.left_attr.is_aggregation_func) {
+        tmp_field.set_aggr_func_type(condition.left_attr.aggr_func_type);
+      }
+      filter_obj.init_attr(tmp_field);
+      filter_unit->set_left(filter_obj);
     }
-    FilterObj filter_obj;
-    filter_obj.init_attr(Field(table, field));
-    filter_unit->set_left(filter_obj);
+
   } else {
     FilterObj filter_obj;
     filter_obj.init_value(condition.left_value);
@@ -128,15 +144,30 @@ RC FilterStmt::create_filter_unit(
   if (condition.right_is_attr) {
     Table *table = nullptr;
     const FieldMeta *field = nullptr;
-    rc = get_table_and_field(db, default_table, tables, condition.right_attr,
-                             table, field);
-    if (rc != RC::SUCCESS) {
-      LOG_WARN("cannot find attr");
-      return rc;
+    if (condition.right_attr.is_aggregation_func &&
+        condition.right_attr.aggr_func_type == AggrFuncType::CNT &&
+        0 == strcmp("*", condition.right_attr.attribute_name.c_str())) {
+      // 对于COUNT(*)>value做单独的处理
+      FilterObj filter_obj;
+      Field tmp_field;
+      tmp_field.set_aggr_func_type(condition.right_attr.aggr_func_type);
+      filter_obj.init_attr(tmp_field);
+      filter_unit->set_right(filter_obj);
+    } else {
+      rc = get_table_and_field(db, default_table, tables, condition.right_attr,
+                               table, field);
+      if (rc != RC::SUCCESS) {
+        LOG_WARN("cannot find attr");
+        return rc;
+      }
+      FilterObj filter_obj;
+      Field tmp_field(table, field);
+      if (condition.right_attr.is_aggregation_func) {
+        tmp_field.set_aggr_func_type(condition.right_attr.aggr_func_type);
+      }
+      filter_obj.init_attr(tmp_field);
+      filter_unit->set_right(filter_obj);
     }
-    FilterObj filter_obj;
-    filter_obj.init_attr(Field(table, field));
-    filter_unit->set_right(filter_obj);
   } else {
     FilterObj filter_obj;
     filter_obj.init_value(condition.right_value);

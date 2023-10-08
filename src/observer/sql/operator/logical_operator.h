@@ -64,6 +64,9 @@ class LogicalOperator {
   std::vector<std::unique_ptr<Expression>> &expressions() {
     return expressions_;
   }
+  void add_expression(std::unique_ptr<Expression> expression) {
+    expressions_.emplace_back(std::move(expression));
+  }
 
  protected:
   std::vector<std::unique_ptr<LogicalOperator>> children_;  ///< 子算子

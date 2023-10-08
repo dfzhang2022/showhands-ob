@@ -157,11 +157,49 @@ RC LogicalPlanGenerator::create_plan(
     // 存在聚合函数
     unique_ptr<LogicalOperator> aggr_oper(new AggregationLogicalOperator(
         aggr_fields, select_stmt->aggr_field_to_query_field_map()));
+
+    // 收集having子句谓词
+    std::vector<unique_ptr<Expression>> cmp_exprs;
+    const std::vector<FilterUnit *> &filter_units =
+        select_stmt->having_filter_stmt()->filter_units();
+    for (const FilterUnit *filter_unit : filter_units) {
+      const FilterObj &filter_obj_left = filter_unit->left();
+      const FilterObj &filter_obj_right = filter_unit->right();
+
+      unique_ptr<Expression> left(
+          filter_obj_left.is_attr
+              ? static_cast<Expression *>(new FieldExpr(filter_obj_left.field))
+              : static_cast<Expression *>(
+                    new ValueExpr(filter_obj_left.value)));
+
+      unique_ptr<Expression> right(
+          filter_obj_right.is_attr
+              ? static_cast<Expression *>(new FieldExpr(filter_obj_right.field))
+              : static_cast<Expression *>(
+                    new ValueExpr(filter_obj_right.value)));
+
+      unique_ptr<ComparisonExpr> cmp_expr(new ComparisonExpr(
+          filter_unit->comp(), std::move(left), std::move(right)));
+      aggr_oper->add_expression(std::move(cmp_expr));
+    }
+
     aggr_oper->add_child(std::move(root_ptr));
     root_ptr = std::move(aggr_oper);
   }
-  logical_operator.swap(root_ptr);
 
+  // // 构造having谓词判断部分
+  // unique_ptr<LogicalOperator> having_predicate_oper;
+  // rc = create_plan(select_stmt->having_filter_stmt(), having_predicate_oper);
+  // if (rc != RC::SUCCESS) {
+  //   LOG_WARN("failed to create predicate logical plan. rc=%s", strrc(rc));
+  //   return rc;
+  // }
+  // if (having_predicate_oper) {
+  //   having_predicate_oper->add_child(std::move(root_ptr));
+  //   root_ptr = std::move(having_predicate_oper);
+  // }
+
+  logical_operator.swap(root_ptr);
 
   return RC::SUCCESS;
 }

@@ -95,6 +95,7 @@ ArithmeticExpr *create_arithmetic_expression(ArithmeticExpr::Type type,
         ORDER
         GROUP
         BY
+        HAVING
         SET
         ON
         LIKE_MARK
@@ -173,6 +174,7 @@ ArithmeticExpr *create_arithmetic_expression(ArithmeticExpr::Type type,
 %type <value_list>          value_list
 %type <condition_list>      where
 %type <condition_list>      condition_list
+%type <condition_list>      having_clause
 %type <rel_attr_list>       select_attr
 %type <relation_list>       rel_list
 %type <relation>            rel_element
@@ -654,7 +656,7 @@ set_value:
     }
     ;
 select_stmt:        /*  select 语句的语法解析树*/
-    SELECT select_attr FROM rel_list where order_by group_by
+    SELECT select_attr FROM rel_list where order_by group_by having_clause
     {
       $$ = new ParsedSqlNode(SCF_SELECT);
       if ($2 != nullptr) {
@@ -679,6 +681,10 @@ select_stmt:        /*  select 语句的语法解析树*/
       if($7 != nullptr){
         $$->selection.group_by_attributes.swap (*$7);
         delete $7;
+      }
+      if ($8 != nullptr) {
+        $$->selection.having_conditions.swap(*$8);
+        delete $8;
       }
 
     }
@@ -993,6 +999,16 @@ where:
       $$ = $2;  
     }
     ;
+having_clause:
+    /* empty */
+    {
+      $$ = nullptr;
+    }
+    | HAVING condition_list {
+      $$ = $2;  
+    }
+    ;
+
 condition_list:
     /* empty */
     {

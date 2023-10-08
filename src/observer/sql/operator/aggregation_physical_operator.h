@@ -19,10 +19,9 @@ class AggregationPhysicalOperator : public PhysicalOperator {
   }
   virtual ~AggregationPhysicalOperator() = default;
 
-  void add_expressions(std::vector<std::unique_ptr<Expression>> &&expressions) {
-
+  void add_expression(std::unique_ptr<Expression> expression) {
+    cmp_exprs_.emplace_back(std::move(expression));
   }
-
   PhysicalOperatorType type() const override {
     return PhysicalOperatorType::AGGREGATION;
   }
@@ -46,4 +45,6 @@ class AggregationPhysicalOperator : public PhysicalOperator {
   std::map<int, int>
       aggr_field_to_proj_field_map_;  // 用于记录聚合列指向投影之后的哪一列
   bool is_dirty_ = false;
+
+  std::vector<std::unique_ptr<Expression>> cmp_exprs_;
 };
