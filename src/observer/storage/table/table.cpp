@@ -622,8 +622,10 @@ RC Table::update_record(Record &old_record,
             // 这里是因为有一个测试样例 想往int类型的列插入'N01'
             // 实际上这里应该是可以合法, 插入0,但是样例给的是不通过
             // 在线测试又会有向int列更新浮点数的操作...总之在这里特判了
-            LOG_WARN("Update value with different type.");
-            return RC::SCHEMA_FIELD_TYPE_MISMATCH;
+            if (field_meta.type() != AttrType::TEXTS) {
+              LOG_WARN("Update value with different type.");
+              return RC::SCHEMA_FIELD_TYPE_MISMATCH;
+            }
           }
           Value tmp_value;
           tmp_value.set_value(value_vec.at(i));

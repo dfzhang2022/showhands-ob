@@ -232,6 +232,9 @@ void Value::set_data(char *data, int length) {
       num_value_.date_value_ = *(int *)data;
       length_ = length;
     } break;
+    case TEXTS: {
+      set_text(data, length);
+    } break;
     case NULL_ATTR: {
       length_ = length;
     }
@@ -277,6 +280,17 @@ void Value::set_string(const char *s, int len /*= 0*/) {
   }
   length_ = str_value_.length();
 }
+void Value::set_text(const char *s, int len /*= 0*/) {
+  attr_type_ = TEXTS;
+  len = MAX_TEXT_LENGTH;
+  if (len > 0) {
+    len = strnlen(s, len);
+    str_value_.assign(s, len);
+  } else {
+    str_value_.assign(s);
+  }
+  length_ = str_value_.length();
+}
 
 void Value::set_like_string(const char *s, int len /*= 0*/) {
   attr_type_ = LIKE_STR;
@@ -308,6 +322,9 @@ void Value::set_value(const Value &value) {
     } break;
     case DATES: {
       set_date(value.get_date());
+    } break;
+    case TEXTS: {
+      set_text(value.get_string().c_str());
     } break;
     case NULL_ATTR: {
       set_null(nullptr);
@@ -342,6 +359,10 @@ RC Value::add_value(const Value &value) {
       LOG_ERROR("Cannot add a string to another.");
       rc = RC::INVALID_ARGUMENT;
     } break;
+    case TEXTS: {
+      LOG_ERROR("Cannot add a text to another.");
+      rc = RC::INVALID_ARGUMENT;
+    } break;
     case BOOLEANS: {
       LOG_ERROR("Cannot add a bool to another.");
       rc = RC::INVALID_ARGUMENT;
@@ -360,6 +381,9 @@ RC Value::add_value(const Value &value) {
 const char *Value::data() const {
   switch (attr_type_) {
     case CHARS: {
+      return str_value_.c_str();
+    } break;
+    case TEXTS: {
       return str_value_.c_str();
     } break;
     case NULL_ATTR: {
@@ -391,6 +415,9 @@ std::string Value::to_string() const {
     } break;
     case DATES: {
       os << date_to_str(num_value_.date_value_);
+    } break;
+    case TEXTS: {
+      os << str_value_;
     } break;
     case NULL_ATTR: {
       os << "null";
@@ -467,6 +494,14 @@ RC Value::typecast_to(AttrType dest_type) {
         (char *)std::to_string(this->num_value_.int_value_).c_str();
     this->set_string(this_data, strlen(this_data));
     rc = RC::SUCCESS;
+  } else if (this->attr_type_ == AttrType::CHARS &&
+              dest_type == AttrType::TEXTS) {
+    this->set_text(this->data());
+    rc = RC::SUCCESS;
+  } else if (this->attr_type_ == AttrType::TEXTS &&
+              dest_type == AttrType::CHARS) {
+    this->set_string(this->data());
+    rc = RC::SUCCESS;
   } else if (dest_type == AttrType::NULL_ATTR) {
     // this->set_null(this_data, strlen(this_data));
     rc = RC::SUCCESS;
@@ -500,6 +535,11 @@ RC Value::compare(const Value &other, int &cmp_result) const {
       case DATES: {
         cmp_result = common::compare_int((void *)&this->num_value_.date_value_,
                                          (void *)&other.num_value_.date_value_);
+      } break;
+      case TEXTS: {
+        cmp_result = common::compare_string(
+            (void *)this->str_value_.c_str(), this->str_value_.length(),
+            (void *)other.str_value_.c_str(), other.str_value_.length());
       } break;
       case NULL_ATTR: {
         cmp_result = 0;
@@ -605,6 +645,11 @@ int Value::compare(const Value &other) const {
         return common::compare_int((void *)&this->num_value_.date_value_,
                                    (void *)&other.num_value_.date_value_);
       }
+      case TEXTS: {
+        return common::compare_string(
+            (void *)this->str_value_.c_str(), this->str_value_.length(),
+            (void *)other.str_value_.c_str(), other.str_value_.length());
+      } break;
       case NULL_ATTR: {
         return 0;
       }
@@ -702,6 +747,15 @@ int Value::get_int() const {
         return 0;
       }
     }
+    case TEXTS: {
+      try {
+        return (int)(std::stol(str_value_));
+      } catch (std::exception const &ex) {
+        LOG_TRACE("failed to convert string to number. s=%s, ex=%s",
+                  str_value_.c_str(), ex.what());
+        return 0;
+      }
+    }
     case INTS: {
       return num_value_.int_value_;
     }
@@ -725,6 +779,15 @@ int Value::get_int() const {
 float Value::get_float() const {
   switch (attr_type_) {
     case CHARS: {
+      try {
+        return std::stof(str_value_);
+      } catch (std::exception const &ex) {
+        LOG_TRACE("failed to convert string to float. s=%s, ex=%s",
+                  str_value_.c_str(), ex.what());
+        return 0.0;
+      }
+    } break;
+    case TEXTS: {
       try {
         return std::stof(str_value_);
       } catch (std::exception const &ex) {
@@ -774,6 +837,25 @@ bool Value::get_boolean() const {
         return !str_value_.empty();
       }
     } break;
+    case TEXTS: {
+      try {
+        float val = std::stof(str_value_);
+        if (val >= EPSILON || val <= -EPSILON) {
+          return true;
+        }
+
+        int int_val = std::stol(str_value_);
+        if (int_val != 0) {
+          return true;
+        }
+
+        return !str_value_.empty();
+      } catch (std::exception const &ex) {
+        LOG_TRACE("failed to convert string to float or integer. s=%s, ex=%s",
+                  str_value_.c_str(), ex.what());
+        return !str_value_.empty();
+      }
+    } break;
     case INTS: {
       return num_value_.int_value_ != 0;
     } break;
@@ -795,6 +877,15 @@ bool Value::get_boolean() const {
 int Value::get_date() const {
   switch (attr_type_) {
     case CHARS: {
+      try {
+        return (int)(std::stol(str_value_));
+      } catch (std::exception const &ex) {
+        LOG_TRACE("failed to convert string to number. s=%s, ex=%s",
+                  str_value_.c_str(), ex.what());
+        return 0;
+      }
+    }
+    case TEXTS: {
       try {
         return (int)(std::stol(str_value_));
       } catch (std::exception const &ex) {

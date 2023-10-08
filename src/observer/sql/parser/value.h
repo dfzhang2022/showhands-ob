@@ -27,6 +27,8 @@ See the Mulan PSL v2 for more details. */
 
 // #include "./date.h"
 
+#define MAX_TEXT_LENGTH 4096
+
 enum AggrFuncType { NONE, MAX, MIN, CNT, AVG, SUM };
 const char *aggr_func_to_str(AggrFuncType type_in);
 
@@ -89,6 +91,7 @@ class Value {
   void set_like_string(const char *s, int len = 0);
   void set_null(const char *s, int len = 0);
   void set_date(int val);
+  void set_text(const char *s, int len = 0);
   void set_value(const Value &value);
   RC add_value(const Value &value);
 
