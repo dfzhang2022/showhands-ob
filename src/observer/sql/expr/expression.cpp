@@ -153,6 +153,34 @@ RC ComparisonExpr::compare_value(const Value &left, const Value &right,
   return rc;
 }
 
+ComparisonExpr *ComparisonExpr::clone() {
+  std::unique_ptr<Expression> new_left;
+  std::unique_ptr<Expression> new_right;
+
+  if (left_type() == ExprType::FIELD) {
+    Field *tmp_field = left_field();
+    new_left = std::move(unique_ptr<Expression>(
+        static_cast<Expression *>(new FieldExpr(*tmp_field))));
+  } else {
+    Value tmp_value = static_cast<ValueExpr *>(left().get())->get_value();
+    new_left = std::move(unique_ptr<Expression>(
+        static_cast<Expression *>(new ValueExpr(tmp_value))));
+  }
+
+  if (right_type() == ExprType::FIELD) {
+    Field *tmp_field = right_field();
+    new_right = std::move(unique_ptr<Expression>(
+        static_cast<Expression *>(new FieldExpr(*tmp_field))));
+  } else {
+    Value tmp_value = static_cast<ValueExpr *>(right().get())->get_value();
+    new_right = std::move(unique_ptr<Expression>(
+        static_cast<Expression *>(new ValueExpr(tmp_value))));
+  }
+
+  return new ComparisonExpr(this->comp(), std::move(new_left),
+                            std::move(new_right));
+}
+
 RC ComparisonExpr::try_get_value(Value &cell) const {
   if (left_->type() == ExprType::VALUE && right_->type() == ExprType::VALUE) {
     ValueExpr *left_value_expr = static_cast<ValueExpr *>(left_.get());
