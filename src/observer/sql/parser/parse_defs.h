@@ -30,6 +30,21 @@ struct SelectSqlNode;
  * @defgroup SQLParser SQL Parser
  */
 
+struct relationAttributeName {
+  bool with_table_name = true;
+  std::string table_name;
+  std::string attr_name;
+};
+
+struct FunctionMetaInfo {
+  bool is_length_of_attr = false;
+  std::string length_str;  ///< for LENGTH("constant string");
+
+  int round_type = 0;  ///< for ROUND(rel_attr,x)
+
+  std::string date_format_str = "";  ///< for DATE_FOMATE("str","format");
+};
+
 /**
  * @brief 描述一个属性
  * @ingroup SQLParser
@@ -44,12 +59,21 @@ struct RelAttrSqlNode {
   // 聚合函数相关
   bool is_aggregation_func = false;
   AggrFuncType aggr_func_type = AggrFuncType::NONE;
+
+  bool is_function = false;
+  FunctionType function_type = FunctionType::NONE_FUNC;
+  FunctionMetaInfo function_meta_info;
+
   bool is_syntax_error =
       false;  ///< 一些涉及聚集函数的存在语法错误但需要输出FAILURE 用这个标记
 
   // 别名相关
   bool has_alias = false;
   std::string alias = "";
+
+  // 是否是常数
+  bool is_constant_value = false;
+  Value constant_value;
 };
 
 /**

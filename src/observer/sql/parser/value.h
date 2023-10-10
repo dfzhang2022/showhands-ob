@@ -34,6 +34,8 @@ const char *aggr_func_to_str(AggrFuncType type_in);
 
 enum OrderByDirection { ASC_ORDER, DESC_ORDER };
 
+enum FunctionType { NONE_FUNC, LENGTH_FUNC, ROUND_FUNC, DATE_FORMAT_FUNC };
+
 /**
  * @brief 属性的类型
  *
