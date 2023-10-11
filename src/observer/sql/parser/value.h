@@ -14,10 +14,10 @@ See the Mulan PSL v2 for more details. */
 
 #pragma once
 
+#include <math.h>
 #include <stdlib.h>
 
 #include <iostream>
-// #include <regex>
 #include <sstream>
 #include <string>
 
@@ -35,6 +35,7 @@ const char *aggr_func_to_str(AggrFuncType type_in);
 enum OrderByDirection { ASC_ORDER, DESC_ORDER };
 
 enum FunctionType { NONE_FUNC, LENGTH_FUNC, ROUND_FUNC, DATE_FORMAT_FUNC };
+const char *func_to_str(FunctionType type_in);
 
 /**
  * @brief 属性的类型
@@ -54,6 +55,9 @@ enum AttrType {
 
 const char *attr_type_to_string(AttrType type);
 AttrType attr_type_from_string(const char *s);
+
+float roundToDecimalPlaces(float number, float decimalPlaces);
+float customRound(float x, int y);
 
 /**
  * @brief 属性的值

@@ -316,7 +316,19 @@ class RowTuple : public Tuple {
       const FieldExpr *field_expr = speces_[i];
       const Field &field = field_expr->field();
       if (0 == strcmp(field_name, field.field_name())) {
-        return cell_at(i, cell);
+        RC rc = cell_at(i, cell);
+        if (spec.get_func_type() == FunctionType::LENGTH_FUNC &&
+            cell.attr_type() == AttrType::CHARS) {
+          std::string tmp_str = cell.get_string();
+          cell.set_int(tmp_str.length());
+        } else if (spec.get_func_type() == FunctionType::ROUND_FUNC &&
+                   cell.attr_type() == AttrType::FLOATS) {
+          int round_pos = spec.get_func_info().round_type;
+          float tmp_float = customRound(cell.get_float(), round_pos);
+          cell.set_float(tmp_float);
+        }
+
+        return rc;
       }
     }
     return RC::NOTFOUND;
@@ -397,11 +409,21 @@ class ProjectTuple : public Tuple {
     }
 
     const TupleCellSpec *spec = speces_[index];
-    return tuple_->find_cell(*spec, cell);
+    if (spec->is_constant_value()) {
+      cell.set_value(spec->get_constant_value());
+      return RC::SUCCESS;
+    } else {
+      return tuple_->find_cell(*spec, cell);
+    }
   }
 
   RC find_cell(const TupleCellSpec &spec, Value &cell) const override {
-    return tuple_->find_cell(spec, cell);
+    if (spec.is_constant_value()) {
+      cell.set_value(spec.get_constant_value());
+      return RC::SUCCESS;
+    } else {
+      return tuple_->find_cell(spec, cell);
+    }
   }
 
 #if 0

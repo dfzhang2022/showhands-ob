@@ -232,13 +232,21 @@ RC PhysicalPlanGenerator::create_plan(ProjectLogicalOperator &project_oper,
 
   ProjectPhysicalOperator *project_operator = new ProjectPhysicalOperator;
   const vector<Field> &project_fields = project_oper.fields();
-  for (const Field &field : project_fields) {
-    if (field.has_alias()) {
-      project_operator->add_projection(field.table(), field.meta(),
-                                       field.get_alias());
-    } else {
-      project_operator->add_projection(field.table(), field.meta());
-    }
+  for (int i = 0; i < project_fields.size(); i++) {
+    Field *field = const_cast<Field *>(&project_fields.at(i));
+    TupleCellSpec *tmp_cell;
+    tmp_cell = new TupleCellSpec(field);
+    // if (field->has_alias()) {
+    //   tmp_cell =
+    //       new TupleCellSpec(field->table()->name(), field->meta()->name(),
+    //                         field->get_alias().c_str());
+
+    // } else {
+    //   tmp_cell =
+    //       new TupleCellSpec(field->table()->name(), field->meta()->name());
+    // }
+    // tmp_cell->set_func_type(field->get_func_type());
+    project_operator->add_projection(*tmp_cell);
   }
   if (child_phy_oper) {
     project_operator->add_child(std::move(child_phy_oper));

@@ -168,9 +168,10 @@ union YYSTYPE
   char *                            string;
   int                               number;
   float                             floats;
+  bool		                          boolean;
             
 
-#line 174 "yacc_sql.hpp"
+#line 175 "yacc_sql.hpp"
 
 };
 typedef union YYSTYPE YYSTYPE;

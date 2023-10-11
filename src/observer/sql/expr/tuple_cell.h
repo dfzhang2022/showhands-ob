@@ -14,9 +14,11 @@ See the Mulan PSL v2 for more details. */
 
 #pragma once
 
-#include <iostream>
 #include <string.h>
 
+#include <iostream>
+
+#include "storage/field/field.h"
 #include "storage/field/field_meta.h"
 #include "storage/table/table.h"
 
@@ -25,6 +27,9 @@ class TupleCellSpec {
   TupleCellSpec(const char *table_name, const char *field_name,
                 const char *alias = nullptr);
   TupleCellSpec(const char *alias);
+  TupleCellSpec(const Field *field);
+
+  TupleCellSpec *clone();
 
   const char *table_name() const { return table_name_.c_str(); }
   const char *field_name() const { return field_name_.c_str(); }
@@ -48,8 +53,26 @@ class TupleCellSpec {
     return false;
   }
 
+  const FunctionType get_func_type() const { return this->type_; }
+  void set_func_type(FunctionType type_in) { this->type_ = type_in; }
+
+  const FunctionMetaInfo get_func_info() const { return function_info_; }
+  void set_func_info(FunctionMetaInfo info) { this->function_info_ = info; }
+
+  const bool is_constant_value() const { return is_constant_value_; }
+  void set_is_constant_value(bool flag) { this->is_constant_value_ = flag; }
+  const Value get_constant_value() const { return this->constant_value_; }
+  void set_constant_value(const Value &value) {
+    this->constant_value_.set_value(value);
+  }
+
  private:
   std::string table_name_;
   std::string field_name_;
   std::string alias_;
+
+  bool is_constant_value_ = false;
+  Value constant_value_;
+  FunctionType type_;
+  FunctionMetaInfo function_info_;
 };

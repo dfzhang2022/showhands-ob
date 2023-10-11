@@ -16,6 +16,7 @@ See the Mulan PSL v2 for more details. */
 
 #include <map>
 #include <memory>
+#include <sstream>
 #include <vector>
 
 #include "common/rc.h"

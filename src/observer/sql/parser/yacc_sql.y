@@ -155,6 +155,7 @@ ArithmeticExpr *create_arithmetic_expression(ArithmeticExpr::Type type,
   char *                            string;
   int                               number;
   float                             floats;
+  bool		                          boolean;
             
 }      
 %token <number> NUMBER
@@ -1239,7 +1240,7 @@ function:
         tmp_func_info.length_str = tmp;
         $$->function_meta_info = tmp_func_info;
         $$->is_constant_value = true;
-        $$->constant_value.set_value(Value(tmp));
+        $$->constant_value.set_string(tmp,strlen(tmp));
         free(tmp);
         
     }

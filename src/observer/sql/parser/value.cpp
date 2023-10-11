@@ -14,6 +14,7 @@ See the Mulan PSL v2 for more details. */
 
 #include "sql/parser/value.h"
 
+#include <cmath>
 #include <sstream>
 
 #include "common/lang/comparator.h"
@@ -22,10 +23,18 @@ See the Mulan PSL v2 for more details. */
 #include "storage/field/field.h"
 
 const char *AGGR_FUNC_NAME[] = {"NONE", "MAX", "MIN", "COUNT", "AVG", "SUM"};
-
 const char *aggr_func_to_str(AggrFuncType type_in) {
   if (type_in >= AggrFuncType::NONE && type_in <= AggrFuncType::SUM) {
     return AGGR_FUNC_NAME[type_in];
+  }
+  return "";
+}
+
+const char *FUNC_NAME[] = {"NONE", "LENGTH", "ROUND", "DATE_FORMAT"};
+const char *func_to_str(FunctionType type_in) {
+  if (type_in >= FunctionType::NONE_FUNC &&
+      type_in <= FunctionType::DATE_FORMAT_FUNC) {
+    return FUNC_NAME[type_in];
   }
   return "";
 }
@@ -132,6 +141,16 @@ bool check_like_str_pattern(std::string str, std::string like_str) {
     return true;
   else
     return false;
+}
+
+float roundToDecimalPlaces(float number, float decimalPlaces) {
+  float multiplier = std::pow(10.0, decimalPlaces);
+  return std::round(number * multiplier) / multiplier;
+}
+float customRound(float x, int y) {
+  float multiplier = powf(10, y);
+  float roundedValue = roundf(x * multiplier) / multiplier;
+  return roundedValue;
 }
 
 bool check_date(int ymd) {
@@ -495,11 +514,11 @@ RC Value::typecast_to(AttrType dest_type) {
     this->set_string(this_data, strlen(this_data));
     rc = RC::SUCCESS;
   } else if (this->attr_type_ == AttrType::CHARS &&
-              dest_type == AttrType::TEXTS) {
+             dest_type == AttrType::TEXTS) {
     this->set_text(this->data());
     rc = RC::SUCCESS;
   } else if (this->attr_type_ == AttrType::TEXTS &&
-              dest_type == AttrType::CHARS) {
+             dest_type == AttrType::CHARS) {
     this->set_string(this->data());
     rc = RC::SUCCESS;
   } else if (dest_type == AttrType::NULL_ATTR) {

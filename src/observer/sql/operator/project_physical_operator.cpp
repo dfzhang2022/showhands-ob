@@ -69,3 +69,8 @@ void ProjectPhysicalOperator::add_projection(const Table *table,
       new TupleCellSpec(table->name(), field_meta->name(), field_alias.c_str());
   tuple_.add_cell_spec(spec);
 }
+
+void ProjectPhysicalOperator::add_projection(TupleCellSpec &spec_in) {
+  TupleCellSpec *spec = spec_in.clone();
+  tuple_.add_cell_spec(spec);
+}

@@ -370,3 +370,5 @@ select length(name) from table;
 select round(score, 2) from table;
 
 select date_format(u_date, '%Y-%m-%d') from table;
+
+select id, length(name) from t_group_by 

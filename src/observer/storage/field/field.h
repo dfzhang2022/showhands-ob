@@ -55,14 +55,35 @@ class Field {
   const std::string get_alias() const { return alias_; }
   void set_alias(std::string in_str) { this->alias_ = in_str; }
 
+  // 若该列是常量值
+  const FunctionType get_func_type() const { return func_type_; }
+  void set_func_type(FunctionType type) { this->func_type_ = type; }
+  const bool is_constant_value() const { return is_constant_value_; }
+  void set_is_constant_value(bool flag) { this->is_constant_value_ = flag; }
+  const Value get_constant_value() const { return this->constant_value_; }
+  void set_constant_value(const Value &value) {
+    this->constant_value_.set_value(value);
+  }
+
+  const FunctionMetaInfo get_func_info() const { return func_info_; }
+  void set_func_info(const FunctionMetaInfo &func_info_in) {
+    this->func_info_ = func_info_in;
+    return;
+  }
+
   const char *get_data(const Record &record);
 
  private:
   const Table *table_ = nullptr;
   const FieldMeta *field_ = nullptr;
   AggrFuncType aggr_func_type_ = AggrFuncType::NONE;
+  FunctionType func_type_ = FunctionType::NONE_FUNC;
+  FunctionMetaInfo func_info_;
 
   bool has_alias_ = false;
   std::string
       alias_;  // 记录临时需要的别名("目前的一个用法是用作聚合函数输出表头")
+
+  bool is_constant_value_ = false;
+  Value constant_value_;
 };
