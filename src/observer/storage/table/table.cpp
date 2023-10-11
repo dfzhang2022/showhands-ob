@@ -165,21 +165,24 @@ RC Table::open(const char *meta_file, const char *base_dir) {
   const int index_num = table_meta_.index_num();
   for (int i = 0; i < index_num; i++) {
     const IndexMeta *index_meta = table_meta_.index(i);
-    const FieldMeta *field_meta = table_meta_.field(index_meta->field());
-    if (field_meta == nullptr) {
-      LOG_ERROR(
+    std::vector<const FieldMeta*> fields_meta;
+    for (auto field : index_meta->fields()) {
+      if (table_meta_.field(field.c_str()) == nullptr) {
+        LOG_ERROR(
           "Found invalid index meta info which has a non-exists field. "
           "table=%s, index=%s, field=%s",
-          name(), index_meta->name(), index_meta->field());
-      // skip cleanup
-      //  do all cleanup action in destructive Table function
-      return RC::INTERNAL;
+          name(), index_meta->name(), field);
+        // skip cleanup
+        //  do all cleanup action in destructive Table function
+        return RC::INTERNAL;
+      }
+      fields_meta.push_back(table_meta_.field(field.c_str()));
     }
 
     BplusTreeIndex *index = new BplusTreeIndex();
     std::string index_file =
         table_index_file(base_dir, name(), index_meta->name());
-    rc = index->open(index_file.c_str(), *index_meta, *field_meta);
+    rc = index->open(index_file.c_str(), *index_meta, fields_meta);
     if (rc != RC::SUCCESS) {
       delete index;
       LOG_ERROR("Failed to open index. table=%s, index=%s, file=%s, rc=%s",
@@ -341,7 +344,7 @@ RC Table::make_record(int value_num, const Value *values, Record &record) {
         // 这里一定是插入到了一个nullable的字段
         const bool is_nullable = field->nullable();
         if (is_nullable) {
-          null_bitmap = null_bitmap | (1 << i);
+          null_bitmap = null_bitmap | (1 << (i + normal_field_start_index)); // 最多处理32列，包括sys field
         } else {
           LOG_WARN("Want to insert null to un-nullable column.");
           return RC::NULL_VALUE_ERROR;
@@ -416,32 +419,38 @@ RC Table::get_record_scanner(RecordFileScanner &scanner, Trx *trx,
   return rc;
 }
 
-RC Table::create_index(Trx *trx, const FieldMeta *field_meta,
-                       const char *index_name, bool is_unique) {
-  if (common::is_blank(index_name) || nullptr == field_meta) {
+RC Table::create_index(Trx *trx, std::vector<const FieldMeta*> &fields_meta,
+                       const char *index_name, IndexType type) {
+  /**
+   * create index语句会在ResolveStage做过check，并且没有其他地方调用过这个函数，其实不需要再check。
+   * 但是考虑到查询计划在优化时可能会自动生成index，这里还是做一次check。并且在这里加入null bit map的字段。
+   * 需要保证fields_meta中的字段一定属于当前table。
+  */
+  if (common::is_blank(index_name) || fields_meta.size() == 0) {
     LOG_INFO(
         "Invalid input arguments, table name is %s, index_name is blank or "
-        "attribute_name is blank",
+        "no attribute specified",
         name());
     return RC::INVALID_ARGUMENT;
   }
 
+  // 在头部添加null bit map
+  fields_meta.insert(fields_meta.begin(), table_meta_.null_bit_map_field());
+
   IndexMeta new_index_meta;
-  RC rc = new_index_meta.init(index_name, *field_meta);
+  RC rc = new_index_meta.init(index_name, fields_meta, type);
   if (rc != RC::SUCCESS) {
     LOG_INFO(
-        "Failed to init IndexMeta in table:%s, index_name:%s, field_name:%s",
-        name(), index_name, field_meta->name());
+        "Failed to init IndexMeta in table:%s, index_name:%s", name(), index_name);
     return rc;
   }
 
   // 创建索引相关数据
   BplusTreeIndex *index = new BplusTreeIndex();
-  index->set_unique(is_unique);
   std::string index_file =
       table_index_file(base_dir_.c_str(), name(), index_name);
   LOG_INFO("Index file name is : %s", index_file.c_str());
-  rc = index->create(index_file.c_str(), new_index_meta, *field_meta);
+  rc = index->create(index_file.c_str(), new_index_meta, fields_meta);
   if (rc != RC::SUCCESS) {
     delete index;
     LOG_ERROR("Failed to create bplus tree index. file name=%s, rc=%d:%s",
@@ -700,25 +709,29 @@ Index *Table::find_index(const char *index_name) const {
 
 std::vector<std::vector<std::string>> Table::get_index_info() const {
   std::vector<std::vector<std::string>> result_vec_vec;
-  int cnt = 1;
+
   for (Index *index : indexes_) {
     std::vector<std::string> index_str;
     index_str.emplace_back(table_meta_.name());
     // index_str.emplace_back(std::string(index.is_non_unique()));
     // non-unique 还没有实现先空着
-    index_str.emplace_back(index->is_unique() ? "0" : "1");
+    index_str.emplace_back((index->index_meta().type() == IndexType::UNIQUE_INDEX) ? "0" : "1");
     index_str.emplace_back(index->index_meta().name());
-    index_str.emplace_back(to_string(1));  // 由于当前只考虑一个字段的索引
-    index_str.emplace_back(index->index_meta().field());
-    cnt++;
+    index_str.emplace_back(to_string(index->index_meta().fields().size()));
+    std::string tmp = "";
+    for (auto x : index->index_meta().fields()) {
+      tmp.append(x);
+    }
+    index_str.emplace_back(tmp);
+
     LOG_INFO("index_str is %s.", index_str.at(3).c_str());
     result_vec_vec.push_back(index_str);
   }
   return result_vec_vec;
 }
-Index *Table::find_index_by_field(const char *field_name) const {
+Index *Table::find_index_by_field(std::vector<const char*> &fields) const {
   const TableMeta &table_meta = this->table_meta();
-  const IndexMeta *index_meta = table_meta.find_index_by_field(field_name);
+  const IndexMeta *index_meta = table_meta.find_index_by_field(fields);
   if (index_meta != nullptr) {
     return this->find_index(index_meta->name());
   }

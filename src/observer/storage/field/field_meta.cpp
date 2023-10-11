@@ -30,26 +30,27 @@ FieldMeta::FieldMeta()
     : attr_type_(AttrType::UNDEFINED),
       attr_offset_(-1),
       attr_len_(0),
+      attr_index_(-1),
       visible_(false) {}
 
 FieldMeta::FieldMeta(const char *name, AttrType attr_type, int attr_offset,
-                     int attr_len, bool visible, bool nullable) {
+                     int attr_len, int attr_index, bool visible, bool nullable) {
   [[maybe_unused]] RC rc =
-      this->init(name, attr_type, attr_offset, attr_len, visible, nullable);
+      this->init(name, attr_type, attr_offset, attr_len, attr_index, visible, nullable);
   ASSERT(rc == RC::SUCCESS, "failed to init field meta. rc=%s", strrc(rc));
 }
 
 RC FieldMeta::init(const char *name, AttrType attr_type, int attr_offset,
-                   int attr_len, bool visible, bool nullable) {
+                   int attr_len, int attr_index, bool visible, bool nullable) {
   if (common::is_blank(name)) {
     LOG_WARN("Name cannot be empty");
     return RC::INVALID_ARGUMENT;
   }
 
-  if (AttrType::UNDEFINED == attr_type || attr_offset < 0 || attr_len <= 0) {
+  if (AttrType::UNDEFINED == attr_type || attr_offset < 0 || attr_len <= 0 || attr_index < 0) {
     LOG_WARN(
-        "Invalid argument. name=%s, attr_type=%d, attr_offset=%d, attr_len=%d",
-        name, attr_type, attr_offset, attr_len);
+        "Invalid argument. name=%s, attr_type=%d, attr_offset=%d, attr_len=%d, attr_index=%d",
+        name, attr_type, attr_offset, attr_len, attr_index);
     return RC::INVALID_ARGUMENT;
   }
 
@@ -57,6 +58,7 @@ RC FieldMeta::init(const char *name, AttrType attr_type, int attr_offset,
   attr_type_ = attr_type;
   attr_len_ = attr_len;
   attr_offset_ = attr_offset;
+  attr_index_ = attr_index;
   visible_ = visible;
   nullable_ = nullable;
 
@@ -71,6 +73,8 @@ AttrType FieldMeta::type() const { return attr_type_; }
 int FieldMeta::offset() const { return attr_offset_; }
 
 int FieldMeta::len() const { return attr_len_; }
+
+int FieldMeta::index() const { return attr_index_; }
 
 bool FieldMeta::visible() const { return visible_; }
 bool FieldMeta::nullable() const { return nullable_; }

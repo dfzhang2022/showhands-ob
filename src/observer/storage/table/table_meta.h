@@ -40,6 +40,8 @@ public:
 
   RC add_index(const IndexMeta &index);
 
+  const FieldMeta* null_bit_map_field() { return field(null_bit_map_index_); }
+
 public:
   int32_t table_id() const { return table_id_; }
   const char *name() const;
@@ -57,7 +59,7 @@ public:
   int sys_field_num() const;
 
   const IndexMeta *index(const char *name) const;
-  const IndexMeta *find_index_by_field(const char *field) const;
+  const IndexMeta *find_index_by_field(std::vector<const char*> &fields) const;
   const IndexMeta *index(int i) const;
   int index_num() const;
 
@@ -76,5 +78,6 @@ protected:
   std::vector<FieldMeta> fields_;  // 包含sys_fields
   std::vector<IndexMeta> indexes_;
 
+  int null_bit_map_index_;
   int record_size_ = 0;
 };

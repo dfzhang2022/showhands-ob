@@ -280,16 +280,24 @@ struct ShowIndexSqlNode {
 struct ClearTableSqlNode {};
 
 /**
+ * @brief 索引的类型
+ *
+ */
+enum IndexType : uint8_t { 
+  DEFAULT_INDEX, 
+  UNIQUE_INDEX
+};
+
+/**
  * @brief 描述一个create index语句
  * @ingroup SQLParser
  * @details 创建索引时，需要指定索引名，表名，字段名。
- * 正常的SQL语句中，一个索引可能包含了多个字段，这里仅支持一个字段。
  */
 struct CreateIndexSqlNode {
-  std::string index_name;      ///< Index name
-  std::string relation_name;   ///< Relation name
-  std::string attribute_name;  ///< Attribute name
-  bool is_unique = false;      ///< is this index unique
+  std::string index_name;                   ///< Index name
+  std::string relation_name;                ///< Relation name
+  std::vector<std::string> attributes_name; ///< Attribute name
+  IndexType type;                           ///< index type
 };
 
 /**

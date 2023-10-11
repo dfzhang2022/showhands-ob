@@ -30,11 +30,11 @@ class Value;
 class FieldMeta {
  public:
   FieldMeta();
-  FieldMeta(const char *name, AttrType attr_type, int attr_offset, int attr_len,
+  FieldMeta(const char *name, AttrType attr_type, int attr_offset, int attr_len, int attr_index,
             bool visible, bool nullable = false);
   ~FieldMeta() = default;
 
-  RC init(const char *name, AttrType attr_type, int attr_offset, int attr_len,
+  RC init(const char *name, AttrType attr_type, int attr_offset, int attr_len, int attr_index,
           bool visible, bool nullable = false);
 
  public:
@@ -42,6 +42,7 @@ class FieldMeta {
   AttrType type() const;
   int offset() const;
   int len() const;
+  int index() const;
   bool visible() const;
   bool nullable() const;
 
@@ -57,6 +58,7 @@ class FieldMeta {
   AttrType attr_type_;
   int attr_offset_;
   int attr_len_;
+  int attr_index_; // 在table元信息数组中的位置
   bool visible_;
   bool nullable_;
 };

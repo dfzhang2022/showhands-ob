@@ -144,6 +144,7 @@ ArithmeticExpr *create_arithmetic_expression(ArithmeticExpr::Type type,
   std::vector<ConditionSqlNode> *   condition_list;
   std::vector<RelAttrSqlNode> *     rel_attr_list;
   std::vector<RelationSqlNode> *    relation_list;
+  std::vector<std::string> *        index_attr_list;
   RelationSqlNode*                  relation;
   JoinedRelationSqlNode*            join_rel;
   std::vector<JoinedRelationSqlNode>* join_rel_list;
@@ -177,6 +178,7 @@ ArithmeticExpr *create_arithmetic_expression(ArithmeticExpr::Type type,
 %type <condition_list>      having_clause
 %type <rel_attr_list>       select_attr
 %type <relation_list>       rel_list
+%type <index_attr_list>     index_attr_list
 %type <relation>            rel_element
 %type <join_rel>            join_relation
 %type <join_rel>            inner_join
@@ -324,31 +326,61 @@ desc_table_stmt:
     ;
 
 create_index_stmt:    /*create index 语句的语法解析树*/
-    CREATE INDEX ID ON ID LBRACE ID RBRACE
+    CREATE INDEX ID ON ID LBRACE ID index_attr_list RBRACE
     {
       $$ = new ParsedSqlNode(SCF_CREATE_INDEX);
       CreateIndexSqlNode &create_index = $$->create_index;
-      create_index.is_unique = false;
+      create_index.type = IndexType::DEFAULT_INDEX;
       create_index.index_name = $3;
       create_index.relation_name = $5;
-      create_index.attribute_name = $7;
+      std::vector<std::string> *attrs = $8;
+      if (attrs != nullptr) {
+        create_index.attributes_name.swap(*attrs);
+      }
+      create_index.attributes_name.emplace_back($7);
+      std::reverse(create_index.attributes_name.begin(), create_index.attributes_name.end());
       free($3);
       free($5);
       free($7);
+      delete attrs;
     }
-    | CREATE UNIQUE INDEX ID ON ID LBRACE ID RBRACE
+    | CREATE UNIQUE INDEX ID ON ID LBRACE ID index_attr_list RBRACE
     {
       $$ = new ParsedSqlNode(SCF_CREATE_INDEX);
       CreateIndexSqlNode &create_index = $$->create_index;
-      create_index.is_unique = true;
+      create_index.type = IndexType::UNIQUE_INDEX;
       create_index.index_name = $4;
       create_index.relation_name = $6;
-      create_index.attribute_name = $8;
+      std::vector<std::string> *attrs = $9;
+      if (attrs != nullptr) {
+        create_index.attributes_name.swap(*attrs);
+      }
+      create_index.attributes_name.emplace_back($8);
+      std::reverse(create_index.attributes_name.begin(), create_index.attributes_name.end());
       free($4);
       free($6);
       free($8);
+      delete attrs;
     }
     ;
+
+index_attr_list:
+    /* empty */
+    {
+      $$ = nullptr;
+    }
+    | COMMA ID index_attr_list {
+      if ($3 != nullptr) {
+        $$ = $3;
+      } else {
+        $$ = new std::vector<std::string>;
+      }
+
+      $$->emplace_back($2);
+      free($2);
+    }
+    ;
+
 
 drop_index_stmt:      /*drop index 语句的语法解析树*/
     DROP INDEX ID ON ID

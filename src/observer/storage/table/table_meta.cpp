@@ -60,7 +60,6 @@ RC TableMeta::init(int32_t table_id, const char *name, int field_num,
 
   int field_offset = 0;
   int trx_field_num = 0;
-  int is_null_bitset = 0;
   // 结构为 trx_field | null_bitmap| col1 | col2 | ...| colN
   // (总长为trx_field_num + field_num+1)
   const vector<FieldMeta> *trx_fields = TrxKit::instance()->trx_fields();
@@ -71,7 +70,7 @@ RC TableMeta::init(int32_t table_id, const char *name, int field_num,
     for (size_t i = 0; i < trx_fields->size(); i++) {
       const FieldMeta &field_meta = (*trx_fields)[i];
       fields_[i] = FieldMeta(field_meta.name(), field_meta.type(), field_offset,
-                             field_meta.len(), false /*visible*/, false);
+                             field_meta.len(), i, false /*visible*/, false);
       field_offset += field_meta.len();
     }
 
@@ -81,19 +80,20 @@ RC TableMeta::init(int32_t table_id, const char *name, int field_num,
   }
   // 添加null_bitmap
   rc = fields_[trx_field_num].init("null_bitmap", AttrType::INTS, field_offset,
-                                   4, false /*visible*/, false);
+                                   4, trx_field_num, false /*visible*/, false);
   if (rc != RC::SUCCESS) {
     LOG_ERROR(
         "Failed to init null bitmap field meta. table name=%s, field name: %s",
         name, "null_bitmap");
     return rc;
   }
+  null_bit_map_index_ = trx_field_num;
   field_offset += 4;
 
   for (int i = 0; i < field_num; i++) {
     const AttrInfoSqlNode &attr_info = attributes[i];
     rc = fields_[i + sys_field_num()].init(
-        attr_info.name.c_str(), attr_info.type, field_offset, attr_info.length,
+        attr_info.name.c_str(), attr_info.type, field_offset, attr_info.length, i + sys_field_num(),
         true /*visible*/, attr_info.nullable);
     if (rc != RC::SUCCESS) {
       LOG_ERROR("Failed to init field meta. table name=%s, field name: %s",
@@ -172,10 +172,13 @@ const IndexMeta *TableMeta::index(const char *name) const {
   return nullptr;
 }
 
-const IndexMeta *TableMeta::find_index_by_field(const char *field) const {
+const IndexMeta *TableMeta::find_index_by_field(std::vector<const char*> &fields) const {
   for (const IndexMeta &index : indexes_) {
-    if (0 == strcmp(index.field(), field)) {
-      return &index;
+    const std::vector<std::string>& x = index.fields();
+    if (x.size() != fields.size() + 1) continue;
+
+    for (int i = 1 ; i < x.size() ; i ++) {
+      if (x[i] == std::string(fields[i])) return &index;
     }
   }
   return nullptr;

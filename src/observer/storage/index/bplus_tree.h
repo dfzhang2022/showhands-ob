@@ -50,38 +50,68 @@ enum class BplusTreeOperationType {
  */
 class AttrComparator {
  public:
-  void init(AttrType type, int length) {
-    attr_type_ = type;
-    attr_length_ = length;
+  void init(std::vector<AttrType>& attrs_type, std::vector<int32_t> &attrs_length, 
+            std::vector<int32_t> &attrs_index, int attr_length) {
+    assert(attrs_type.size() == attrs_length.size());
+    assert(attrs_type.size() > 1);
+    std::size_t size = attrs_type.size();
+
+    attr_length_ = attr_length;
+
+    attrs_type_.resize(size);
+    attrs_length_.resize(size);
+    attrs_index_.resize(size);
+    for (int i = 0 ; i < attrs_type.size() ; i++) {
+      attrs_type_[i] = attrs_type[i];
+      attrs_length_[i] = attrs_length[i];
+      attrs_index_[i] = attrs_index[i];
+    }
   }
 
   int attr_length() const { return attr_length_; }
 
   int operator()(const char *v1, const char *v2) const {
-    switch (attr_type_) {
-      case INTS: {
-        return common::compare_int((void *)v1, (void *)v2);
-      } break;
-      case FLOATS: {
-        return common::compare_float((void *)v1, (void *)v2);
-      }
-      case CHARS: {
-        return common::compare_string((void *)v1, attr_length_, (void *)v2,
-                                      attr_length_);
-      }
-      case TEXTS: {
-        return common::compare_string((void *)v1, attr_length_, (void *)v2,
-                                      attr_length_);
-      }
-      default: {
-        ASSERT(false, "unknown attr type. %d", attr_type_);
+    int res = 0;
+    int offset = attrs_length_[0];
+    common::Bitmap vbm1(const_cast<char*>(v1), attrs_length_[0]);
+    common::Bitmap vbm2(const_cast<char*>(v2), attrs_length_[0]);
+    for (int i = 1 ; i < attrs_type_.size() ; i++) {
+      if (vbm1.get_bit(attrs_index_[i]) && vbm2.get_bit(attrs_index_[i])) {
         return 0;
+      } else if (vbm1.get_bit(attrs_index_[i])) {
+        return -1;
+      } else if (vbm2.get_bit(attrs_index_[i])) {
+        return 1;
       }
+
+      switch (attrs_type_[i]) {
+        case INTS: case DATES: {
+          res = common::compare_int((void *)(v1 + offset), (void *)(v2 + offset));
+        }
+          break;
+        case FLOATS: {
+          res = common::compare_float((void *)(v1 + offset), (void *)(v2 + offset));
+        }
+          break;
+        case CHARS: case TEXTS: {
+          res = common::compare_string((void *)(v1 + offset), attrs_length_[i], (void *)(v2 + offset), attrs_length_[i]);
+        }
+          break;
+        default:{
+          LOG_ERROR("unknown attr type. %d", attrs_type_[i]);
+          abort();
+        }
+      }
+      if (res != 0) return res;
+      offset += attrs_length_[i];
     }
   }
 
  private:
-  AttrType attr_type_;
+  std::vector<AttrType> attrs_type_;
+  std::vector<int32_t> attrs_length_;
+  std::vector<int32_t> attrs_index_;
+
   int attr_length_;
 };
 
@@ -92,7 +122,12 @@ class AttrComparator {
  */
 class KeyComparator {
  public:
-  void init(AttrType type, int length) { attr_comparator_.init(type, length); }
+  void init(std::vector<AttrType>& attrs_type, 
+            std::vector<int32_t> &attrs_length,
+            std::vector<int32_t> &attrs_index,
+            int attr_length) {
+    attr_comparator_.init(attrs_type, attrs_length, attrs_index, attr_length); 
+  }
 
   const AttrComparator &attr_comparator() const { return attr_comparator_; }
 
@@ -117,50 +152,54 @@ class KeyComparator {
  */
 class AttrPrinter {
  public:
-  void init(AttrType type, int length) {
-    attr_type_ = type;
-    attr_length_ = length;
+  void init(std::vector<AttrType>& attrs_type, std::vector<int32_t> &attrs_length, int attr_length) {
+    assert(attrs_type.size() == attrs_length.size());
+
+    attr_length_ = attr_length;
+    for (int i = 0 ; i < attrs_type.size() ; i++) {
+      attrs_type_.emplace_back(attrs_type[i]);
+      attrs_length_.emplace_back(attrs_length[i]);
+    }
   }
 
   int attr_length() const { return attr_length_; }
 
   std::string operator()(const char *v) const {
-    switch (attr_type_) {
-      case INTS: {
-        return std::to_string(*(int *)v);
-      } break;
-      case FLOATS: {
-        return std::to_string(*(float *)v);
-      }
-      case CHARS: {
-        std::string str;
-        for (int i = 0; i < attr_length_; i++) {
-          if (v[i] == 0) {
-            break;
-          }
-          str.push_back(v[i]);
+    std::string result = "";
+    int offset = 0;
+    for (int i = 0 ; i < attrs_type_.size() ; i++) {
+      switch (attrs_type_[i]) {
+        case INTS: case DATES: {
+          result.append(std::to_string(*(int*)(v + offset)));
         }
-        return str;
-      }
-      case TEXTS: {
-        std::string str;
-        for (int i = 0; i < attr_length_; i++) {
-          if (v[i] == 0) {
-            break;
-          }
-          str.push_back(v[i]);
+          break;
+        case FLOATS: {
+          result.append(std::to_string(*(float*)(v + offset)));
         }
-        return str;
+          break;
+        case CHARS: case TEXTS: {
+          std::string str;
+          for (int j = offset; j < offset + attrs_length_[i]; j++) {
+            if (v[j] == 0) {
+              break;
+            }
+            str.push_back(v[j]);
+          }
+          result.append(str);
+        }
+          break;
+        default:{
+          ASSERT(false, "unknown attr type. %d", attr_type_);
+        }
       }
-      default: {
-        ASSERT(false, "unknown attr type. %d", attr_type_);
-      }
+      offset += attrs_length_[i];
     }
-    return std::string();
+    return result;
   }
 
  private:
-  AttrType attr_type_;
+  std::vector<AttrType> attrs_type_;
+  std::vector<int32_t> attrs_length_;
   int attr_length_;
 };
 
@@ -170,7 +209,9 @@ class AttrPrinter {
  */
 class KeyPrinter {
  public:
-  void init(AttrType type, int length) { attr_printer_.init(type, length); }
+  void init(std::vector<AttrType>& attrs_type, std::vector<int32_t> &attrs_length, int attr_length) {
+    attr_printer_.init(attrs_type, attrs_length, attr_length);
+  }
 
   const AttrPrinter &attr_printer() const { return attr_printer_; }
 
@@ -203,19 +244,19 @@ struct IndexFileHeader {
   int32_t leaf_max_size;      ///< 叶子节点最大的键值对数
   int32_t attr_length;        ///< 键值的长度
   int32_t key_length;         ///< attr length + sizeof(RID)
-  AttrType attr_type;         ///< 键值的类型
-  bool is_unique;
+  std::vector<AttrType> attrs_type;    ///< 键值类型
+  std::vector<int32_t>  attrs_length;  ///< 类型的长度
+  std::vector<int32_t>  attrs_index;   ///< 当前字段在table元信息数组中的位置
 
   const std::string to_string() {
     std::stringstream ss;
 
     ss << "attr_length:" << attr_length << ","
        << "key_length:" << key_length << ","
-       << "attr_type:" << attr_type << ","
+       << "attrs_type size:" << attrs_type.size() << ","
        << "root_page:" << root_page << ","
        << "internal_max_size:" << internal_max_size << ","
-       << "leaf_max_size:" << leaf_max_size << ";"
-       << "is unique:" << is_unique << ";";
+       << "leaf_max_size:" << leaf_max_size << ";";
 
     return ss.str();
   }
@@ -446,7 +487,7 @@ class BplusTreeHandler {
    * 此函数创建一个名为fileName的索引。
    * attrType描述被索引属性的类型，attrLength描述被索引属性的长度
    */
-  RC create(const char *file_name, AttrType attr_type, int attr_length,
+  RC create(const char *file_name, const std::vector<const FieldMeta*> &fields_meta, IndexType type,
             int internal_max_size = -1, int leaf_max_size = -1);
 
   /**
@@ -477,9 +518,6 @@ class BplusTreeHandler {
   RC delete_entry(const char *user_key, const RID *rid);
 
   bool is_empty() const;
-
-  bool is_unique() const { return file_header_.is_unique; }
-  void set_unique(bool flag) { file_header_.is_unique = flag; }
 
   /**
    * 获取指定值的record
@@ -559,12 +597,14 @@ class BplusTreeHandler {
  private:
   common::MemPoolItem::unique_ptr make_key(const char *user_key,
                                            const RID &rid);
+
   void free_key(char *key);
 
  protected:
   DiskBufferPool *disk_buffer_pool_ = nullptr;
   bool header_dirty_ = false;  //
   IndexFileHeader file_header_;
+  IndexType index_type_;
 
   // 在调整根节点时，需要加上这个锁。
   // 这个锁可以使用递归读写锁，但是这里偷懒先不改
@@ -609,7 +649,7 @@ class BplusTreeScanner {
   /**
    * 如果key的类型是CHARS, 扩展或缩减user_key的大小刚好是schema中定义的大小
    */
-  RC fix_user_key(const char *user_key, int key_len, bool want_greater,
+  RC fix_user_key(const char *user_key, int key_len, int attr_len, bool want_greater,
                   char **fixed_key, bool *should_inclusive);
 
   void fetch_item(RID &rid);

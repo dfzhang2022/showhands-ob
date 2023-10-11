@@ -40,6 +40,10 @@ RC IndexScanPhysicalOperator::open(Trx *trx)
     return RC::INTERNAL;
   }
 
+  // 在此之前应该check过value的合法性
+  // 在创建执行计划的时候只考虑了一个字段的索引，这里暂时先不动
+  // todo
+
   IndexScanner *index_scanner = index_->create_scanner(left_value_.data(),
       left_value_.length(),
       left_inclusive_,

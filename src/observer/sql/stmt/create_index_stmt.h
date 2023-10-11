@@ -19,6 +19,7 @@ See the Mulan PSL v2 for more details. */
 #include "sql/stmt/stmt.h"
 
 struct CreateIndexSqlNode;
+class CreateIndexExecutor;
 class Table;
 class FieldMeta;
 
@@ -29,28 +30,23 @@ class FieldMeta;
 class CreateIndexStmt : public Stmt
 {
 public:
-  CreateIndexStmt(Table *table, const FieldMeta *field_meta, const std::string &index_name, bool is_unique)
+  CreateIndexStmt(Table *table, std::vector<const FieldMeta*> &fields_meta, const std::string &index_name, IndexType type)
         : table_(table),
-          field_meta_(field_meta),
+          fields_meta_(fields_meta),
           index_name_(index_name),
-          is_unique_(is_unique)
-  {}
+          type_(type) {}
 
   virtual ~CreateIndexStmt() = default;
 
   StmtType type() const override { return StmtType::CREATE_INDEX; }
 
-  Table *table() const { return table_; }
-  const FieldMeta *field_meta() const { return field_meta_; }
-  const std::string &index_name() const { return index_name_; }
-  const bool &is_unique()const{return is_unique_;}
-
 public:
   static RC create(Db *db, const CreateIndexSqlNode &create_index, Stmt *&stmt);
 
 private:
+  friend class CreateIndexExecutor;
   Table *table_ = nullptr;
-  const FieldMeta *field_meta_ = nullptr;
+  std::vector<const FieldMeta*> fields_meta_; // 这里指向的是table的元信息数据，不需要delete
   std::string index_name_;
-  bool is_unique_;
+  IndexType type_;
 };

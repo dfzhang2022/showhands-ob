@@ -27,9 +27,9 @@ class BplusTreeIndex : public Index {
   virtual ~BplusTreeIndex() noexcept;
 
   RC create(const char *file_name, const IndexMeta &index_meta,
-            const FieldMeta &field_meta);
+                const std::vector<const FieldMeta*> &fields_meta);
   RC open(const char *file_name, const IndexMeta &index_meta,
-          const FieldMeta &field_meta);
+          const std::vector<const FieldMeta*> &fields);
   RC close();
 
   RC insert_entry(const char *record, const RID *rid) override;
@@ -43,6 +43,9 @@ class BplusTreeIndex : public Index {
                                int right_len, bool right_inclusive) override;
 
   RC sync() override;
+
+ private:
+  char* construct_user_key(const char* record, int &ken_len);
 
  private:
   bool inited_ = false;

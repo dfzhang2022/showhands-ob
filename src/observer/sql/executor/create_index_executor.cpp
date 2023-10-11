@@ -30,7 +30,8 @@ RC CreateIndexExecutor::execute(SQLStageEvent *sql_event)
   CreateIndexStmt *create_index_stmt = static_cast<CreateIndexStmt *>(stmt);
   
   Trx *trx = session->current_trx();
-  Table *table = create_index_stmt->table();
-  bool is_unique = create_index_stmt->is_unique();
-  return table->create_index(trx, create_index_stmt->field_meta(), create_index_stmt->index_name().c_str(),is_unique);
+  return create_index_stmt->table_->create_index(trx, 
+                                                create_index_stmt->fields_meta_, 
+                                                create_index_stmt->index_name_.c_str(), 
+                                                create_index_stmt->type_);
 }
