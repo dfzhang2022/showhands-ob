@@ -127,7 +127,7 @@ ArithmeticExpr *create_arithmetic_expression(ArithmeticExpr::Type type,
   ParsedSqlNode *                   sql_node;
   ConditionSqlNode *                condition;
   Value *                           value;
-  enum CompOp                       comp;
+  enum ExprOp                       comp;
   enum AggrFuncType                 aggr_func;
   RelAttrSqlNode *                  rel_attr;
   std::vector<AttrInfoSqlNode> *    attr_infos;
@@ -138,6 +138,8 @@ ArithmeticExpr *create_arithmetic_expression(ArithmeticExpr::Type type,
   std::vector<InsertValueSqlNode> * insert_value_list;
   Expression *                      expression;
   std::vector<Expression *> *       expression_list;
+  ExprSqlNode *                     express;
+  std::vector<ExprSqlNode *> *      express_list;
   OrderBySqlNode*                   order;
   std::vector<OrderBySqlNode> *     order_list;
   std::vector<Value> *              value_list;
@@ -175,7 +177,7 @@ ArithmeticExpr *create_arithmetic_expression(ArithmeticExpr::Type type,
 %type <condition_list>      where
 %type <condition_list>      condition_list
 %type <condition_list>      having_clause
-%type <rel_attr_list>       select_attr
+%type <express_list>        select_attr
 %type <relation_list>       rel_list
 %type <relation>            rel_element
 %type <join_rel>            join_relation
@@ -188,6 +190,8 @@ ArithmeticExpr *create_arithmetic_expression(ArithmeticExpr::Type type,
 %type <insert_value_list>   insert_value_list
 %type <expression>          expression
 %type <expression_list>     expression_list
+%type <express>             express
+%type <express_list>        express_list
 %type <order_list>          order_by
 %type <order>               order
 %type <order_list>          order_list
@@ -543,13 +547,20 @@ value_list:
     {
       $$ = nullptr;
     }
-    | COMMA value value_list  { 
+    | COMMA express value_list  { 
       if ($3 != nullptr) {
         $$ = $3;
       } else {
         $$ = new std::vector<Value>;
       }
-      $$->emplace_back(*$2);
+      if ($2->type == ExpressType::EXPR_T && $2->comp == ExprOp::NEGATIVE) {
+        if ($2->left_value.attr_type() == AttrType::INTS) {
+          $2->left_value.set_int(-$2->left_value.get_int());
+        } else {
+          $2->left_value.set_float(-$2->left_value.get_float());
+        }
+      }
+      $$->emplace_back($2->left_value);
       delete $2;
     }
     ;
@@ -635,25 +646,36 @@ set_value_list:
     }
     ;
 set_value:
-    ID EQ value
+    ID EQ express
     {
       $$ = new UpdateValueSqlNode;
       $$->name = $1;
-      $$->value = *$3;
+      if ($3->type == VALUE_T || $3->type == ExpressType::EXPR_T) {
+        if ($3->type == ExpressType::EXPR_T && $3->comp == ExprOp::NEGATIVE) {
+          if ($3->left_value.attr_type() == AttrType::INTS) {
+            $3->left_value.set_int(-$3->left_value.get_int());
+          } else {
+            $3->left_value.set_float(-$3->left_value.get_float());
+          }
+        }
+        $$->value = $3->left_value;
+      }
+      else {
+        $$->select_sql_node =  *($3->left_selects);
+        $$->is_right_selects = true;
+      }
 
       delete $1;
       delete $3;
     }
-    | ID EQ LBRACE select_stmt RBRACE
+    /*| ID EQ LBRACE select_stmt RBRACE
     {
       $$ = new UpdateValueSqlNode;
       $$->name = $1;
-      $$->select_sql_node =  $4->selection;
-      $$->is_right_selects = true;
 
       delete $1;
       delete $4;
-    }
+    }*/
     ;
 select_stmt:        /*  select 语句的语法解析树*/
     SELECT select_attr FROM rel_list where order_by group_by having_clause
@@ -742,8 +764,136 @@ expression:
     }
     ;
 
+express:
+    express '+' express {
+      $$ = new ExprSqlNode;
+      $$->name = token_name(sql_string, &@$);
+      $$->type = ExpressType::EXPR_T;
+      $$->add_left_child($1);
+      $$->comp = ExprOp::ADD;
+      $$->add_right_child($3);
+    }
+    | express '-' express {
+      $$ = new ExprSqlNode;
+      $$->name = token_name(sql_string, &@$);
+      $$->type = ExpressType::EXPR_T;
+      $$->add_left_child($1);
+      $$->comp = ExprOp::SUB;
+      $$->add_right_child($3);
+    }
+    | express '*' express {
+      $$ = new ExprSqlNode;
+      $$->name = token_name(sql_string, &@$);
+      $$->type = ExpressType::EXPR_T;
+      $$->add_left_child($1);
+      $$->comp = ExprOp::MUL;
+      $$->add_right_child($3);
+    }
+    | express '/' express {
+      $$ = new ExprSqlNode;
+      $$->name = token_name(sql_string, &@$);
+      $$->type = ExpressType::EXPR_T;
+      $$->add_left_child($1);
+      $$->comp = ExprOp::DIV;
+      $$->add_right_child($3);
+    }
+    | LBRACE express RBRACE {
+      $$ = $2;
+      $$->name = token_name(sql_string, &@$);
+    }
+    | '-' express %prec UMINUS {
+      $$ = new ExprSqlNode;
+      $$->name = token_name(sql_string, &@$);
+      $$->type = ExpressType::EXPR_T;
+      $$->add_left_child($2);
+      $$->comp = ExprOp::NEGATIVE;
+    }
+    | value {
+      $$ = new ExprSqlNode;
+      $$->name = token_name(sql_string, &@$);
+      $$->type = ExpressType::VALUE_T;
+      $$->left_value = *$1;
+      delete $1;
+    }
+    | ID {
+      $$ = new ExprSqlNode;
+      $$->name = token_name(sql_string, &@$);
+      $$->type = ExpressType::ATTR_T;
+      $$->left_attr.attribute_name = $1;
+      free($1);
+    }
+    | ID DOT ID {
+      $$ = new ExprSqlNode;
+      $$->name = token_name(sql_string, &@$);
+      $$->type = ExpressType::ATTR_T;
+      $$->left_attr.relation_name = $1;
+      $$->left_attr.attribute_name = $3;
+      free($1);
+      free($3);
+    }
+    | aggregation_func LBRACE ID RBRACE{
+      $$ = new ExprSqlNode;
+      $$->name = token_name(sql_string, &@$);
+      $$->type = ExpressType::ATTR_T;
+      $$->left_attr.attribute_name = $3;
+      free($3);
+      $$->left_attr.is_aggregation_func = true;
+      $$->left_attr.aggr_func_type = $1;
+    }
+    | aggregation_func LBRACE ID DOT ID RBRACE{
+      $$ = new ExprSqlNode;
+      $$->name = token_name(sql_string, &@$);
+      $$->type = ExpressType::ATTR_T;
+      $$->left_attr.relation_name  = $3;
+      $$->left_attr.attribute_name = $5;
+      free($3);
+      free($5);
+      $$->left_attr.is_aggregation_func = true;
+      $$->left_attr.aggr_func_type = $1;
+    }
+    | aggregation_func LBRACE '*' RBRACE{
+      $$ = new ExprSqlNode;
+      $$->name = token_name(sql_string, &@$);
+      $$->type = ExpressType::ATTR_T;
+      $$->left_attr.relation_name = "";
+      $$->left_attr.attribute_name = "*";
+      $$->left_attr.is_aggregation_func = true;
+      $$->left_attr.aggr_func_type = $1;
+    }
+    | aggregation_func LBRACE RBRACE{
+      $$ = new ExprSqlNode;
+      $$->name = token_name(sql_string, &@$);
+      $$->type = ExpressType::ATTR_T;
+      $$->left_attr.is_syntax_error = true;
+    }
+    | aggregation_func LBRACE rel_attr COMMA rel_attr attr_list RBRACE{
+      $$ = new ExprSqlNode;
+      $$->name = token_name(sql_string, &@$);
+      $$->type = ExpressType::ATTR_T;
+      $$->left_attr.is_syntax_error = true;
+      delete $3;
+      delete $5;
+      delete $6;
+    }
+    | aggregation_func LBRACE '*' COMMA rel_attr attr_list RBRACE{
+      $$ = new ExprSqlNode;
+      $$->name = token_name(sql_string, &@$);
+      $$->type = ExpressType::ATTR_T;
+      $$->left_attr.is_syntax_error = true;
+      delete $5;
+      delete $6;
+    }
+    | LBRACE select_stmt RBRACE
+    {
+      $$ = new ExprSqlNode;
+      $$->name = token_name(sql_string, &@$);
+      $$->type = ExpressType::SELECT_T;
+      $$->left_selects = &($2->selection);
+    }
+    ;
+
 select_attr:
-    '*' attr_list {
+    /*'*' attr_list {
       if($2 != nullptr){
         $$ = $2;
       } else {
@@ -762,6 +912,26 @@ select_attr:
       }
       $$->emplace_back(*$1);
       delete $1;
+    }*/
+    '*' express_list {
+      if($2 != nullptr){
+        $$ = $2;
+      } else {
+        $$ = new std::vector<ExprSqlNode *>;
+      }
+      ExprSqlNode *expr_sql_node = new ExprSqlNode;
+      expr_sql_node->type = ExpressType::ATTR_T;
+      expr_sql_node->left_attr.relation_name  = "";
+      expr_sql_node->left_attr.attribute_name = "*";
+      $$->emplace_back(expr_sql_node);
+    }
+    | express express_list {
+      if ($2 != nullptr) {
+        $$ = $2;
+      } else {
+        $$ = new std::vector<ExprSqlNode *>;
+      }
+      $$->emplace_back($1);
     }
     ; 
 aggregation_func:
@@ -890,6 +1060,22 @@ attr_list:
 
       $$->emplace_back(*$2);
       delete $2;
+    }
+    ;
+
+express_list:
+    /* empty */
+    {
+      $$ = nullptr;
+    }
+    | COMMA express express_list {
+      if ($3 != nullptr) {
+        $$ = $3;
+      } else {
+        $$ = new std::vector<ExprSqlNode *>;
+      }
+
+      $$->emplace_back($2);
     }
     ;
 
@@ -1026,12 +1212,12 @@ condition_list:
     }
     ;
 condition:
-    rel_attr comp_op value
+    /*rel_attr comp_op value
     {
       $$ = new ConditionSqlNode;
-      $$->left_is_attr = 1;
+      $$->left_type = ExpressType::ATTR_T;
       $$->left_attr = *$1;
-      $$->right_is_attr = 0;
+      $$->right_type = ExpressType::VALUE_T;
       $$->right_value = *$3;
       $$->comp = $2;
 
@@ -1041,9 +1227,9 @@ condition:
     | value comp_op value 
     {
       $$ = new ConditionSqlNode;
-      $$->left_is_attr = 0;
+      $$->left_type = ExpressType::VALUE_T;
       $$->left_value = *$1;
-      $$->right_is_attr = 0;
+      $$->right_type = ExpressType::VALUE_T;
       $$->right_value = *$3;
       $$->comp = $2;
 
@@ -1053,9 +1239,9 @@ condition:
     | rel_attr comp_op rel_attr
     {
       $$ = new ConditionSqlNode;
-      $$->left_is_attr = 1;
+      $$->left_type = ExpressType::ATTR_T;
       $$->left_attr = *$1;
-      $$->right_is_attr = 1;
+      $$->right_type = ExpressType::ATTR_T;
       $$->right_attr = *$3;
       $$->comp = $2;
 
@@ -1065,21 +1251,62 @@ condition:
     | value comp_op rel_attr
     {
       $$ = new ConditionSqlNode;
-      $$->left_is_attr = 0;
+      $$->left_type = ExpressType::VALUE_T;
       $$->left_value = *$1;
-      $$->right_is_attr = 1;
+      $$->right_type = ExpressType::ATTR_T;
       $$->right_attr = *$3;
       $$->comp = $2;
 
       delete $1;
       delete $3;
-    }
-    | value comp_op LBRACE select_stmt RBRACE
+    }*/
+    express comp_op express
     {
       $$ = new ConditionSqlNode;
-      $$->left_is_attr = 0;
+      if ($1->type == ExpressType::VALUE_T) {
+        $$->left_type = ExpressType::VALUE_T;
+        $$->left_value = $1->left_value;
+        delete $1;
+      }
+      else if ($1->type == ExpressType::ATTR_T) {
+        $$->left_type = ExpressType::ATTR_T;
+        $$->left_attr = $1->left_attr;
+        delete $1;
+      }
+      else if ($1->type == ExpressType::SELECT_T) {
+        $$->left_type = ExpressType::SELECT_T;
+        $$->left_selects = $1->left_selects;
+      }
+      else {
+        $$->left_type = ExpressType::EXPR_T;
+        $$->left_expr = $1;
+      }
+      $$->comp = $2;
+      if ($3->type == ExpressType::VALUE_T) {
+        $$->right_type = ExpressType::VALUE_T;
+        $$->right_value = $3->left_value;
+        delete $3;
+      }
+      else if ($3->type == ExpressType::ATTR_T) {
+        $$->right_type = ExpressType::ATTR_T;
+        $$->right_attr = $3->left_attr;
+        delete $3;
+      }
+      else if ($3->type == ExpressType::SELECT_T) {
+        $$->right_type = ExpressType::SELECT_T;
+        $$->right_selects = $3->left_selects;
+      }
+      else {
+        $$->right_type = ExpressType::EXPR_T;
+        $$->right_expr = $3;
+      }
+    }
+    /*| value comp_op LBRACE select_stmt RBRACE
+    {
+      $$ = new ConditionSqlNode;
+      $$->left_type = ExpressType::VALUE_T;
       $$->left_value = *$1;
-      $$->right_is_attr =2;
+      $$->right_type =ExpressType::SELECT_T;
       // $$->right_selects = static_cast<SelectSqlNode*>($4);
       $$->comp = $2;
 
@@ -1089,9 +1316,9 @@ condition:
     | rel_attr comp_op LBRACE select_stmt RBRACE
     {
       $$ = new ConditionSqlNode;
-      $$->left_is_attr = 1;
+      $$->left_type = ExpressType::ATTR_T;
       $$->left_attr = *$1;
-      $$->right_is_attr = 2;
+      $$->right_type = ExpressType::SELECT_T;
       // $$->right_selects = static_cast<SelectSqlNode*>($4);
       $$->comp = $2;
 
@@ -1101,9 +1328,9 @@ condition:
     | LBRACE select_stmt RBRACE comp_op  value
     {
       $$ = new ConditionSqlNode;
-      $$->left_is_attr = 2;
+      $$->left_type = ExpressType::SELECT_T;
       // $$->left_selects = static_cast<SelectSqlNode*>($2);
-      $$->right_is_attr =0;
+      $$->right_type =ExpressType::VALUE_T;
       $$->right_value = *$5;
       $$->comp = $4;
 
@@ -1113,15 +1340,15 @@ condition:
     | LBRACE select_stmt RBRACE comp_op rel_attr
     {
       $$ = new ConditionSqlNode;
-      $$->left_is_attr = 2;
+      $$->left_type = ExpressType::SELECT_T;
       // $$->left_selects = static_cast<SelectSqlNode*>($2);
-      $$->right_is_attr = 1;
+      $$->right_type = ExpressType::ATTR_T;
       $$->right_attr = *$5;
       $$->comp = $4;
 
       // delete $2;
       delete $5;
-    }
+    }*/
     ;
 
 group_by:

@@ -188,7 +188,7 @@ class CastExpr : public Expression {
  */
 class ComparisonExpr : public Expression {
  public:
-  ComparisonExpr(CompOp comp, std::unique_ptr<Expression> left,
+  ComparisonExpr(ExprOp comp, std::unique_ptr<Expression> left,
                  std::unique_ptr<Expression> right);
   virtual ~ComparisonExpr();
 
@@ -216,7 +216,7 @@ class ComparisonExpr : public Expression {
 
   AttrType value_type() const override { return BOOLEANS; }
 
-  CompOp comp() const { return comp_; }
+  ExprOp comp() const { return comp_; }
 
   std::unique_ptr<Expression> &left() { return left_; }
   std::unique_ptr<Expression> &right() { return right_; }
@@ -224,17 +224,17 @@ class ComparisonExpr : public Expression {
   void swap_left_right() {
     switch (comp_)
     {
-    case CompOp::GREAT_EQUAL:
-      comp_ = CompOp::LESS_EQUAL;
+    case ExprOp::GREAT_EQUAL:
+      comp_ = ExprOp::LESS_EQUAL;
       break;
-    case CompOp::LESS_EQUAL:
-      comp_ = CompOp::GREAT_EQUAL;
+    case ExprOp::LESS_EQUAL:
+      comp_ = ExprOp::GREAT_EQUAL;
       break;
-    case CompOp::GREAT_THAN:
-      comp_ = CompOp::LESS_THAN;
+    case ExprOp::GREAT_THAN:
+      comp_ = ExprOp::LESS_THAN;
       break;
-    case CompOp::LESS_THAN:
-      comp_ = CompOp::GREAT_THAN;
+    case ExprOp::LESS_THAN:
+      comp_ = ExprOp::GREAT_THAN;
       break;
     default:
       break;
@@ -264,7 +264,7 @@ class ComparisonExpr : public Expression {
   RC compare_value(const Value &left, const Value &right, bool &value) const;
 
  private:
-  CompOp comp_;
+  ExprOp comp_;
   std::unique_ptr<Expression> left_;
   std::unique_ptr<Expression> right_;
 };

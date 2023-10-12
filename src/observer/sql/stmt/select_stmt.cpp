@@ -178,7 +178,8 @@ RC SelectStmt::create(Db *db, const SelectSqlNode &select_sql, Stmt *&stmt) {
   int aggr_func_count = 0;  // 计算列中的聚合函数数量
   for (int i = static_cast<int>(select_sql.attributes.size()) - 1; i >= 0;
        i--) {
-    if (select_sql.attributes[i].aggr_func_type != AggrFuncType::NONE)
+    if (select_sql.attributes[i]->type == ExpressType::ATTR_T &&
+        select_sql.attributes[i]->left_attr.aggr_func_type != AggrFuncType::NONE)
       aggr_func_count++;
   }
   // 如果聚合列和非聚合列共存 那么非聚合列必须等于在group by的列
@@ -191,7 +192,8 @@ RC SelectStmt::create(Db *db, const SelectSqlNode &select_sql, Stmt *&stmt) {
 
   for (int i = static_cast<int>(select_sql.attributes.size()) - 1; i >= 0;
        i--) {
-    const RelAttrSqlNode &relation_attr = select_sql.attributes[i];
+    const ExprSqlNode &tmp_expr_sql_node = *select_sql.attributes[i];
+    const RelAttrSqlNode &relation_attr = tmp_expr_sql_node.left_attr;
     if (relation_attr.is_syntax_error)
       return RC::SQL_SYNTAX;  // 排除语法解析错误
     // 只剩下两种非法:1. non-aggr和aggr的混用 2.非COUNT(*)以外的AGGR(*)
@@ -208,8 +210,8 @@ RC SelectStmt::create(Db *db, const SelectSqlNode &select_sql, Stmt *&stmt) {
           Field *tmp_field = new Field();
           tmp_field->set_aggr_func_type(AggrFuncType::CNT);
           tmp_field->set_alias("COUNT(*)");
-          if (select_sql.attributes[i].has_alias) {
-            tmp_field->set_alias(select_sql.attributes[i].alias);
+          if (relation_attr.has_alias) {
+            tmp_field->set_alias(relation_attr.alias);
           }
           aggr_query_fields.emplace_back(*tmp_field);
           aggr_field_to_query_field_map[aggr_query_fields.size() - 1] =
@@ -269,8 +271,8 @@ RC SelectStmt::create(Db *db, const SelectSqlNode &select_sql, Stmt *&stmt) {
             return RC::SCHEMA_FIELD_MISSING;
           }
           Field *tmp_field = new Field(table, field_meta);
-          if (select_sql.attributes[i].has_alias) {
-            tmp_field->set_alias(select_sql.attributes[i].alias);
+          if (relation_attr.has_alias) {
+            tmp_field->set_alias(relation_attr.alias);
             tmp_field->set_has_alias(true);
 
           } else if (table->has_alias()) {
@@ -290,8 +292,8 @@ RC SelectStmt::create(Db *db, const SelectSqlNode &select_sql, Stmt *&stmt) {
             }
 
             tmp_field->set_has_alias(true);
-            if (select_sql.attributes[i].has_alias) {
-              tmp_field->set_alias(select_sql.attributes[i].alias);
+            if (relation_attr.has_alias) {
+              tmp_field->set_alias(relation_attr.alias);
             } else if (table->has_alias()) {
               tmp_field->set_alias(
                   std::string(aggr_func_to_str(relation_attr.aggr_func_type)) +
@@ -321,8 +323,8 @@ RC SelectStmt::create(Db *db, const SelectSqlNode &select_sql, Stmt *&stmt) {
       }
       Field *tmp_field = new Field(table, field_meta);
       tmp_field->set_aggr_func_type(relation_attr.aggr_func_type);
-      if (select_sql.attributes[i].has_alias) {
-        tmp_field->set_alias(select_sql.attributes[i].alias);
+      if (relation_attr.has_alias) {
+        tmp_field->set_alias(relation_attr.alias);
         tmp_field->set_has_alias(true);
       }
       query_fields.emplace_back(*tmp_field);
@@ -337,8 +339,8 @@ RC SelectStmt::create(Db *db, const SelectSqlNode &select_sql, Stmt *&stmt) {
         }
 
         tmp_field->set_has_alias(true);
-        if (select_sql.attributes[i].has_alias) {
-          tmp_field->set_alias(select_sql.attributes[i].alias);
+        if (relation_attr.has_alias) {
+          tmp_field->set_alias(relation_attr.alias);
         }
         aggr_query_fields.emplace_back(*tmp_field);
         aggr_field_to_query_field_map[aggr_query_fields.size() - 1] =

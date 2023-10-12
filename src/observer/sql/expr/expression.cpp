@@ -76,7 +76,7 @@ RC CastExpr::try_get_value(Value &value) const {
 
 ////////////////////////////////////////////////////////////////////////////////
 
-ComparisonExpr::ComparisonExpr(CompOp comp, unique_ptr<Expression> left,
+ComparisonExpr::ComparisonExpr(ExprOp comp, unique_ptr<Expression> left,
                                unique_ptr<Expression> right)
     : comp_(comp), left_(std::move(left)), right_(std::move(right)) {}
 
@@ -114,7 +114,7 @@ RC ComparisonExpr::compare_value(const Value &left, const Value &right,
     case GREAT_THAN: {
       result = (cmp_result > 0);
     } break;
-    case CompOp::IS_EQUAL: {
+    case ExprOp::IS_EQUAL: {
       // 只要两边同时是null即返回通过
       //  result = (0 == cmp_result);
       if ((left.attr_type() == AttrType::NULL_ATTR) &&
@@ -126,7 +126,7 @@ RC ComparisonExpr::compare_value(const Value &left, const Value &right,
         result = false;
       }
     } break;
-    case CompOp::IS_NOT_EQUAL: {
+    case ExprOp::IS_NOT_EQUAL: {
       // 只要不是两边同时是null即返回通过
       //  result = (0 == cmp_result);
       if (!((left.attr_type() == AttrType::NULL_ATTR) &&
@@ -138,10 +138,10 @@ RC ComparisonExpr::compare_value(const Value &left, const Value &right,
         result = false;
       }
     } break;
-    case CompOp::LIKE: {
+    case ExprOp::LIKE: {
       result = (0 == cmp_result);
     } break;
-    case CompOp::NOT_LIKE: {
+    case ExprOp::NOT_LIKE: {
       result = (0 != cmp_result);
     } break;
     default: {
@@ -273,6 +273,11 @@ AttrType ArithmeticExpr::value_type() const {
     return left_->value_type();
   }
 
+  if (left_->value_type() == AttrType::NULL_ATTR ||
+      right_->value_type() == AttrType::NULL_ATTR) {
+    return AttrType::NULL_ATTR;
+  }
+
   if (left_->value_type() == AttrType::INTS &&
       right_->value_type() == AttrType::INTS && arithmetic_type_ != Type::DIV) {
     return AttrType::INTS;
@@ -286,6 +291,10 @@ RC ArithmeticExpr::calc_value(const Value &left_value, const Value &right_value,
   RC rc = RC::SUCCESS;
 
   const AttrType target_type = value_type();
+  if (target_type == AttrType::NULL_ATTR) {
+    value.set_null(nullptr, 4);
+    return rc;
+  }
 
   switch (arithmetic_type_) {
     case Type::ADD: {
@@ -317,7 +326,8 @@ RC ArithmeticExpr::calc_value(const Value &left_value, const Value &right_value,
         if (right_value.get_int() == 0) {
           // NOTE:
           // 设置为整数最大值是不正确的。通常的做法是设置为NULL，但是当前的miniob没有NULL概念，所以这里设置为整数最大值。
-          value.set_int(numeric_limits<int>::max());
+          // value.set_int(numeric_limits<int>::max());
+          value.set_null(nullptr, 4);
         } else {
           value.set_int(left_value.get_int() / right_value.get_int());
         }
@@ -326,7 +336,8 @@ RC ArithmeticExpr::calc_value(const Value &left_value, const Value &right_value,
             right_value.get_float() < EPSILON) {
           // NOTE:
           // 设置为浮点数最大值是不正确的。通常的做法是设置为NULL，但是当前的miniob没有NULL概念，所以这里设置为浮点数最大值。
-          value.set_float(numeric_limits<float>::max());
+          // value.set_float(numeric_limits<float>::max());
+          value.set_null(nullptr, 4);
         } else {
           value.set_float(left_value.get_float() / right_value.get_float());
         }

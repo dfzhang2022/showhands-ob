@@ -18,6 +18,7 @@ See the Mulan PSL v2 for more details. */
 #include <unordered_map>
 #include "sql/parser/parse_defs.h"
 #include "sql/stmt/stmt.h"
+#include "sql/stmt/express_obj.h"
 #include "sql/expr/expression.h"
 
 class Db;
@@ -26,6 +27,45 @@ class FieldMeta;
 
 struct FilterObj 
 {
+  ExpressType type_;
+  ExprObj expr_obj_;
+
+  void init_value(const Value &value)
+  {
+    type_ = ExpressType::VALUE_T;
+    expr_obj_.init_value(value);
+  }
+
+  void init_attr(const Field &field)
+  {
+    type_ = ExpressType::ATTR_T;
+    expr_obj_.init_attr(field);
+  }
+
+  void init_select(const SelectStmt* select_stmt)
+  {
+    type_ = ExpressType::SELECT_T;
+    expr_obj_.init_select(select_stmt);
+  }
+
+  void init_expr(const ExprObj &expr_obj)
+  {
+    type_ = ExpressType::EXPR_T;
+    expr_obj_ = expr_obj;
+  }
+
+  RC init_expr(Db *db, Table *default_table,
+    std::unordered_map<std::string, Table *> *tables, ExprSqlNode* expr_sql_node)
+  {
+    type_ = ExpressType::EXPR_T;
+    return expr_obj_.init(db, default_table, tables, expr_sql_node);
+  }
+
+  std::unique_ptr<Expression> to_expression()
+  {
+    return expr_obj_.to_expression();
+  }
+  /*
   bool is_attr;
   Field field;
   Value value;
@@ -40,7 +80,7 @@ struct FilterObj
   {
     is_attr = false;
     this->value = value;
-  }
+  }*/
 };
 
 class FilterUnit 
@@ -50,12 +90,12 @@ public:
   ~FilterUnit()
   {}
 
-  void set_comp(CompOp comp)
+  void set_comp(ExprOp comp)
   {
     comp_ = comp;
   }
 
-  CompOp comp() const
+  ExprOp comp() const
   {
     return comp_;
   }
@@ -79,7 +119,7 @@ public:
   }
 
 private:
-  CompOp comp_ = NO_OP;
+  ExprOp comp_ = NO_OP;
   FilterObj left_;
   FilterObj right_;
 };

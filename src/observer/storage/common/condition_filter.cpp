@@ -38,7 +38,7 @@ DefaultConditionFilter::DefaultConditionFilter()
 DefaultConditionFilter::~DefaultConditionFilter()
 {}
 
-RC DefaultConditionFilter::init(const ConDesc &left, const ConDesc &right, AttrType attr_type, CompOp comp_op)
+RC DefaultConditionFilter::init(const ConDesc &left, const ConDesc &right, AttrType attr_type, ExprOp comp_op)
 {
   if (attr_type < CHARS || attr_type > FLOATS) {
     LOG_ERROR("Invalid condition with unsupported attribute type: %d", attr_type);
@@ -66,7 +66,7 @@ RC DefaultConditionFilter::init(Table &table, const ConditionSqlNode &condition)
   AttrType type_left = UNDEFINED;
   AttrType type_right = UNDEFINED;
 
-  if (1 == condition.left_is_attr) {
+  if (condition.left_type == ExpressType::ATTR_T) {
     left.is_attr = true;
     const FieldMeta *field_left = table_meta.field(condition.left_attr.attribute_name.c_str());
     if (nullptr == field_left) {
@@ -86,7 +86,7 @@ RC DefaultConditionFilter::init(Table &table, const ConditionSqlNode &condition)
     left.attr_offset = 0;
   }
 
-  if (1 == condition.right_is_attr) {
+  if (condition.right_type == ExpressType::ATTR_T) {
     right.is_attr = true;
     const FieldMeta *field_right = table_meta.field(condition.right_attr.attribute_name.c_str());
     if (nullptr == field_right) {

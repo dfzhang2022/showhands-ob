@@ -93,7 +93,7 @@ RC FilterStmt::create_filter_unit(
     const ConditionSqlNode &condition, FilterUnit *&filter_unit) {
   RC rc = RC::SUCCESS;
 
-  CompOp comp = condition.comp;
+  ExprOp comp = condition.comp;
   if (comp < EQUAL_TO || comp >= NO_OP) {
     LOG_WARN("invalid compare operator : %d", comp);
     return RC::INVALID_ARGUMENT;
@@ -101,7 +101,7 @@ RC FilterStmt::create_filter_unit(
 
   filter_unit = new FilterUnit;
 
-  if (condition.left_is_attr) {
+  if (condition.left_type == ExpressType::ATTR_T) {
     Table *table = nullptr;
     const FieldMeta *field = nullptr;
     if (condition.left_attr.is_aggregation_func &&
@@ -129,19 +129,29 @@ RC FilterStmt::create_filter_unit(
       filter_unit->set_left(filter_obj);
     }
 
-  } else {
+  } else if (condition.left_type == ExpressType::VALUE_T) {
     FilterObj filter_obj;
     filter_obj.init_value(condition.left_value);
     filter_unit->set_left(filter_obj);
-    if (filter_unit->left().value.attr_type() == AttrType::DATES &&
-        filter_unit->left().value.get_date() == -1) {
+    if (filter_unit->left().expr_obj_.left_value.attr_type() == AttrType::DATES &&
+        filter_unit->left().expr_obj_.left_value.get_date() == -1) {
       rc = RC::INVALID_DATE;
       LOG_WARN("Invalid date.");
       return rc;
     }
+  } else if (condition.left_type == ExpressType::EXPR_T) {
+    FilterObj filter_obj;
+    rc = filter_obj.init_expr(db, default_table, tables, condition.left_expr);
+    if (rc != RC::SUCCESS) {
+      return rc;
+    }
+    filter_unit->set_left(filter_obj);
+  } else {
+    // 先不考虑子查询
+    return RC::UNIMPLENMENT;
   }
 
-  if (condition.right_is_attr) {
+  if (condition.right_type == ExpressType::ATTR_T) {
     Table *table = nullptr;
     const FieldMeta *field = nullptr;
     if (condition.right_attr.is_aggregation_func &&
@@ -168,24 +178,34 @@ RC FilterStmt::create_filter_unit(
       filter_obj.init_attr(tmp_field);
       filter_unit->set_right(filter_obj);
     }
-  } else {
+  } else if (condition.right_type == ExpressType::VALUE_T) {
     FilterObj filter_obj;
     filter_obj.init_value(condition.right_value);
-    if (comp == CompOp::LIKE || comp == CompOp::NOT_LIKE) {
+    if (comp == ExprOp::LIKE || comp == ExprOp::NOT_LIKE) {
       // 说明右值是like_str
-      filter_obj.value.set_type(AttrType::LIKE_STR);
-    } else if (comp == CompOp::IS_EQUAL) {
+      filter_obj.expr_obj_.left_value.set_type(AttrType::LIKE_STR);
+    } else if (comp == ExprOp::IS_EQUAL) {
       // 比较语句是IS
       // filter_obj.value.set_type(AttrType::LIKE_STR);
     }
 
     filter_unit->set_right(filter_obj);
-    if (filter_unit->right().value.attr_type() == AttrType::DATES &&
-        filter_unit->right().value.get_date() == -1) {
+    if (filter_unit->right().expr_obj_.left_value.attr_type() == AttrType::DATES &&
+        filter_unit->right().expr_obj_.left_value.get_date() == -1) {
       rc = RC::INVALID_DATE;
       LOG_WARN("Invalid date.");
       return rc;
     }
+  } else if (condition.right_type == ExpressType::EXPR_T) {
+    FilterObj filter_obj;
+    rc = filter_obj.init_expr(db, default_table, tables, condition.right_expr);
+    if (rc != RC::SUCCESS) {
+      return rc;
+    }
+    filter_unit->set_right(filter_obj);
+  } else {
+    // 先不考虑子查询
+    return RC::UNIMPLENMENT;
   }
 
   filter_unit->set_comp(comp);
