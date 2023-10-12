@@ -1112,7 +1112,7 @@ condition:
       $$->left_is_attr = 0;
       $$->left_value = *$1;
       $$->right_is_attr =2;
-      // $$->right_selects = static_cast<SelectSqlNode*>($4);
+      $$->right_selects = (&($4->selection));
       $$->comp = $2;
 
       delete $1;
@@ -1124,7 +1124,7 @@ condition:
       $$->left_is_attr = 1;
       $$->left_attr = *$1;
       $$->right_is_attr = 2;
-      // $$->right_selects = static_cast<SelectSqlNode*>($4);
+      $$->right_selects = (&($4->selection));
       $$->comp = $2;
 
       delete $1;
@@ -1134,7 +1134,7 @@ condition:
     {
       $$ = new ConditionSqlNode;
       $$->left_is_attr = 2;
-      // $$->left_selects = static_cast<SelectSqlNode*>($2);
+      $$->left_selects = (&($2->selection));
       $$->right_is_attr =0;
       $$->right_value = *$5;
       $$->comp = $4;
@@ -1146,7 +1146,7 @@ condition:
     {
       $$ = new ConditionSqlNode;
       $$->left_is_attr = 2;
-      // $$->left_selects = static_cast<SelectSqlNode*>($2);
+      $$->left_selects = (&($2->selection));
       $$->right_is_attr = 1;
       $$->right_attr = *$5;
       $$->comp = $4;
@@ -1316,6 +1316,8 @@ comp_op:
     | IS NOT{$$ = IS_NOT_EQUAL;}
     | LIKE_MARK {$$ = LIKE;}
     | NOT LIKE_MARK {$$ = NOT_LIKE;}
+    | IN {$$ = IN_COMP;}
+    | NOT IN {$$ = NOT_IN_COMP;}
     ;
 
 load_data_stmt:

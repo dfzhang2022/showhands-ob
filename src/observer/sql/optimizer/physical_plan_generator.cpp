@@ -172,12 +172,14 @@ RC PhysicalPlanGenerator::create_plan(TableGetLogicalOperator &table_get_oper,
 
     index_scan_oper->set_predicates(std::move(predicates));
     oper = unique_ptr<PhysicalOperator>(index_scan_oper);
+    logi_to_phys_map.insert({&table_get_oper, oper.get()});
     LOG_TRACE("use index scan");
   } else {
     auto table_scan_oper =
         new TableScanPhysicalOperator(table, table_get_oper.readonly());
     table_scan_oper->set_predicates(std::move(predicates));
     oper = unique_ptr<PhysicalOperator>(table_scan_oper);
+    logi_to_phys_map.insert({&table_get_oper, oper.get()});
     LOG_TRACE("use table scan");
   }
 
@@ -205,6 +207,7 @@ RC PhysicalPlanGenerator::create_plan(PredicateLogicalOperator &pred_oper,
          "predicate logical operator's children should be 1");
 
   unique_ptr<Expression> expression = std::move(expressions.front());
+  rc = expression->gen_physical();
   oper = unique_ptr<PhysicalOperator>(
       new PredicatePhysicalOperator(std::move(expression)));
   oper->add_child(std::move(child_phy_oper));
@@ -400,9 +403,12 @@ RC PhysicalPlanGenerator::create_plan(JoinLogicalOperator &join_oper,
   RC rc = RC::SUCCESS;
 
   vector<unique_ptr<LogicalOperator>> &child_opers = join_oper.children();
-  if (child_opers.size() != 2) {
-    LOG_WARN("join operator should have 2 children, but have %d",
-             child_opers.size());
+  if (child_opers.size() != 2 &&
+      !(join_oper.is_left_sub_link() || join_oper.is_right_sub_link())) {
+    LOG_WARN(
+        "join operator should have 2 children or have sub link node, but have "
+        "%d",
+        child_opers.size());
     return RC::INTERNAL;
   }
 
@@ -430,6 +436,12 @@ RC PhysicalPlanGenerator::create_plan(JoinLogicalOperator &join_oper,
   }
   unique_ptr<NestedLoopJoinPhysicalOperator> join_physical_oper(
       new NestedLoopJoinPhysicalOperator);
+  if (join_oper.is_left_sub_link()) {
+    join_physical_oper->set_is_left_sub_link(true);
+    PhysicalOperator *tmp_phy_ptr = PhysicalPlanGenerator::logi_to_phys_map.at(
+        const_cast<LogicalOperator *>(join_oper.left_link()));
+    join_physical_oper->set_left_link(tmp_phy_ptr);
+  }
   for (auto &child_oper : child_opers) {
     unique_ptr<PhysicalOperator> child_physical_oper;
     rc = create(*child_oper, child_physical_oper);
@@ -438,6 +450,12 @@ RC PhysicalPlanGenerator::create_plan(JoinLogicalOperator &join_oper,
       return rc;
     }
     join_physical_oper->add_child(std::move(child_physical_oper));
+  }
+  if (join_oper.is_right_sub_link()) {
+    join_physical_oper->set_is_right_sub_link(true);
+    PhysicalOperator *tmp_phy_ptr = PhysicalPlanGenerator::logi_to_phys_map.at(
+        const_cast<LogicalOperator *>(join_oper.right_link()));
+    join_physical_oper->set_right_link(tmp_phy_ptr);
   }
   join_physical_oper->set_predicates(std::move(predicates));
   oper = std::move(join_physical_oper);

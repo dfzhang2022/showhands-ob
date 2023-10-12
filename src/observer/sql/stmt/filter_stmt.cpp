@@ -94,102 +94,172 @@ RC FilterStmt::create_filter_unit(
   RC rc = RC::SUCCESS;
 
   CompOp comp = condition.comp;
-  if (comp < EQUAL_TO || comp >= NO_OP) {
-    LOG_WARN("invalid compare operator : %d", comp);
-    return RC::INVALID_ARGUMENT;
-  }
 
-  filter_unit = new FilterUnit;
-
-  if (condition.left_is_attr) {
-    Table *table = nullptr;
-    const FieldMeta *field = nullptr;
-    if (condition.left_attr.is_aggregation_func &&
-        condition.left_attr.aggr_func_type == AggrFuncType::CNT &&
-        0 == strcmp("*", condition.left_attr.attribute_name.c_str())) {
-      // 对于COUNT(*)>value做单独的处理
-      FilterObj filter_obj;
-      Field tmp_field;
-      tmp_field.set_aggr_func_type(condition.left_attr.aggr_func_type);
-      filter_obj.init_attr(tmp_field);
-      filter_unit->set_left(filter_obj);
-    } else {
-      rc = get_table_and_field(db, default_table, tables, condition.left_attr,
-                               table, field);
-      if (rc != RC::SUCCESS) {
-        LOG_WARN("cannot find attr");
-        return rc;
-      }
-      FilterObj filter_obj;
-      Field tmp_field(table, field);
-      if (condition.left_attr.is_aggregation_func) {
+  if (comp == CompOp::IN_COMP) {
+    filter_unit = new FilterUnit;
+    if (condition.left_is_attr == 1) {
+      Table *table = nullptr;
+      const FieldMeta *field = nullptr;
+      if (condition.left_attr.is_aggregation_func &&
+          condition.left_attr.aggr_func_type == AggrFuncType::CNT &&
+          0 == strcmp("*", condition.left_attr.attribute_name.c_str())) {
+        // 对于COUNT(*)>value做单独的处理
+        FilterObj filter_obj;
+        Field tmp_field;
         tmp_field.set_aggr_func_type(condition.left_attr.aggr_func_type);
+        filter_obj.init_attr(tmp_field);
+        filter_unit->set_left(filter_obj);
+      } else {
+        rc = get_table_and_field(db, default_table, tables, condition.left_attr,
+                                 table, field);
+        if (rc != RC::SUCCESS) {
+          LOG_WARN("cannot find attr");
+          return rc;
+        }
+        FilterObj filter_obj;
+        Field tmp_field(table, field);
+        if (condition.left_attr.is_aggregation_func) {
+          tmp_field.set_aggr_func_type(condition.left_attr.aggr_func_type);
+        }
+        filter_obj.init_attr(tmp_field);
+        filter_unit->set_left(filter_obj);
       }
-      filter_obj.init_attr(tmp_field);
-      filter_unit->set_left(filter_obj);
-    }
 
-  } else {
-    FilterObj filter_obj;
-    filter_obj.init_value(condition.left_value);
-    filter_unit->set_left(filter_obj);
-    if (filter_unit->left().value.attr_type() == AttrType::DATES &&
-        filter_unit->left().value.get_date() == -1) {
-      rc = RC::INVALID_DATE;
-      LOG_WARN("Invalid date.");
-      return rc;
-    }
-  }
-
-  if (condition.right_is_attr) {
-    Table *table = nullptr;
-    const FieldMeta *field = nullptr;
-    if (condition.right_attr.is_aggregation_func &&
-        condition.right_attr.aggr_func_type == AggrFuncType::CNT &&
-        0 == strcmp("*", condition.right_attr.attribute_name.c_str())) {
-      // 对于COUNT(*)>value做单独的处理
-      FilterObj filter_obj;
-      Field tmp_field;
-      tmp_field.set_aggr_func_type(condition.right_attr.aggr_func_type);
-      filter_obj.init_attr(tmp_field);
-      filter_unit->set_right(filter_obj);
     } else {
-      rc = get_table_and_field(db, default_table, tables, condition.right_attr,
-                               table, field);
-      if (rc != RC::SUCCESS) {
-        LOG_WARN("cannot find attr");
+      FilterObj filter_obj;
+      filter_obj.init_value(condition.left_value);
+      filter_unit->set_left(filter_obj);
+      if (filter_unit->left().value.attr_type() == AttrType::DATES &&
+          filter_unit->left().value.get_date() == -1) {
+        rc = RC::INVALID_DATE;
+        LOG_WARN("Invalid date.");
         return rc;
       }
+    }
+    if (condition.right_is_attr == 2) {
       FilterObj filter_obj;
-      Field tmp_field(table, field);
-      if (condition.right_attr.is_aggregation_func) {
-        tmp_field.set_aggr_func_type(condition.right_attr.aggr_func_type);
-      }
-      filter_obj.init_attr(tmp_field);
+      filter_obj.is_selects = true;
+      Stmt *tmp_ptr;
+      rc = SelectStmt::create(db, *condition.right_selects, tmp_ptr, true);
+      filter_obj.stmt = tmp_ptr;
       filter_unit->set_right(filter_obj);
     }
+    filter_unit->set_comp(comp);
+
+    // 检查两个类型是否能够比较
+    return rc;
   } else {
-    FilterObj filter_obj;
-    filter_obj.init_value(condition.right_value);
-    if (comp == CompOp::LIKE || comp == CompOp::NOT_LIKE) {
-      // 说明右值是like_str
-      filter_obj.value.set_type(AttrType::LIKE_STR);
-    } else if (comp == CompOp::IS_EQUAL) {
-      // 比较语句是IS
-      // filter_obj.value.set_type(AttrType::LIKE_STR);
+    if (comp < EQUAL_TO || comp >= NO_OP) {
+      LOG_WARN("invalid compare operator : %d", comp);
+      return RC::INVALID_ARGUMENT;
     }
 
-    filter_unit->set_right(filter_obj);
-    if (filter_unit->right().value.attr_type() == AttrType::DATES &&
-        filter_unit->right().value.get_date() == -1) {
-      rc = RC::INVALID_DATE;
-      LOG_WARN("Invalid date.");
-      return rc;
+    filter_unit = new FilterUnit;
+
+    if (condition.left_is_attr == 1) {
+      Table *table = nullptr;
+      const FieldMeta *field = nullptr;
+      if (condition.left_attr.is_aggregation_func &&
+          condition.left_attr.aggr_func_type == AggrFuncType::CNT &&
+          0 == strcmp("*", condition.left_attr.attribute_name.c_str())) {
+        // 对于COUNT(*)>value做单独的处理
+        FilterObj filter_obj;
+        Field tmp_field;
+        tmp_field.set_aggr_func_type(condition.left_attr.aggr_func_type);
+        filter_obj.init_attr(tmp_field);
+        filter_unit->set_left(filter_obj);
+      } else {
+        rc = get_table_and_field(db, default_table, tables, condition.left_attr,
+                                 table, field);
+        if (rc != RC::SUCCESS) {
+          LOG_WARN("cannot find attr");
+          return rc;
+        }
+        FilterObj filter_obj;
+        Field tmp_field(table, field);
+        if (condition.left_attr.is_aggregation_func) {
+          tmp_field.set_aggr_func_type(condition.left_attr.aggr_func_type);
+        }
+        filter_obj.init_attr(tmp_field);
+        filter_unit->set_left(filter_obj);
+      }
+
+    } else if (condition.left_is_attr == 2) {
+      FilterObj filter_obj;
+      filter_obj.is_selects = true;
+      Stmt *tmp_ptr;
+      rc = SelectStmt::create(db, *condition.left_selects, tmp_ptr, true);
+      filter_obj.stmt = tmp_ptr;
+      filter_unit->set_left(filter_obj);
+    } else {
+      FilterObj filter_obj;
+      filter_obj.init_value(condition.left_value);
+      filter_unit->set_left(filter_obj);
+      if (filter_unit->left().value.attr_type() == AttrType::DATES &&
+          filter_unit->left().value.get_date() == -1) {
+        rc = RC::INVALID_DATE;
+        LOG_WARN("Invalid date.");
+        return rc;
+      }
     }
+
+    if (condition.right_is_attr == 1) {
+      Table *table = nullptr;
+      const FieldMeta *field = nullptr;
+      if (condition.right_attr.is_aggregation_func &&
+          condition.right_attr.aggr_func_type == AggrFuncType::CNT &&
+          0 == strcmp("*", condition.right_attr.attribute_name.c_str())) {
+        // 对于COUNT(*)>value做单独的处理
+        FilterObj filter_obj;
+        Field tmp_field;
+        tmp_field.set_aggr_func_type(condition.right_attr.aggr_func_type);
+        filter_obj.init_attr(tmp_field);
+        filter_unit->set_right(filter_obj);
+      } else {
+        rc = get_table_and_field(db, default_table, tables,
+                                 condition.right_attr, table, field);
+        if (rc != RC::SUCCESS) {
+          LOG_WARN("cannot find attr");
+          return rc;
+        }
+        FilterObj filter_obj;
+        Field tmp_field(table, field);
+        if (condition.right_attr.is_aggregation_func) {
+          tmp_field.set_aggr_func_type(condition.right_attr.aggr_func_type);
+        }
+        filter_obj.init_attr(tmp_field);
+        filter_unit->set_right(filter_obj);
+      }
+    } else if (condition.right_is_attr == 2) {
+      FilterObj filter_obj;
+      filter_obj.is_selects = true;
+      Stmt *tmp_ptr;
+      rc = SelectStmt::create(db, *condition.right_selects, tmp_ptr, true);
+      filter_obj.stmt = tmp_ptr;
+      filter_unit->set_right(filter_obj);
+    } else {
+      FilterObj filter_obj;
+      filter_obj.init_value(condition.right_value);
+      if (comp == CompOp::LIKE || comp == CompOp::NOT_LIKE) {
+        // 说明右值是like_str
+        filter_obj.value.set_type(AttrType::LIKE_STR);
+      } else if (comp == CompOp::IS_EQUAL) {
+        // 比较语句是IS
+        // filter_obj.value.set_type(AttrType::LIKE_STR);
+      }
+
+      filter_unit->set_right(filter_obj);
+      if (filter_unit->right().value.attr_type() == AttrType::DATES &&
+          filter_unit->right().value.get_date() == -1) {
+        rc = RC::INVALID_DATE;
+        LOG_WARN("Invalid date.");
+        return rc;
+      }
+    }
+
+    filter_unit->set_comp(comp);
+
+    // 检查两个类型是否能够比较
+    return rc;
   }
-
-  filter_unit->set_comp(comp);
-
-  // 检查两个类型是否能够比较
-  return rc;
 }

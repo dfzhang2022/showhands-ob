@@ -1,7 +1,7 @@
 /* Copyright (c) 2021 OceanBase and/or its affiliates. All rights reserved.
 miniob is licensed under Mulan PSL v2.
-You can use this software according to the terms and conditions of the Mulan PSL v2.
-You may obtain a copy of Mulan PSL v2 at:
+You can use this software according to the terms and conditions of the Mulan PSL
+v2. You may obtain a copy of Mulan PSL v2 at:
          http://license.coscl.org.cn/MulanPSL2
 THIS SOFTWARE IS PROVIDED ON AN "AS IS" BASIS, WITHOUT WARRANTIES OF ANY KIND,
 EITHER EXPRESS OR IMPLIED, INCLUDING BUT NOT LIMITED TO NON-INFRINGEMENT,
@@ -19,38 +19,51 @@ See the Mulan PSL v2 for more details. */
 /**
  * @brief 连接算子
  * @ingroup LogicalOperator
- * @details 连接算子，用于连接两个表。对应的物理算子或者实现，可能有NestedLoopJoin，HashJoin等等。
+ * @details
+ * 连接算子，用于连接两个表。对应的物理算子或者实现，可能有NestedLoopJoin，HashJoin等等。
  */
-class JoinLogicalOperator : public LogicalOperator 
-{
-public:
+class JoinLogicalOperator : public LogicalOperator {
+ public:
   JoinLogicalOperator() = default;
   virtual ~JoinLogicalOperator() = default;
 
-  LogicalOperatorType type() const override
-  {
+  LogicalOperatorType type() const override {
     return LogicalOperatorType::JOIN;
   }
 
-  void set_predicates(std::vector<std::unique_ptr<Expression>> &&exprs)
-  {
+  void set_predicates(std::vector<std::unique_ptr<Expression>> &&exprs) {
     predicates_ = std::move(exprs);
   }
 
-  void add_predicates(std::unique_ptr<Expression> &exprs)
-  {
+  void add_predicates(std::unique_ptr<Expression> &exprs) {
     predicates_.emplace_back(std::move(exprs));
   }
 
-  std::vector<std::unique_ptr<Expression>> &predicates()
-  {
-    return predicates_;
+  std::vector<std::unique_ptr<Expression>> &predicates() { return predicates_; }
+
+  bool is_left_sub_link() { return is_left_sub_link_; }
+  bool is_right_sub_link() { return is_right_sub_link_; }
+  void set_is_left_sub_link(bool flag) { is_left_sub_link_ = flag; }
+  void set_is_right_sub_link(bool flag) { is_right_sub_link_ = flag; }
+
+  const LogicalOperator *left_link() const { return left_link_; }
+  const LogicalOperator *right_link() const { return right_link_; }
+  void set_left_link(LogicalOperator *&left_link) {
+    this->left_link_ = left_link;
+  }
+  void set_right_link(LogicalOperator *&right_link) {
+    this->right_link_ = right_link;
   }
 
-private:
+ private:
   // 与当前表相关的过滤操作，可以尝试在遍历数据时执行
   // 这里的表达式都是比较简单的比较运算，并且左右两边都是取字段表达式或值表达式
   // 不包含复杂的表达式运算，比如加减乘除、或者conjunction expression
   // 如果有多个表达式，他们的关系都是 AND
   std::vector<std::unique_ptr<Expression>> predicates_;
+
+  bool is_left_sub_link_ = false;
+  bool is_right_sub_link_ = false;
+  LogicalOperator *left_link_ = nullptr;
+  LogicalOperator *right_link_ = nullptr;
 };

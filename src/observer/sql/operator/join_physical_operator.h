@@ -15,6 +15,7 @@ See the Mulan PSL v2 for more details. */
 #pragma once
 
 #include <unordered_map>
+
 #include "sql/operator/physical_operator.h"
 #include "sql/parser/parse.h"
 
@@ -41,6 +42,18 @@ class NestedLoopJoinPhysicalOperator : public PhysicalOperator {
   std::vector<std::unique_ptr<Expression>> &predicates();
   RC filter(JoinedTuple &tuple, bool &result);
 
+  bool is_left_sub_link() { return is_left_sub_link_; }
+  bool is_right_sub_link() { return is_right_sub_link_; }
+  void set_is_left_sub_link(bool flag) { is_left_sub_link_ = flag; }
+  void set_is_right_sub_link(bool flag) { is_right_sub_link_ = flag; }
+
+  const PhysicalOperator *left_link() const { return left_; }
+  const PhysicalOperator *right_link() const { return right_; }
+  void set_left_link(PhysicalOperator *&left_link) { this->left_ = left_link; }
+  void set_right_link(PhysicalOperator *&right_link) {
+    this->right_ = right_link;
+  }
+
  private:
   RC left_next();   //! 左表遍历下一条数据
   RC right_next();  //! 右表遍历下一条数据，如果上一轮结束了就重新开始新的一轮
@@ -51,6 +64,10 @@ class NestedLoopJoinPhysicalOperator : public PhysicalOperator {
   //! 左表右表的真实对象是在PhysicalOperator::children_中，这里是为了写的时候更简单
   PhysicalOperator *left_ = nullptr;
   PhysicalOperator *right_ = nullptr;
+  bool is_left_sub_link_ = false;
+  bool is_right_sub_link_ = false;
+  bool is_left_sub_link_accessed_ = false;
+  bool is_right_sub_link_accessed_ = false;
   Tuple *left_tuple_ = nullptr;
   Tuple *right_tuple_ = nullptr;
   JoinedTuple joined_tuple_;  //! 当前关联的左右两个tuple
@@ -91,6 +108,8 @@ class HashJoinPhysicalOperator : public PhysicalOperator {
   //! 左表右表的真实对象是在PhysicalOperator::children_中，这里是为了写的时候更简单
   PhysicalOperator *left_ = nullptr;
   PhysicalOperator *right_ = nullptr;
+  bool is_left_sub_link = false;
+  bool is_right_sub_link = false;
   Tuple *left_tuple_ = nullptr;
   Tuple *right_tuple_ = nullptr;
   JoinedTuple joined_tuple_;  //! 当前关联的左右两个tuple

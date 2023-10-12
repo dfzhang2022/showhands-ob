@@ -40,7 +40,8 @@ class SelectStmt : public Stmt {
   StmtType type() const override { return StmtType::SELECT; }
 
  public:
-  static RC create(Db *db, const SelectSqlNode &select_sql, Stmt *&stmt);
+  static RC create(Db *db, const SelectSqlNode &select_sql, Stmt *&stmt,
+                   bool is_sub_select = false);
 
  public:
   const std::vector<Table *> &tables() const { return tables_; }
@@ -53,6 +54,9 @@ class SelectStmt : public Stmt {
   const std::vector<OrderByDirection> &order_by_directions() const {
     return order_by_directions_;
   }
+
+  const bool is_sub_select() const { return is_sub_select_; }
+
   FilterStmt *filter_stmt() const { return filter_stmt_; }
   FilterStmt *having_filter_stmt() const { return having_filter_stmt_; }
   // const std::unordered_map<Field *, AggrFuncType> &aggrfunc_queries() {
@@ -67,6 +71,7 @@ class SelectStmt : public Stmt {
   }
 
  private:
+  bool is_sub_select_ = false;
   std::vector<Field> aggr_query_fields_;  // 当存在聚合函数时候会调用该vector
   std::map<int, int>
       aggr_field_to_query_field_map_;  // 用于记录聚合列指向投影之后的哪一列

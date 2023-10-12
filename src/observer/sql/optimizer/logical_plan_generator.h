@@ -35,15 +35,18 @@ class LogicalPlanGenerator {
   LogicalPlanGenerator() = default;
   virtual ~LogicalPlanGenerator() = default;
 
-  RC create(Stmt *stmt, std::unique_ptr<LogicalOperator> &logical_operator);
+  RC create(Stmt *stmt, std::unique_ptr<LogicalOperator> &logical_operator,
+            std::map<std::string, LogicalOperator *> *map = nullptr);
 
  private:
   RC create_plan(CalcStmt *calc_stmt,
                  std::unique_ptr<LogicalOperator> &logical_operator);
   RC create_plan(SelectStmt *select_stmt,
-                 std::unique_ptr<LogicalOperator> &logical_operator);
+                 std::unique_ptr<LogicalOperator> &logical_operator,
+                 std::map<std::string, LogicalOperator *> *map = nullptr);
   RC create_plan(FilterStmt *filter_stmt,
-                 std::unique_ptr<LogicalOperator> &logical_operator);
+                 std::unique_ptr<LogicalOperator> &logical_operator,
+                 std::map<std::string, LogicalOperator *> *map = nullptr);
   RC create_plan(InsertStmt *insert_stmt,
                  std::unique_ptr<LogicalOperator> &logical_operator);
   RC create_plan(DeleteStmt *delete_stmt,

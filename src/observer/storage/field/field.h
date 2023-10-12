@@ -80,6 +80,8 @@ class Field {
   FunctionType func_type_ = FunctionType::NONE_FUNC;
   FunctionMetaInfo func_info_;
 
+  bool is_sub_link = false;
+
   bool has_alias_ = false;
   std::string
       alias_;  // 记录临时需要的别名("目前的一个用法是用作聚合函数输出表头")

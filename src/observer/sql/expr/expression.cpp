@@ -15,6 +15,11 @@ See the Mulan PSL v2 for more details. */
 #include "sql/expr/expression.h"
 
 #include "sql/expr/tuple.h"
+#include "sql/operator/logical_operator.h"
+#include "sql/operator/physical_operator.h"
+#include "sql/optimizer/logical_plan_generator.h"
+#include "sql/optimizer/physical_plan_generator.h"
+#include "sql/stmt/stmt.h"
 
 using namespace std;
 
@@ -144,6 +149,9 @@ RC ComparisonExpr::compare_value(const Value &left, const Value &right,
     case CompOp::NOT_LIKE: {
       result = (0 != cmp_result);
     } break;
+    case CompOp::IN_COMP: {
+      result = (0 == cmp_result);
+    } break;
     default: {
       LOG_WARN("unsupported comparison. %d", comp_);
       rc = RC::INTERNAL;
@@ -204,24 +212,78 @@ RC ComparisonExpr::try_get_value(Value &cell) const {
 RC ComparisonExpr::get_value(const Tuple &tuple, Value &value) const {
   Value left_value;
   Value right_value;
+  if (this->comp() == CompOp::IN_COMP) {
+    // todo 这里要判断一个集合的逻辑 不断取左右的value形成左右value的集合
+    //  然后比较两边的集合
+    // 当前仅考虑左边是单值 右边是集合
 
-  RC rc = left_->get_value(tuple, left_value);
-  if (rc != RC::SUCCESS) {
-    LOG_WARN("failed to get value of left expression. rc=%s", strrc(rc));
+    RC rc = left_->get_value(tuple, left_value);
+    if (rc != RC::SUCCESS) {
+      LOG_WARN("failed to get value of left expression. rc=%s", strrc(rc));
+      return rc;
+    }
+    bool result = false;
+    Value tmp_value(0);
+    rc = static_cast<SelectExpr *>(right_.get())->open();
+    while (RC::SUCCESS == (rc = right_->get_value(tuple, tmp_value))) {
+      compare_value(left_value, tmp_value, result);
+      if (result) {
+        value.set_boolean(true);
+        return RC::SUCCESS;
+      }
+    }
+    rc = static_cast<SelectExpr *>(right_.get())->close();
+    value.set_boolean(false);
+    return RC::SUCCESS;
+  } else {
+    RC rc = RC::SUCCESS;
+    if (left_->type() == ExprType::SELECTION) {
+      rc = static_cast<SelectExpr *>(left_.get())->open();
+      if (rc != RC::SUCCESS) {
+        LOG_WARN("ComparisonExpr left is select, but open failed.");
+        return rc;
+      }
+      rc = left_->get_value(tuple, left_value);
+      rc = static_cast<SelectExpr *>(left_.get())->close();
+      if (rc != RC::SUCCESS) {
+        LOG_WARN("failed to get value of left expression. rc=%s", strrc(rc));
+        return rc;
+      }
+    } else {
+      rc = left_->get_value(tuple, left_value);
+      if (rc != RC::SUCCESS) {
+        LOG_WARN("failed to get value of left expression. rc=%s", strrc(rc));
+        return rc;
+      }
+    }
+
+    if (right_->type() == ExprType::SELECTION) {
+      rc = static_cast<SelectExpr *>(right_.get())->open();
+      if (rc != RC::SUCCESS) {
+        LOG_WARN("ComparisonExpr right is select, but open failed.");
+        return rc;
+      }
+      rc = right_->get_value(tuple, right_value);
+      rc = static_cast<SelectExpr *>(right_.get())->close();
+      if (rc != RC::SUCCESS) {
+        LOG_WARN("failed to get value of right expression. rc=%s", strrc(rc));
+        return rc;
+      }
+    } else {
+      rc = right_->get_value(tuple, right_value);
+      if (rc != RC::SUCCESS) {
+        LOG_WARN("failed to get value of right expression. rc=%s", strrc(rc));
+        return rc;
+      }
+    }
+
+    bool bool_value = false;
+    rc = compare_value(left_value, right_value, bool_value);
+    if (rc == RC::SUCCESS) {
+      value.set_boolean(bool_value);
+    }
     return rc;
   }
-  rc = right_->get_value(tuple, right_value);
-  if (rc != RC::SUCCESS) {
-    LOG_WARN("failed to get value of right expression. rc=%s", strrc(rc));
-    return rc;
-  }
-
-  bool bool_value = false;
-  rc = compare_value(left_value, right_value, bool_value);
-  if (rc == RC::SUCCESS) {
-    value.set_boolean(bool_value);
-  }
-  return rc;
 }
 
 ////////////////////////////////////////////////////////////////////////////////
@@ -390,3 +452,30 @@ RC ArithmeticExpr::try_get_value(Value &value) const {
 
   return calc_value(left_value, right_value, value);
 }
+
+RC SelectExpr::get_value(const Tuple &tuple, Value &value) const {
+  RC rc = RC::SUCCESS;
+  if (RC::SUCCESS == (rc = this->pyhsical_root_ptr_->next())) {
+    Tuple *tuple = this->pyhsical_root_ptr_->current_tuple();
+    rc = tuple->cell_at(0, value);
+    return rc;
+  }
+  return rc;
+}
+
+SelectExpr::SelectExpr(Stmt *stmt,
+                       std::map<std::string, LogicalOperator *> *map) {
+  std::unique_ptr<LogicalOperator> tmp_ptr(nullptr);
+  logical_plan_generator_->create(stmt, tmp_ptr, map);
+  logical_root_ptr_ = tmp_ptr.release();
+}
+
+RC SelectExpr::gen_physical() {
+  std::unique_ptr<PhysicalOperator> tmp_physical_oper(nullptr);
+  physical_plan_generator_->create(*this->logical_root_ptr_, tmp_physical_oper);
+  this->pyhsical_root_ptr_ = tmp_physical_oper.release();
+  return RC::SUCCESS;
+}
+RC SelectExpr::open() { return this->pyhsical_root_ptr_->open(nullptr); }
+
+RC SelectExpr::close() { return this->pyhsical_root_ptr_->close(); }

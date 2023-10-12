@@ -40,7 +40,11 @@ static void wildcard_fields(Table *table, std::vector<Field> &field_metas) {
   }
 }
 
-RC SelectStmt::create(Db *db, const SelectSqlNode &select_sql, Stmt *&stmt) {
+RC SelectStmt::create(Db *db, const SelectSqlNode &select_sql, Stmt *&stmt,
+                      bool is_sub_select) {
+  // is_sub_select 用来标记当前的select语句是不是一个子查询的语句
+  // 如果是子查询的stmt如果where中出现了不在from中出现的表需要在外层结构进行连接
+  // 这一步只是认为该行为合法 正确性交由生成算子树的部分再做判断
   if (nullptr == db) {
     LOG_WARN("invalid argument. db is null");
     return RC::INVALID_ARGUMENT;
@@ -105,12 +109,6 @@ RC SelectStmt::create(Db *db, const SelectSqlNode &select_sql, Stmt *&stmt) {
           relationsqlnode.inner_join_sql_node.join_on_conditions.end());
     }
   }
-
-  // if (select_sql.relations.size() == 0) {
-  //   // Function 测试
-  //   select_sql.attributes[0].constant_value.get_string().c_str();
-  //   return RC::UNIMPLENMENT;
-  // }
 
   // 处理group_by语句
   std::vector<Field> group_by_fields;
@@ -406,6 +404,31 @@ RC SelectStmt::create(Db *db, const SelectSqlNode &select_sql, Stmt *&stmt) {
   }
 
   // create filter statement in `where` statement
+  // 如果is_sub_link = true,
+  // 首先将where中出现的新表加入到tables中以及更新table_map
+  if (is_sub_select) {
+    for (const auto condition : conditions) {
+      if (condition.left_is_attr == 1) {
+        RelAttrSqlNode relattrsqlnode = condition.left_attr;
+        const char *table_name = relattrsqlnode.relation_name.c_str();
+        if (table_name != nullptr && table_map.count(table_name) == 0) {
+          Table *table = db->find_table(table_name);
+          tables.push_back(table);
+          table_map.insert({table_name, table});
+        }
+      }
+      if (condition.right_is_attr == 1) {
+        RelAttrSqlNode relattrsqlnode = condition.right_attr;
+        const char *table_name = relattrsqlnode.relation_name.c_str();
+        if (table_name != nullptr && table_map.count(table_name) == 0) {
+          Table *table = db->find_table(table_name);
+          tables.push_back(table);
+          table_map.insert({table_name, table});
+        }
+      }
+    }
+  }
+
   FilterStmt *filter_stmt = nullptr;
 
   RC rc = FilterStmt::create(db, default_table, &table_map, conditions.data(),
@@ -506,6 +529,7 @@ RC SelectStmt::create(Db *db, const SelectSqlNode &select_sql, Stmt *&stmt) {
   select_stmt->group_by_fields_.swap(group_by_fields);
   select_stmt->filter_stmt_ = filter_stmt;
   select_stmt->having_filter_stmt_ = having_filter_stmt;
+  select_stmt->is_sub_select_ = is_sub_select;
 
   stmt = select_stmt;
   return RC::SUCCESS;

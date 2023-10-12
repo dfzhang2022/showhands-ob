@@ -1,7 +1,7 @@
 /* Copyright (c) 2021 OceanBase and/or its affiliates. All rights reserved.
 miniob is licensed under Mulan PSL v2.
-You can use this software according to the terms and conditions of the Mulan PSL v2.
-You may obtain a copy of Mulan PSL v2 at:
+You can use this software according to the terms and conditions of the Mulan PSL
+v2. You may obtain a copy of Mulan PSL v2 at:
          http://license.coscl.org.cn/MulanPSL2
 THIS SOFTWARE IS PROVIDED ON AN "AS IS" BASIS, WITHOUT WARRANTIES OF ANY KIND,
 EITHER EXPRESS OR IMPLIED, INCLUDING BUT NOT LIMITED TO NON-INFRINGEMENT,
@@ -13,18 +13,18 @@ See the Mulan PSL v2 for more details. */
 //
 
 #include "sql/optimizer/expression_rewriter.h"
+
+#include "common/log/log.h"
 #include "sql/optimizer/comparison_simplification_rule.h"
 #include "sql/optimizer/conjunction_simplification_rule.h"
-#include "common/log/log.h"
 
-ExpressionRewriter::ExpressionRewriter()
-{
+ExpressionRewriter::ExpressionRewriter() {
   expr_rewrite_rules_.emplace_back(new ComparisonSimplificationRule);
   expr_rewrite_rules_.emplace_back(new ConjunctionSimplificationRule);
 }
 
-RC ExpressionRewriter::rewrite(std::unique_ptr<LogicalOperator> &oper, bool &change_made)
-{
+RC ExpressionRewriter::rewrite(std::unique_ptr<LogicalOperator> &oper,
+                               bool &change_made) {
   RC rc = RC::SUCCESS;
 
   bool sub_change_made = false;
@@ -58,8 +58,8 @@ RC ExpressionRewriter::rewrite(std::unique_ptr<LogicalOperator> &oper, bool &cha
   return rc;
 }
 
-RC ExpressionRewriter::rewrite_expression(std::unique_ptr<Expression> &expr, bool &change_made)
-{
+RC ExpressionRewriter::rewrite_expression(std::unique_ptr<Expression> &expr,
+                                          bool &change_made) {
   RC rc = RC::SUCCESS;
 
   change_made = false;
@@ -85,7 +85,8 @@ RC ExpressionRewriter::rewrite_expression(std::unique_ptr<Expression> &expr, boo
     } break;
 
     case ExprType::CAST: {
-      std::unique_ptr<Expression> &child_expr = (static_cast<CastExpr *>(expr.get()))->child();
+      std::unique_ptr<Expression> &child_expr =
+          (static_cast<CastExpr *>(expr.get()))->child();
       rc = rewrite_expression(child_expr, change_made);
     } break;
 
@@ -113,13 +114,14 @@ RC ExpressionRewriter::rewrite_expression(std::unique_ptr<Expression> &expr, boo
 
     case ExprType::CONJUNCTION: {
       auto conjunction_expr = static_cast<ConjunctionExpr *>(expr.get());
-      std::vector<std::unique_ptr<Expression>> &children = conjunction_expr->children();
+      std::vector<std::unique_ptr<Expression>> &children =
+          conjunction_expr->children();
       for (std::unique_ptr<Expression> &child_expr : children) {
         bool sub_change_made = false;
         rc = rewrite_expression(child_expr, sub_change_made);
         if (rc != RC::SUCCESS) {
-
-          LOG_WARN("failed to rewriter conjunction sub expression. rc=%s", strrc(rc));
+          LOG_WARN("failed to rewriter conjunction sub expression. rc=%s",
+                   strrc(rc));
           return rc;
         }
 
@@ -127,6 +129,9 @@ RC ExpressionRewriter::rewrite_expression(std::unique_ptr<Expression> &expr, boo
           change_made = true;
         }
       }
+    } break;
+    case ExprType::SELECTION: {
+      // do nothing
     } break;
 
     default: {

@@ -24,7 +24,11 @@ See the Mulan PSL v2 for more details. */
 #include "storage/field/field.h"
 
 class Tuple;
-
+class LogicalOperator;
+class PhysicalOperator;
+class Stmt;
+class LogicalPlanGenerator;
+class PhysicalPlanGenerator;
 /**
  * @defgroup Expression
  * @brief 表达式
@@ -75,6 +79,7 @@ class Expression {
    */
   virtual RC try_get_value(Value &value) const { return RC::UNIMPLENMENT; }
 
+  virtual RC gen_physical() = 0;
   /**
    * @brief 表达式的类型
    * 可以根据表达式类型来转换为具体的子类
@@ -113,6 +118,8 @@ class FieldExpr : public Expression {
   ExprType type() const override { return ExprType::FIELD; }
   AttrType value_type() const override { return field_.attr_type(); }
 
+  RC gen_physical() override { return RC::SUCCESS; }
+
   Field &field() { return field_; }
 
   const Field &field() const { return field_; }
@@ -148,12 +155,45 @@ class ValueExpr : public Expression {
 
   AttrType value_type() const override { return value_.attr_type(); }
 
+  RC gen_physical() override { return RC::SUCCESS; }
+
   void get_value(Value &value) const { value = value_; }
 
   const Value &get_value() const { return value_; }
 
  private:
   Value value_;
+};
+
+/**
+ * @brief 子查询表达式
+ * @ingroup Expression
+ */
+
+class SelectExpr : public Expression {
+ public:
+  SelectExpr(/* args */) = default;
+  SelectExpr(Stmt *stmt, std::map<std::string, LogicalOperator *> *map);
+  virtual ~SelectExpr() = default;
+
+  ExprType type() const override { return ExprType::SELECTION; }
+  RC get_value(const Tuple &tuple, Value &value) const override;
+  AttrType value_type() const override { return AttrType::UNDEFINED; }
+
+  RC gen_physical() override;
+  RC open();
+  RC close();
+  void set_physical_root(PhysicalOperator *physical_ptr) {
+    this->pyhsical_root_ptr_ = physical_ptr;
+  }
+
+ private:
+  LogicalOperator *logical_root_ptr_;
+  PhysicalOperator *pyhsical_root_ptr_;
+
+  LogicalPlanGenerator *logical_plan_generator_;  ///< 根据SQL生成逻辑计划
+  PhysicalPlanGenerator
+      *physical_plan_generator_;  ///< 根据逻辑计划生成物理计划
 };
 
 /**
@@ -169,6 +209,7 @@ class CastExpr : public Expression {
   RC get_value(const Tuple &tuple, Value &value) const override;
 
   RC try_get_value(Value &value) const override;
+  RC gen_physical() override { return RC::SUCCESS; }
 
   AttrType value_type() const override { return cast_type_; }
 
@@ -196,6 +237,18 @@ class ComparisonExpr : public Expression {
 
   ExprType left_type() const { return left_->type(); }
   ExprType right_type() const { return right_->type(); }
+  RC gen_physical() override {
+    RC rc = RC::SUCCESS;
+    rc = left_->gen_physical();
+    if (rc != RC::SUCCESS) {
+      return rc;
+    }
+    rc = right_->gen_physical();
+    if (rc != RC::SUCCESS) {
+      return rc;
+    }
+    return rc;
+  }
 
   Field *left_field() const {
     if (left_type() == ExprType::FIELD) {
@@ -222,22 +275,21 @@ class ComparisonExpr : public Expression {
   std::unique_ptr<Expression> &right() { return right_; }
 
   void swap_left_right() {
-    switch (comp_)
-    {
-    case CompOp::GREAT_EQUAL:
-      comp_ = CompOp::LESS_EQUAL;
-      break;
-    case CompOp::LESS_EQUAL:
-      comp_ = CompOp::GREAT_EQUAL;
-      break;
-    case CompOp::GREAT_THAN:
-      comp_ = CompOp::LESS_THAN;
-      break;
-    case CompOp::LESS_THAN:
-      comp_ = CompOp::GREAT_THAN;
-      break;
-    default:
-      break;
+    switch (comp_) {
+      case CompOp::GREAT_EQUAL:
+        comp_ = CompOp::LESS_EQUAL;
+        break;
+      case CompOp::LESS_EQUAL:
+        comp_ = CompOp::GREAT_EQUAL;
+        break;
+      case CompOp::GREAT_THAN:
+        comp_ = CompOp::LESS_THAN;
+        break;
+      case CompOp::LESS_THAN:
+        comp_ = CompOp::GREAT_THAN;
+        break;
+      default:
+        break;
     }
     swap(left_, right_);
   }
@@ -249,7 +301,6 @@ class ComparisonExpr : public Expression {
   void set_right_expr(std::unique_ptr<Expression> exp) {
     right_ = std::move(exp);
   }
-
 
   /**
    * 尝试在没有tuple的情况下获取当前表达式的值
@@ -292,6 +343,16 @@ class ConjunctionExpr : public Expression {
   AttrType value_type() const override { return BOOLEANS; }
 
   RC get_value(const Tuple &tuple, Value &value) const override;
+  RC gen_physical() override {
+    RC rc = RC::SUCCESS;
+    for (int i = 0; i < children_.size(); i++) {
+      rc = children_[i]->gen_physical();
+      if (rc != RC::SUCCESS) {
+        return rc;
+      }
+    }
+    return rc;
+  }
 
   Type conjunction_type() const { return conjunction_type_; }
 
@@ -325,6 +386,7 @@ class ArithmeticExpr : public Expression {
   ExprType type() const override { return ExprType::ARITHMETIC; }
 
   AttrType value_type() const override;
+  RC gen_physical() override { return RC::SUCCESS; }
 
   RC get_value(const Tuple &tuple, Value &value) const override;
   RC try_get_value(Value &value) const override;
@@ -342,19 +404,4 @@ class ArithmeticExpr : public Expression {
   Type arithmetic_type_;
   std::unique_ptr<Expression> left_;
   std::unique_ptr<Expression> right_;
-};
-
-class SelectExpr : public Expression {
- public:
-  SelectExpr() = default;
-
-  virtual ~SelectExpr();
-
-  ExprType type() const override { return ExprType::SELECTION; }
-  AttrType value_type() const override { return value_.attr_type(); }
-
-  RC get_value(const Tuple &tuple, Value &value) const override;
-
- private:
-  Value value_;
 };

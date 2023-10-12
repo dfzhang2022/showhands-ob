@@ -72,4 +72,7 @@ class PhysicalPlanGenerator {
                  std::unique_ptr<PhysicalOperator> &oper);
   RC create_plan(UpdateLogicalOperator &logical_oper,
                  std::unique_ptr<PhysicalOperator> &oper);
+
+  inline static std::map<LogicalOperator *, PhysicalOperator *>
+      logi_to_phys_map;
 };
