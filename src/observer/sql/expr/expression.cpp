@@ -152,6 +152,9 @@ RC ComparisonExpr::compare_value(const Value &left, const Value &right,
     case CompOp::IN_COMP: {
       result = (0 == cmp_result);
     } break;
+    case CompOp::NOT_IN_COMP: {
+      result = (0 == cmp_result);
+    } break;
     default: {
       LOG_WARN("unsupported comparison. %d", comp_);
       rc = RC::INTERNAL;
@@ -225,7 +228,15 @@ RC ComparisonExpr::get_value(const Tuple &tuple, Value &value) const {
     bool result = false;
     Value tmp_value(0);
     rc = static_cast<SelectExpr *>(right_.get())->open();
-    while (RC::SUCCESS == (rc = right_->get_value(tuple, tmp_value))) {
+    while (1) {
+      rc = right_->get_value(tuple, tmp_value);
+      if (rc != RC::SUCCESS) {
+        if (rc == RC::RECORD_EOF) {
+          break;
+        } else {
+          return rc;
+        }
+      }
       compare_value(left_value, tmp_value, result);
       if (result) {
         value.set_boolean(true);
@@ -235,6 +246,36 @@ RC ComparisonExpr::get_value(const Tuple &tuple, Value &value) const {
     rc = static_cast<SelectExpr *>(right_.get())->close();
     value.set_boolean(false);
     return RC::SUCCESS;
+  } else if (this->comp() == CompOp::NOT_IN_COMP) {
+    //  这里判断NOT IN的逻辑
+
+    RC rc = left_->get_value(tuple, left_value);
+    if (rc != RC::SUCCESS) {
+      LOG_WARN("failed to get value of left expression. rc=%s", strrc(rc));
+      return rc;
+    }
+    bool result = false;
+    Value tmp_value(0);
+    std::vector<Value> value_set;
+    rc = static_cast<SelectExpr *>(right_.get())->open();
+    while (1) {
+      rc = right_->get_value(tuple, tmp_value);
+      if (rc != RC::SUCCESS) {
+        if (rc == RC::RECORD_EOF) {
+          break;
+        } else {
+          return rc;
+        }
+      }
+      compare_value(left_value, tmp_value, result);
+      if (result) {
+        value.set_boolean(false);
+        return RC::SUCCESS;
+      }
+    }
+    rc = static_cast<SelectExpr *>(right_.get())->close();
+    value.set_boolean(true);
+    return RC::SUCCESS;
   } else {
     RC rc = RC::SUCCESS;
     if (left_->type() == ExprType::SELECTION) {
@@ -243,12 +284,35 @@ RC ComparisonExpr::get_value(const Tuple &tuple, Value &value) const {
         LOG_WARN("ComparisonExpr left is select, but open failed.");
         return rc;
       }
-      rc = left_->get_value(tuple, left_value);
+      Value tmp_value(0);
+      std::vector<Value> value_set;
+      while (1) {
+        rc = left_->get_value(tuple, tmp_value);
+        if (rc != RC::SUCCESS) {
+          if (rc == RC::RECORD_EOF) {
+            break;
+          } else {
+            return rc;
+          }
+        }
+        value_set.emplace_back(Value(tmp_value));
+      }
+      if (value_set.size() != 1) {
+        LOG_WARN("compare to select can only have 1 rvalue.");
+        return RC::SELECT_EXPR_INVALID_ARGUMENT;
+      }
+      left_value.set_value(value_set[0]);
+      // rc = left_->get_value(tuple, left_value);
+      // if (rc != RC::SUCCESS) {
+      //   LOG_WARN("failed to get value of left expression. rc=%s", strrc(rc));
+      //   return rc;
+      // }
       rc = static_cast<SelectExpr *>(left_.get())->close();
       if (rc != RC::SUCCESS) {
-        LOG_WARN("failed to get value of left expression. rc=%s", strrc(rc));
+        LOG_WARN("failed to close select expression. rc=%s", strrc(rc));
         return rc;
       }
+
     } else {
       rc = left_->get_value(tuple, left_value);
       if (rc != RC::SUCCESS) {
@@ -263,10 +327,33 @@ RC ComparisonExpr::get_value(const Tuple &tuple, Value &value) const {
         LOG_WARN("ComparisonExpr right is select, but open failed.");
         return rc;
       }
-      rc = right_->get_value(tuple, right_value);
+      Value tmp_value(0);
+      std::vector<Value> value_set;
+      while (1) {
+        rc = right_->get_value(tuple, tmp_value);
+        if (rc != RC::SUCCESS) {
+          if (rc == RC::RECORD_EOF) {
+            break;
+          } else {
+            return rc;
+          }
+        }
+        value_set.emplace_back(Value(tmp_value));
+      }
+      if (value_set.size() != 1) {
+        LOG_WARN("compare to select can only have 1 rvalue.");
+        return RC::SELECT_EXPR_INVALID_ARGUMENT;
+      }
+      right_value.set_value(value_set[0]);
+      // rc = right_->get_value(tuple, right_value);
+      // rc = static_cast<SelectExpr *>(right_.get())->close();
+      // if (rc != RC::SUCCESS) {
+      //   LOG_WARN("failed to get value of right expression. rc=%s",
+      //   strrc(rc)); return rc;
+      // }
       rc = static_cast<SelectExpr *>(right_.get())->close();
       if (rc != RC::SUCCESS) {
-        LOG_WARN("failed to get value of right expression. rc=%s", strrc(rc));
+        LOG_WARN("failed to close select expression. rc=%s", strrc(rc));
         return rc;
       }
     } else {
@@ -457,6 +544,10 @@ RC SelectExpr::get_value(const Tuple &tuple, Value &value) const {
   RC rc = RC::SUCCESS;
   if (RC::SUCCESS == (rc = this->pyhsical_root_ptr_->next())) {
     Tuple *tuple = this->pyhsical_root_ptr_->current_tuple();
+    if (tuple->cell_num() > 1) {
+      LOG_WARN("select expression has more than one col.");
+      return RC::SELECT_EXPR_INVALID_ARGUMENT;
+    }
     rc = tuple->cell_at(0, value);
     return rc;
   }

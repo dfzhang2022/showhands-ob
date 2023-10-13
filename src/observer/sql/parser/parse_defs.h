@@ -91,9 +91,9 @@ enum CompOp {
   GREAT_THAN,    ///< ">"
   LIKE,          ///< "LIKE"
   NOT_LIKE,      ///< "NOT LIKE"
-  NO_OP,
   IN_COMP,
-  NOT_IN_COMP
+  NOT_IN_COMP,
+  NO_OP
 
 };
 
