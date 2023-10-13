@@ -79,8 +79,6 @@ class Table {
    */
   RC insert_record(Record &record);
   RC delete_record(const Record &record);
-  RC update_record(Record &old_record, Record &new_record);
-  RC update_record(Record &old_record, std::string attr_name, Value &value);
   RC update_record(Record &old_record, std::vector<std::string> attr_name_vec,
                    std::vector<Value> value_vec);
 
@@ -110,6 +108,9 @@ class Table {
   RC insert_entry_of_indexes(const char *record, const RID &rid);
   RC delete_entry_of_indexes(const char *record, const RID &rid,
                              bool error_on_not_exists);
+  RC update_entry_of_indexes(const char *record, const RID &rid,
+                                     const char *old_record,
+                                     bool error_on_not_exists);
 
  private:
   RC init_record_handler(const char *base_dir);
@@ -118,8 +119,6 @@ class Table {
   Index *find_index(const char *index_name) const;
   Index *find_index_by_field(std::vector<const char*> &fields) const;
   std::vector<std::vector<std::string>> get_index_info() const;
-
-  int get_record_bitmap(Record &old_record);
 
  public:
   const bool &has_alias() const { return has_alias_; }

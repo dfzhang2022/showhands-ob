@@ -420,7 +420,7 @@ std::string Value::to_string() const {
       os << str_value_;
     } break;
     case NULL_ATTR: {
-      os << "null";
+      os << "NULL";
     } break;
     default: {
       LOG_WARN("unsupported attr type: %d", attr_type_);

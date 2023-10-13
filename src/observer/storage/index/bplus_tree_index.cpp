@@ -95,9 +95,6 @@ char* BplusTreeIndex::construct_user_key(const char* record, int &key_len) {
   return user_key;
 }
 
-// 这里有点奇怪，应该交给BplusTreeHandler来做，所有字段信息在IndexFileHeader都有。
-// 而且对于唯一索引，既然知道有重复键，为什么还要插入，再删？
-// 重写 maybe
 RC BplusTreeIndex::insert_entry(const char *record, const RID *rid) {
   RC rc = RC::SUCCESS;
   int key_len;
@@ -141,6 +138,50 @@ RC BplusTreeIndex::delete_entry(const char *record, const RID *rid) {
   
   RC rc = index_handler_.delete_entry(user_key, rid);
   free(user_key);
+  return rc;
+}
+
+RC BplusTreeIndex::update_entry(const char *record, const RID *rid, const char *old_record) {
+
+  RC rc = RC::SUCCESS;
+  int new_key_len, old_key_len;
+  char* new_user_key = construct_user_key(record, new_key_len);
+  char* old_user_key = construct_user_key(old_record, old_key_len);
+
+  assert(new_key_len == old_key_len);
+  if (0 == std::memcmp(new_user_key, old_user_key, new_key_len)) { // 相等, 无需操作
+    free(new_user_key);
+    free(old_user_key);
+    return rc;
+  }
+
+  if (this->index_meta_.type() == IndexType::UNIQUE_INDEX) {
+    std::list<RID> tmp_rids;
+    rc = index_handler_.get_entry(record,
+                                  new_key_len, tmp_rids);
+    if (rc != RC::SUCCESS) return rc;  
+    if (!tmp_rids.empty()) {
+      bool has_null = false;
+      common::Bitmap bitmap(const_cast<char*>(record), fields_meta_[0].len());
+      for (int i = 1 ; i <= fields_meta_.size() ; i++) {
+        if (bitmap.get_bit(fields_meta_[i].index())) {
+          has_null = true;
+          break;
+        }
+      }
+      
+      if (has_null) {
+        return index_handler_.update_entry(new_user_key, rid, old_user_key);
+      } else {
+        LOG_WARN("Try to insert exist key on an indexed column.");
+        index_handler_.update_entry(new_user_key, rid, old_user_key);
+        return RC::RECORD_DUPLICATE_KEY;
+      }
+    }
+  }
+  rc = index_handler_.update_entry(new_user_key, rid, old_user_key);
+  free(new_user_key);
+  free(old_user_key);
   return rc;
 }
 

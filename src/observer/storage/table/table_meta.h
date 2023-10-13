@@ -40,7 +40,7 @@ public:
 
   RC add_index(const IndexMeta &index);
 
-  const FieldMeta* null_bit_map_field() { return field(null_bit_map_index_); }
+  const FieldMeta* null_bit_map_field() const { return field(null_bit_map_index_); }
 
 public:
   int32_t table_id() const { return table_id_; }

@@ -42,6 +42,7 @@ enum class BplusTreeOperationType {
   READ,
   INSERT,
   DELETE,
+  UPDATE,
 };
 
 /**
@@ -384,6 +385,7 @@ class LeafIndexNodeHandler : public IndexNodeHandler {
              bool *found = nullptr) const;
 
   void insert(int index, const char *key, const char *value);
+  void update(int index, const char *key, const char *value);
   void remove(int index);
   int remove(const char *key, const KeyComparator &comparator);
   RC move_half_to(LeafIndexNodeHandler &other, DiskBufferPool *bp);
@@ -517,6 +519,8 @@ class BplusTreeHandler {
    */
   RC delete_entry(const char *user_key, const RID *rid);
 
+  RC update_entry(const char *user_key, const RID *rid, const char *user_key_old);
+
   bool is_empty() const;
 
   /**
@@ -571,6 +575,8 @@ class BplusTreeHandler {
 
   RC delete_entry_internal(LatchMemo &latch_memo, Frame *leaf_frame,
                            const char *key);
+  RC update_entry_internal(LatchMemo &latch_memo, Frame *leaf_frame,
+                           const char *key, const char *value);
 
   template <typename IndexNodeHandlerType>
   RC split(LatchMemo &latch_memo, Frame *frame, Frame *&new_frame);

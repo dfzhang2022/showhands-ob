@@ -20,6 +20,7 @@ See the Mulan PSL v2 for more details. */
 #include <vector>
 
 #include "common/log/log.h"
+#include "common/lang/bitmap.h"
 #include "sql/expr/expression.h"
 #include "sql/expr/tuple_cell.h"
 #include "sql/parser/parse.h"
@@ -216,15 +217,11 @@ class RowTuple : public Tuple {
 
     // 判断是否为null值
     const FieldMeta *null_field_meta =
-        table_->table_meta().field("null_bitmap");
-    Value null_bitmap;
-    null_bitmap.set_type(AttrType::INTS);
-    null_bitmap.set_data(this->record_->data() + null_field_meta->offset(),
-                         null_field_meta->len());
-    if (index > 0) {
-      if (null_bitmap.get_int() & (1 << (index - 1))) {
-        cell.set_null(nullptr, 4);
-      }
+        table_->table_meta().null_bit_map_field();
+
+    common::Bitmap bitmap(this->record_->data() + null_field_meta->offset(), null_field_meta->len());
+    if (bitmap.get_bit(index)) {
+      cell.set_null(nullptr, 4);
     }
     return RC::SUCCESS;
   }

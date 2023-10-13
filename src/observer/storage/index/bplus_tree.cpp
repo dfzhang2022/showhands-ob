@@ -200,6 +200,14 @@ void LeafIndexNodeHandler::remove(int index) {
   increase_size(-1);
 }
 
+void LeafIndexNodeHandler::update(int index, const char *key,
+                                  const char *value) {
+  assert(index >= 0 && index < size());
+
+  memcpy(__item_at(index), key, key_size());
+  memcpy(__item_at(index) + key_size(), value, value_size());
+}
+
 int LeafIndexNodeHandler::remove(const char *key,
                                  const KeyComparator &comparator) {
   bool found = false;
@@ -1687,6 +1695,56 @@ RC BplusTreeHandler::delete_entry(const char *user_key, const RID *rid) {
   }
 
   return delete_entry_internal(latch_memo, leaf_frame, key);
+}
+
+RC BplusTreeHandler::update_entry_internal(LatchMemo &latch_memo,
+                                           Frame *leaf_frame, const char *key,
+                                            const char *value) {
+  LeafIndexNodeHandler leaf_index_node(file_header_, leaf_frame);
+  bool found = false;
+  int index = leaf_index_node.lookup(key_comparator_, key, &found);
+  if (!found) {
+    return RC::RECORD_INVALID_KEY;
+  }
+  leaf_index_node.update(index, key, value);
+  leaf_frame->mark_dirty();
+  return RC::SUCCESS;
+}
+
+RC BplusTreeHandler::update_entry(const char *user_key, const RID *rid, const char *user_key_old)
+{
+  if (user_key == nullptr || rid == nullptr) {
+    LOG_WARN("Invalid arguments, key is empty or rid is empty");
+    return RC::INVALID_ARGUMENT;
+  }
+
+  RC rc = RC::SUCCESS;
+  MemPoolItem::unique_ptr pkey = mem_pool_item_->alloc_unique_ptr();
+  if (nullptr == pkey) {
+    LOG_WARN("Failed to alloc memory for key. size=%d",
+             file_header_.key_length);
+    return RC::NOMEM;
+  }
+  char *key = static_cast<char *>(pkey.get());
+  memcpy(key, user_key_old, file_header_.attr_length);
+  memcpy(key + file_header_.attr_length, rid, sizeof(*rid));
+
+  BplusTreeOperationType op = BplusTreeOperationType::UPDATE;
+  LatchMemo latch_memo(disk_buffer_pool_);
+
+  Frame *leaf_frame = nullptr;
+  rc = find_leaf(latch_memo, op, key, leaf_frame);
+  if (rc == RC::EMPTY) {
+    rc = RC::RECORD_NOT_EXIST;
+    return rc;
+  }
+
+  if (rc != RC::SUCCESS) {
+    LOG_WARN("failed to find leaf page. rc =%s", strrc(rc));
+    return rc;
+  }
+
+  return update_entry_internal(latch_memo, leaf_frame, key, (const char*)(rid));
 }
 
 ////////////////////////////////////////////////////////////////////////////////

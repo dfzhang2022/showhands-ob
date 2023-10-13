@@ -60,6 +60,15 @@ class Index {
   virtual RC delete_entry(const char *record, const RID *rid) = 0;
 
   /**
+   * @brief 更新一条数据
+   *
+   * @param record 新的记录，当前假设记录是定长的
+   * @param[in] rid   更新的记录的位置
+   * @param old_record 原纪录
+   */
+  virtual RC update_entry(const char *record, const RID *rid, const char *old_record) = 0;
+
+  /**
    * @brief 关闭当前索引 回收资源
    *
    */

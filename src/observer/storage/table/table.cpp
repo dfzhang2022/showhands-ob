@@ -236,11 +236,6 @@ RC Table::insert_record(Record &record) {
 
   rc = insert_entry_of_indexes(record.data(), record.rid());
   if (rc != RC::SUCCESS) {  // 可能出现了键值重复
-    // int null_bitmap = get_record_bitmap(record);
-    // for(int i =table_meta_.sys_field_num();i<table_meta_.field_num();i++){
-    //   if( 0 == strcmp(table_meta_.field(i)->name(),)  )
-    // }
-
     RC rc2 = delete_entry_of_indexes(record.data(), record.rid(),
                                      false /*error_on_not_exists*/);
     if (rc2 != RC::SUCCESS) {
@@ -251,10 +246,6 @@ RC Table::insert_record(Record &record) {
     }
     rc2 = record_handler_->delete_record(&record.rid());
     if (rc2 != RC::SUCCESS) {
-      // LOG_PANIC(
-      //     "Failed to rollback record data when insert index entries failed. "
-      //     "table name=%s, rc=%d:%s",
-      //     name(), rc2, strrc(rc2));
       LOG_ERROR(
           "Failed to rollback record data when insert index entries failed. "
           "table name=%s, rc=%d:%s",
@@ -542,6 +533,8 @@ RC Table::create_index(Trx *trx, std::vector<const FieldMeta*> &fields_meta,
   return rc;
 }
 
+// 现在默认insert/delete/update表数据成功，更新index也会成功。
+// 可能会出现不一致性
 RC Table::delete_record(const Record &record) {
   RC rc = RC::SUCCESS;
   for (Index *index : indexes_) {
@@ -553,122 +546,128 @@ RC Table::delete_record(const Record &record) {
            strrc(rc));
   }
   rc = record_handler_->delete_record(&record.rid());
-  return rc;
-}
-// TODO
-RC Table::update_record(Record &old_record, Record &new_record) {
-  const int record_size = new_record.len();
-  char *record_data = new_record.data();
-  auto updater = [&new_record, record_data, record_size](Record &record_src) {
-    memcpy(record_src.data(), record_data, record_size);
-  };
-  RC rc = record_handler_->visit_record(old_record.rid(), false /*readonly*/,
-                                        updater);
   if (rc != RC::SUCCESS) {
-    free(record_data);
-    LOG_WARN("failed to update record. rid=%s, table=%s, rc=%s",
-             old_record.rid().to_string().c_str(), name(), strrc(rc));
+    LOG_ERROR("failed to update record. rid=%s, table=%s, rc=%s",
+             record.rid().to_string().c_str(), name(), strrc(rc));
+    return rc;
   }
+
+  // 删除索引
+  rc = delete_entry_of_indexes(record.data(), record.rid(), false);
+  if (rc != RC::SUCCESS) {
+    LOG_ERROR("failed to delete indexes of record (rid=%s). rc=%d:%s",
+                record.rid().to_string(), rc, strrc(rc));
+    return rc;
+  } 
   return rc;
 }
 
-RC Table::update_record(Record &old_record, std::string attr_name,
-                        Value &value) {
-  return RC::SUCCESS;
-}
 RC Table::update_record(Record &old_record,
                         std::vector<std::string> attr_name_vec,
                         std::vector<Value> value_vec) {
-  RC rc = RC::SCHEMA_FIELD_NOT_EXIST;
+  RC rc = RC::SUCCESS;
   if (attr_name_vec.size() != value_vec.size()) {
     rc = RC::INVALID_ARGUMENT;
     LOG_ERROR("attr_num not equal to value_num.");
   }
-  // check if field exits
+
+  /**
+   * new_record持有独立的一份数据，
+   * old_record指向实际页面存储，
+   * visit_record更新old_record之后，new_record和old_record的数据内容是一致的，
+   * 所以还需要保存一份旧数据，用于更新索引。
+   * 可以写得更优雅一点。等考虑事务再说。
+  */
+  Record new_record, const_record;
+  char* old_value = (char*)malloc(old_record.len());
+  char* const_old_value = (char*)malloc(old_record.len());
+  memcpy(const_old_value, old_record.data(), old_record.len());
+  memcpy(old_value, old_record.data(), old_record.len());
+  new_record.set_data_owner(old_value, old_record.len());
+  const_record.set_data_owner(const_old_value, old_record.len());
+
+  common::Bitmap bitmap(new_record.data() + table_meta_.null_bit_map_field()->offset(), 
+                        table_meta_.null_bit_map_field()->len());
   for (size_t i = 0; i < attr_name_vec.size(); i++) {
-    bool attr_exist = false;
-    for (int cnt = 0; cnt < table_meta_.field_metas()->size(); cnt++) {
-      const FieldMeta field_meta = table_meta_.field_metas()->at(cnt);
+      const FieldMeta* field_meta = table_meta_.field(attr_name_vec[i].c_str());
       // LOG_INFO("field_name is %s", field_meta->name());
-      if (0 == strcmp(field_meta.name(), attr_name_vec.at(i).c_str())) {
-        attr_exist = true;
+      if (field_meta == nullptr) {
+        LOG_ERROR("Update unexist column. ");
+        return RC::SCHEMA_FIELD_NOT_EXIST;
       }
-    }
-    if (!attr_exist) {
-      LOG_WARN("Update unexist column. ");
-      return RC::SCHEMA_FIELD_NOT_EXIST;
-    }
-  }
-
-  Record *new_record = new Record(old_record);
-
-  // 获取record中的null_bitmap
-  int null_bitmap = get_record_bitmap(old_record);
-
-  for (size_t i = 0; i < attr_name_vec.size(); i++) {
-    for (int cnt = 0; cnt < table_meta_.field_metas()->size(); cnt++) {
-      const FieldMeta field_meta = table_meta_.field_metas()->at(cnt);
-      // LOG_INFO("field_name is %s", field_meta->name());
-      if (0 == strcmp(field_meta.name(), attr_name_vec.at(i).c_str())) {
-        // 找到对应的列
-        if (value_vec.at(i).attr_type() == NULL_ATTR) {
-          if (field_meta.nullable()) {
-            value_vec.at(i).set_null(nullptr, 4);
-            // 判断是否为null值
-            null_bitmap = null_bitmap | (1 << (cnt - 1));  // 更新bitmap
-            memcpy(
-                new_record->data() + table_meta_.field("null_bitmap")->offset(),
-                &null_bitmap, table_meta_.field("null_bitmap")->len());
-            memcpy(new_record->data() + field_meta.offset(),
-                   value_vec.at(i).data(), field_meta.len());
-
-          } else {
-            LOG_WARN("Update null to un-nullable column.");
-            return RC::NULL_VALUE_ERROR;
-          }
-        } else if (field_meta.type() != value_vec.at(i).attr_type()) {
-          if (value_vec.at(i).attr_type() == AttrType::CHARS) {
-            // 这里是因为有一个测试样例 想往int类型的列插入'N01'
-            // 实际上这里应该是可以合法, 插入0,但是样例给的是不通过
-            // 在线测试又会有向int列更新浮点数的操作...总之在这里特判了
-            if (field_meta.type() != AttrType::TEXTS) {
-              LOG_WARN("Update value with different type.");
-              return RC::SCHEMA_FIELD_TYPE_MISMATCH;
-            }
-          }
-          Value tmp_value;
-          tmp_value.set_value(value_vec.at(i));
-          rc = tmp_value.typecast_to(field_meta.type());
-          if (rc != RC::SUCCESS) {
-            LOG_WARN("Update value with different type.");
-            return RC::SCHEMA_FIELD_TYPE_MISMATCH;
-          } else {
-            LOG_INFO("Typecasting in update clause.");
-            memcpy(new_record->data() + field_meta.offset(),
-                        tmp_value.data(), field_meta.len());
-          }
+      // 找到对应的列
+      if (value_vec.at(i).attr_type() == NULL_ATTR) {
+        if (field_meta->nullable()) {
+          value_vec.at(i).set_null(nullptr, 4);
+          // 更新bitmap，已经更新到record中
+          bitmap.set_bit(field_meta->index()); 
+          // 更新对应的cell
+          memcpy(new_record.data() + field_meta->offset(),
+                  value_vec.at(i).data(), field_meta->len());
         } else {
-          null_bitmap = null_bitmap & (~(1 << cnt));  // 更新bitmap
-          memcpy(new_record->data() + field_meta.offset(),
-                 value_vec.at(i).data(),
-                 field_meta.len());  // 将旧有的数据地址复制到新的record中
+          LOG_ERROR("Update null to un-nullable column.");
+          return RC::NULL_VALUE_ERROR;
         }
-
-        rc = RC::SUCCESS;
+      } else if (field_meta->type() != value_vec.at(i).attr_type()) {
+        if (value_vec.at(i).attr_type() == AttrType::CHARS) {
+          // 这里是因为有一个测试样例 想往int类型的列插入'N01'
+          // 实际上这里应该是可以合法, 插入0,但是样例给的是不通过
+          // 在线测试又会有向int列更新浮点数的操作...总之在这里特判了
+          if (field_meta->type() != AttrType::TEXTS) {
+            LOG_ERROR("Update value with different type.");
+            return RC::SCHEMA_FIELD_TYPE_MISMATCH;
+          }
+        }
+        Value tmp_value;
+        tmp_value.set_value(value_vec.at(i));
+        rc = tmp_value.typecast_to(field_meta->type());
+        if (rc != RC::SUCCESS) {
+          LOG_ERROR("Update value with different type.");
+          return RC::SCHEMA_FIELD_TYPE_MISMATCH;
+        } else {
+          LOG_INFO("Typecasting in update clause.");
+          memcpy(new_record.data() + field_meta->offset(),
+                      tmp_value.data(), field_meta->len());
+        }
+      } else {
+        bitmap.clear_bit(field_meta->index());
+        memcpy(new_record.data() + field_meta->offset(),
+                value_vec.at(i).data(),
+                field_meta->len());
       }
-    }
   }
-  const int record_size = new_record->len();
-  char *record_data = new_record->data();
-  auto updater = [new_record, record_data, record_size](Record &record_src) {
-    memcpy(record_src.data(), record_data, record_size);
+  
+  auto updater = [&new_record](Record &record_src) {
+    assert(record_src.len() == new_record.len());
+    memcpy(record_src.data(), new_record.data(), new_record.len());
   };
+
   rc = record_handler_->visit_record(old_record.rid(), false /*readonly*/,
                                      updater);
   if (rc != RC::SUCCESS) {
-    free(record_data);
-    LOG_WARN("failed to update record. rid=%s, table=%s, rc=%s",
+    LOG_ERROR("failed to update record. rid=%s, table=%s, rc=%s",
              old_record.rid().to_string().c_str(), name(), strrc(rc));
+    return rc;
+  }
+
+  // 更新索引
+  rc = update_entry_of_indexes(new_record.data(), old_record.rid(), const_record.data(), false);
+  if (rc != RC::SUCCESS) {
+    update_entry_of_indexes(const_record.data(), old_record.rid(), new_record.data(), true);
+
+    auto rollback = [&const_record](Record &record_src) {
+      assert(record_src.len() == const_record.len());
+      memcpy(record_src.data(), const_record.data(), const_record.len());
+    };
+    RC rc2 = record_handler_->visit_record(old_record.rid(), false /*readonly*/,
+                                     rollback);
+    if (rc2 != RC::SUCCESS) {
+      // 状态不一致了，panic掉
+      LOG_PANIC("failed to rollback record data when update index entries failed. table name=%s, rc=%d:%s",
+          name(),
+          rc2,
+          strrc(rc2));
+    }
   }
   return rc;
 }
@@ -698,6 +697,19 @@ RC Table::delete_entry_of_indexes(const char *record, const RID &rid,
   return rc;
 }
 
+RC Table::update_entry_of_indexes(const char *record, const RID &rid, const char *old_record,
+                                  bool error_on_not_exists)
+{
+  RC rc = RC::SUCCESS;
+  for (Index *index : indexes_) {
+    rc = index->update_entry(record, &rid, old_record);
+    if (rc != RC::SUCCESS && !error_on_not_exists) {
+      break;
+    }
+  }
+  return rc;
+}
+
 Index *Table::find_index(const char *index_name) const {
   for (Index *index : indexes_) {
     if (0 == strcmp(index->index_meta().name(), index_name)) {
@@ -712,20 +724,16 @@ std::vector<std::vector<std::string>> Table::get_index_info() const {
 
   for (Index *index : indexes_) {
     std::vector<std::string> index_str;
-    index_str.emplace_back(table_meta_.name());
-    // index_str.emplace_back(std::string(index.is_non_unique()));
-    // non-unique 还没有实现先空着
-    index_str.emplace_back((index->index_meta().type() == IndexType::UNIQUE_INDEX) ? "0" : "1");
-    index_str.emplace_back(index->index_meta().name());
-    index_str.emplace_back(to_string(index->index_meta().fields().size()));
-    std::string tmp = "";
-    for (auto x : index->index_meta().fields()) {
-      tmp.append(x);
-    }
-    index_str.emplace_back(tmp);
+    for (int i = 1 ; i < index->index_meta().fields().size() ; i++) {
+      index_str.emplace_back(table_meta_.name());
+      index_str.emplace_back((index->index_meta().type() == IndexType::UNIQUE_INDEX) ? "0" : "1");
+      index_str.emplace_back(index->index_meta().name());
+      index_str.emplace_back(to_string(i));
+      index_str.emplace_back(index->index_meta().fields().at(i));
 
-    LOG_INFO("index_str is %s.", index_str.at(3).c_str());
-    result_vec_vec.push_back(index_str);
+      result_vec_vec.push_back(std::move(index_str));
+      index_str.clear();
+    }
   }
   return result_vec_vec;
 }
@@ -750,13 +758,4 @@ RC Table::sync() {
   }
   LOG_INFO("Sync table over. table=%s", name());
   return rc;
-}
-
-int Table::get_record_bitmap(Record &old_record) {
-  const FieldMeta *null_field_meta = table_meta_.field("null_bitmap");
-  Value null_bitmap;
-  null_bitmap.set_type(AttrType::INTS);
-  null_bitmap.set_data(old_record.data() + null_field_meta->offset(),
-                       null_field_meta->len());
-  return null_bitmap.get_int();
 }
