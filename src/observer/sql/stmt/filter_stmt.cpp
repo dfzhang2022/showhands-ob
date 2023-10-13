@@ -93,14 +93,13 @@ RC FilterStmt::create_filter_unit(
     const ConditionSqlNode &condition, FilterUnit *&filter_unit) {
   RC rc = RC::SUCCESS;
 
-
   ExprOp comp = condition.comp;
   if (comp < EQUAL_TO || comp >= NO_OP) {
     LOG_WARN("invalid compare operator : %d", comp);
     return RC::INVALID_ARGUMENT;
   }
 
-  if (comp == ExprOp::IN_COMP) {
+  if (comp == ExprOp::IN_COMP || comp == ExprOp::NOT_IN_COMP) {
     filter_unit = new FilterUnit;
     if (condition.left_type == ExpressType::ATTR_T) {
       Table *table = nullptr;
@@ -133,7 +132,8 @@ RC FilterStmt::create_filter_unit(
       FilterObj filter_obj;
       filter_obj.init_value(condition.left_value);
       filter_unit->set_left(filter_obj);
-      if (filter_unit->left().expr_obj_.left_value.attr_type() == AttrType::DATES &&
+      if (filter_unit->left().expr_obj_.left_value.attr_type() ==
+              AttrType::DATES &&
           filter_unit->left().expr_obj_.left_value.get_date() == -1) {
         rc = RC::INVALID_DATE;
         LOG_WARN("Invalid date.");
@@ -178,7 +178,7 @@ RC FilterStmt::create_filter_unit(
       Field tmp_field(table, field);
       if (condition.left_attr.is_aggregation_func) {
         tmp_field.set_aggr_func_type(condition.left_attr.aggr_func_type);
-      } 
+      }
       filter_obj.init_attr(tmp_field);
       filter_unit->set_left(filter_obj);
     }
@@ -187,7 +187,8 @@ RC FilterStmt::create_filter_unit(
     FilterObj filter_obj;
     filter_obj.init_value(condition.left_value);
     filter_unit->set_left(filter_obj);
-    if (filter_unit->left().expr_obj_.left_value.attr_type() == AttrType::DATES &&
+    if (filter_unit->left().expr_obj_.left_value.attr_type() ==
+            AttrType::DATES &&
         filter_unit->left().expr_obj_.left_value.get_date() == -1) {
       rc = RC::INVALID_DATE;
       LOG_WARN("Invalid date.");
@@ -220,8 +221,7 @@ RC FilterStmt::create_filter_unit(
       tmp_field.set_aggr_func_type(condition.right_attr.aggr_func_type);
       filter_obj.init_attr(tmp_field);
       filter_unit->set_right(filter_obj);
-    }
-    else {
+    } else {
       rc = get_table_and_field(db, default_table, tables, condition.right_attr,
                                table, field);
       if (rc != RC::SUCCESS) {
@@ -232,24 +232,25 @@ RC FilterStmt::create_filter_unit(
       Field tmp_field(table, field);
       if (condition.right_attr.is_aggregation_func) {
         tmp_field.set_aggr_func_type(condition.right_attr.aggr_func_type);
-      } 
+      }
       filter_obj.init_attr(tmp_field);
       filter_unit->set_right(filter_obj);
     }
-    
+
   } else if (condition.right_type == ExpressType::VALUE_T) {
     FilterObj filter_obj;
     filter_obj.init_value(condition.right_value);
     if (comp == ExprOp::LIKE || comp == ExprOp::NOT_LIKE) {
       // 说明右值是like_str
-      filter_obj.expr_obj_.right_value.set_type(AttrType::LIKE_STR);
+      filter_obj.expr_obj_.left_value.set_type(AttrType::LIKE_STR);
     } else if (comp == ExprOp::IS_EQUAL) {
       // 比较语句是IS
       // filter_obj.value.set_type(AttrType::LIKE_STR);
     }
 
     filter_unit->set_right(filter_obj);
-    if (filter_unit->right().expr_obj_.left_value.attr_type() == AttrType::DATES &&
+    if (filter_unit->right().expr_obj_.left_value.attr_type() ==
+            AttrType::DATES &&
         filter_unit->right().expr_obj_.left_value.get_date() == -1) {
       rc = RC::INVALID_DATE;
       LOG_WARN("Invalid date.");
