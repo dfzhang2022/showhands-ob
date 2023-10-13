@@ -40,7 +40,11 @@ static void wildcard_fields(Table *table, std::vector<Field> &field_metas) {
   }
 }
 
-RC SelectStmt::create(Db *db, const SelectSqlNode &select_sql, Stmt *&stmt) {
+RC SelectStmt::create(Db *db, const SelectSqlNode &select_sql, Stmt *&stmt,
+                      bool is_sub_select) {
+  // is_sub_select 用来标记当前的select语句是不是一个子查询的语句
+  // 如果是子查询的stmt如果where中出现了不在from中出现的表需要在外层结构进行连接
+  // 这一步只是认为该行为合法 正确性交由生成算子树的部分再做判断
   if (nullptr == db) {
     LOG_WARN("invalid argument. db is null");
     return RC::INVALID_ARGUMENT;
@@ -169,8 +173,9 @@ RC SelectStmt::create(Db *db, const SelectSqlNode &select_sql, Stmt *&stmt) {
   }
 
   // collect query fields in `select` statement
-  std::vector<Field> query_fields;       // 投影列
-  std::vector<Field> aggr_query_fields;  // 聚合列
+  std::vector<Field> query_fields;           // 投影列
+  std::vector<Field> aggr_query_fields;      // 聚合列
+  std::vector<Field> function_query_fields;  // 简单函数列
   // 聚合列和投影列本来是一一对应的 只有出现AGGR(*)时才会出现数量不一致
   // 其实只有COUNT(*)
   // COUNT(*.*)是语法错误
@@ -271,6 +276,27 @@ RC SelectStmt::create(Db *db, const SelectSqlNode &select_sql, Stmt *&stmt) {
             return RC::SCHEMA_FIELD_MISSING;
           }
           Field *tmp_field = new Field(table, field_meta);
+
+          tmp_field->set_aggr_func_type(relation_attr.aggr_func_type);
+          tmp_field->set_func_type(relation_attr.function_type);
+          if (relation_attr.is_constant_value) {
+            // 该列是定值
+            tmp_field->set_is_constant_value(true);
+            tmp_field->set_constant_value(relation_attr.constant_value);
+          }
+          if (relation_attr.function_type != FunctionType::NONE_FUNC) {
+            if (table->has_alias()) {
+              tmp_field->set_alias(table->get_alias() + "." + field_name);
+            } else {
+              std::stringstream ss;
+              ss << func_to_str(relation_attr.function_type) << "("
+                 << table->get_alias() << '.' << field_name << ')';
+              tmp_field->set_alias(ss.str().c_str());
+            }
+            tmp_field->set_has_alias(true);
+            tmp_field->set_func_info(relation_attr.function_meta_info);
+          }
+
           if (relation_attr.has_alias) {
             tmp_field->set_alias(relation_attr.alias);
             tmp_field->set_has_alias(true);
@@ -280,7 +306,6 @@ RC SelectStmt::create(Db *db, const SelectSqlNode &select_sql, Stmt *&stmt) {
             tmp_field->set_has_alias(true);
           }
           query_fields.emplace_back(*tmp_field);
-          tmp_field->set_aggr_func_type(relation_attr.aggr_func_type);
           if (aggr_func_count != 0) {
             if (relation_attr.aggr_func_type != AggrFuncType::NONE) {
               tmp_field->set_alias(
@@ -316,24 +341,43 @@ RC SelectStmt::create(Db *db, const SelectSqlNode &select_sql, Stmt *&stmt) {
       Table *table = tables[0];
       const FieldMeta *field_meta =
           table->table_meta().field(relation_attr.attribute_name.c_str());
-      if (nullptr == field_meta) {
+      if (nullptr == field_meta && !relation_attr.is_constant_value) {
         LOG_WARN("no such field. field=%s.%s.%s", db->name(), table->name(),
                  relation_attr.attribute_name.c_str());
         return RC::SCHEMA_FIELD_MISSING;
       }
       Field *tmp_field = new Field(table, field_meta);
       tmp_field->set_aggr_func_type(relation_attr.aggr_func_type);
+      tmp_field->set_func_type(relation_attr.function_type);
+      if (relation_attr.is_constant_value) {
+        // 该列是定值
+        tmp_field->set_is_constant_value(true);
+        tmp_field->set_constant_value(relation_attr.constant_value);
+        tmp_field->set_alias("constant");
+        tmp_field->set_has_alias(true);
+      } else if (relation_attr.function_type != FunctionType::NONE_FUNC) {
+        std::stringstream ss;
+        ss << func_to_str(relation_attr.function_type) << '('
+           << field_meta->name() << ')';
+        tmp_field->set_alias(ss.str().c_str());
+        tmp_field->set_has_alias(true);
+        tmp_field->set_func_info(relation_attr.function_meta_info);
+      }
+
       if (relation_attr.has_alias) {
         tmp_field->set_alias(relation_attr.alias);
         tmp_field->set_has_alias(true);
       }
       query_fields.emplace_back(*tmp_field);
+      // if (relation_attr.function_type != FunctionType::NONE_FUNC) {
+      //   function_query_fields.emplace_back(*tmp_field);
+      // }
       if (aggr_func_count != 0) {
         if (relation_attr.aggr_func_type != AggrFuncType::NONE) {
           tmp_field->set_alias(
               std::string(aggr_func_to_str(relation_attr.aggr_func_type)) +
               "(" + field_meta->name() + ")");
-
+          tmp_field->set_func_info(relation_attr.function_meta_info);
         } else {
           tmp_field->set_alias(field_meta->name());
         }
@@ -362,6 +406,31 @@ RC SelectStmt::create(Db *db, const SelectSqlNode &select_sql, Stmt *&stmt) {
   }
 
   // create filter statement in `where` statement
+  // 如果is_sub_link = true,
+  // 首先将where中出现的新表加入到tables中以及更新table_map
+  if (is_sub_select) {
+    for (const auto condition : conditions) {
+      if (condition.left_type == ExpressType::ATTR_T) {
+        RelAttrSqlNode relattrsqlnode = condition.left_attr;
+        const char *table_name = relattrsqlnode.relation_name.c_str();
+        if (table_name != nullptr && table_map.count(table_name) == 0) {
+          Table *table = db->find_table(table_name);
+          tables.push_back(table);
+          table_map.insert({table_name, table});
+        }
+      }
+      if (condition.right_type == ExpressType::ATTR_T) {
+        RelAttrSqlNode relattrsqlnode = condition.right_attr;
+        const char *table_name = relattrsqlnode.relation_name.c_str();
+        if (table_name != nullptr && table_map.count(table_name) == 0) {
+          Table *table = db->find_table(table_name);
+          tables.push_back(table);
+          table_map.insert({table_name, table});
+        }
+      }
+    }
+  }
+
   FilterStmt *filter_stmt = nullptr;
 
   RC rc = FilterStmt::create(db, default_table, &table_map, conditions.data(),
@@ -462,6 +531,7 @@ RC SelectStmt::create(Db *db, const SelectSqlNode &select_sql, Stmt *&stmt) {
   select_stmt->group_by_fields_.swap(group_by_fields);
   select_stmt->filter_stmt_ = filter_stmt;
   select_stmt->having_filter_stmt_ = having_filter_stmt;
+  select_stmt->is_sub_select_ = is_sub_select;
 
   stmt = select_stmt;
   return RC::SUCCESS;

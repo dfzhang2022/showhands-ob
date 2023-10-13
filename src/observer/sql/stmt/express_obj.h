@@ -38,13 +38,13 @@ struct ExprObj
   ExpressType left_type;
   Value left_value;
   Field left_field;
-  SelectStmt* left_select;
+  Stmt* left_select;
   ExprObj* left_expr;
   ExprOp comp;
   ExpressType right_type;
   Value right_value;
   Field right_field;
-  SelectStmt* right_select;
+  Stmt* right_select;
   ExprObj* right_expr;
 
   void init_value(const Value &value)
@@ -59,10 +59,10 @@ struct ExprObj
     left_field = field;
   }
 
-  void init_select(const SelectStmt* select_stmt)
+  void init_select(const Stmt* stmt)
   {
     type = ExpressType::SELECT_T;
-    left_select = (SelectStmt*)select_stmt;
+    left_select = (Stmt*)stmt;
   }
 
   void init_left(ExprObj* left_obj)
@@ -252,7 +252,7 @@ struct ExprObj
     return rc;
   }
 
-  std::unique_ptr<Expression> to_expression()
+  std::unique_ptr<Expression> to_expression(std::map<std::string, LogicalOperator *> *map = nullptr)
   {
     switch (type)
     {
@@ -268,13 +268,19 @@ struct ExprObj
           static_cast<Expression*>(new FieldExpr(left_field)));
         return field_expr;
       }
+    case ExpressType::SELECT_T:
+      {
+        std::unique_ptr<Expression> select_expr(
+          static_cast<Expression *>(new SelectExpr(left_select, map)));
+        return select_expr;
+      }
     case ExpressType::EXPR_T:
       {
         if (comp < ExprOp::COMP_LIMIT) {
           std::unique_ptr<Expression> comp_expr(
             static_cast<Expression*>(new ComparisonExpr(comp,
-                left_expr->to_expression(),
-                right_expr->to_expression()))
+                left_expr->to_expression(map),
+                right_expr->to_expression(map)))
           );
           return comp_expr;
         }
@@ -299,13 +305,14 @@ struct ExprObj
           std::unique_ptr<Expression> left(
             left_type == ExpressType::VALUE_T ? static_cast<Expression*>(new ValueExpr(left_value)) :
             (left_type == ExpressType::ATTR_T ? static_cast<Expression*>(new FieldExpr(left_field)) :
-            left_expr->to_expression().release())
+            (left_type == ExpressType::SELECT_T ? (static_cast<Expression *>(new SelectExpr(left_select, map))) :
+            left_expr->to_expression(map).release()))
           );
           
           std::unique_ptr<Expression> right(
             right_type == ExpressType::VALUE_T ? static_cast<Expression*>(new ValueExpr(right_value)) :
             (right_type == ExpressType::ATTR_T ? static_cast<Expression*>(new FieldExpr(right_field)) :
-            right_expr->to_expression().release())
+            right_expr->to_expression(map).release())
           );
           std::unique_ptr<Expression> arith_expr(
             static_cast<Expression*>(new ArithmeticExpr(type, std::move(left), std::move(right))));

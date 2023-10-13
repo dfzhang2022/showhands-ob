@@ -39,7 +39,8 @@ See the Mulan PSL v2 for more details. */
 using namespace std;
 
 RC LogicalPlanGenerator::create(Stmt *stmt,
-                                unique_ptr<LogicalOperator> &logical_operator) {
+                                unique_ptr<LogicalOperator> &logical_operator,
+                                std::map<std::string, LogicalOperator *> *map) {
   RC rc = RC::SUCCESS;
   switch (stmt->type()) {
     case StmtType::CALC: {
@@ -49,7 +50,7 @@ RC LogicalPlanGenerator::create(Stmt *stmt,
 
     case StmtType::SELECT: {
       SelectStmt *select_stmt = static_cast<SelectStmt *>(stmt);
-      rc = create_plan(select_stmt, logical_operator);
+      rc = create_plan(select_stmt, logical_operator, map);
     } break;
 
     case StmtType::INSERT: {
@@ -86,7 +87,8 @@ RC LogicalPlanGenerator::create_plan(
 }
 
 RC LogicalPlanGenerator::create_plan(
-    SelectStmt *select_stmt, unique_ptr<LogicalOperator> &logical_operator) {
+    SelectStmt *select_stmt, unique_ptr<LogicalOperator> &logical_operator,
+    std::map<std::string, LogicalOperator *> *map) {
   // 构造取数据部分算子树
   unique_ptr<LogicalOperator> table_oper(nullptr);
   const std::vector<Table *> &tables = select_stmt->tables();
@@ -94,6 +96,9 @@ RC LogicalPlanGenerator::create_plan(
   const std::vector<Field> &aggr_fields = select_stmt->aggr_query_fields();
   const std::vector<Field> &order_by_fields = select_stmt->order_by_fields();
   const std::vector<Field> &group_by_fields = select_stmt->group_by_fields();
+  if (map == nullptr) {
+    map = new std::map<std::string, LogicalOperator *>;
+  }
   for (Table *table : tables) {
     std::vector<Field> fields;
     for (const Field &field : all_fields) {
@@ -101,22 +106,34 @@ RC LogicalPlanGenerator::create_plan(
         fields.push_back(field);
       }
     }
-
-    unique_ptr<LogicalOperator> table_get_oper(
-        new TableGetLogicalOperator(table, fields, true /*readonly*/));
-    if (table_oper == nullptr) {
-      table_oper = std::move(table_get_oper);
+    if (map->count(table->name()) > 0) {
+      if (table_oper == nullptr) {
+        // 不应该有这个分支 因为默认外部子查询的链接是在join树的右边
+      } else {
+        JoinLogicalOperator *join_oper = new JoinLogicalOperator;
+        join_oper->add_child(std::move(table_oper));
+        join_oper->set_is_right_sub_link(true);
+        join_oper->set_right_link(map->at(table->name()));
+        table_oper = unique_ptr<LogicalOperator>(join_oper);
+      }
     } else {
-      JoinLogicalOperator *join_oper = new JoinLogicalOperator;
-      join_oper->add_child(std::move(table_oper));
-      join_oper->add_child(std::move(table_get_oper));
-      table_oper = unique_ptr<LogicalOperator>(join_oper);
+      unique_ptr<LogicalOperator> table_get_oper(
+          new TableGetLogicalOperator(table, fields, true /*readonly*/));
+      map->insert({table->name(), table_get_oper.get()});
+      if (table_oper == nullptr) {
+        table_oper = std::move(table_get_oper);
+      } else {
+        JoinLogicalOperator *join_oper = new JoinLogicalOperator;
+        join_oper->add_child(std::move(table_oper));
+        join_oper->add_child(std::move(table_get_oper));
+        table_oper = unique_ptr<LogicalOperator>(join_oper);
+      }
     }
   }
 
   // 构造谓词判断部分
   unique_ptr<LogicalOperator> predicate_oper;
-  RC rc = create_plan(select_stmt->filter_stmt(), predicate_oper);
+  RC rc = create_plan(select_stmt->filter_stmt(), predicate_oper, map);
   if (rc != RC::SUCCESS) {
     LOG_WARN("failed to create predicate logical plan. rc=%s", strrc(rc));
     return rc;
@@ -166,8 +183,8 @@ RC LogicalPlanGenerator::create_plan(
       FilterObj &filter_obj_left = (FilterObj &)filter_unit->left();
       FilterObj &filter_obj_right = (FilterObj &)filter_unit->right();
 
-      unique_ptr<Expression> left = filter_obj_left.to_expression();
-      unique_ptr<Expression> right = filter_obj_right.to_expression();
+      unique_ptr<Expression> left = filter_obj_left.to_expression(nullptr);
+      unique_ptr<Expression> right = filter_obj_right.to_expression(nullptr);
       /*unique_ptr<Expression> left(
           filter_obj_left.is_attr
               ? static_cast<Expression *>(new FieldExpr(filter_obj_left.field))
@@ -189,46 +206,50 @@ RC LogicalPlanGenerator::create_plan(
     root_ptr = std::move(aggr_oper);
   }
 
-  // // 构造having谓词判断部分
-  // unique_ptr<LogicalOperator> having_predicate_oper;
-  // rc = create_plan(select_stmt->having_filter_stmt(), having_predicate_oper);
-  // if (rc != RC::SUCCESS) {
-  //   LOG_WARN("failed to create predicate logical plan. rc=%s", strrc(rc));
-  //   return rc;
-  // }
-  // if (having_predicate_oper) {
-  //   having_predicate_oper->add_child(std::move(root_ptr));
-  //   root_ptr = std::move(having_predicate_oper);
-  // }
-
   logical_operator.swap(root_ptr);
 
   return RC::SUCCESS;
 }
 
 RC LogicalPlanGenerator::create_plan(
-    FilterStmt *filter_stmt, unique_ptr<LogicalOperator> &logical_operator) {
+    FilterStmt *filter_stmt, unique_ptr<LogicalOperator> &logical_operator,
+    std::map<std::string, LogicalOperator *> *map) {
   std::vector<unique_ptr<Expression>> cmp_exprs;
   const std::vector<FilterUnit *> &filter_units = filter_stmt->filter_units();
   for (const FilterUnit *filter_unit : filter_units) {
     FilterObj &filter_obj_left = (FilterObj &)filter_unit->left();
     FilterObj &filter_obj_right = (FilterObj &)filter_unit->right();
 
-    unique_ptr<Expression> left = filter_obj_left.to_expression();
-    unique_ptr<Expression> right = filter_obj_right.to_expression();
+    unique_ptr<Expression> left = filter_obj_left.to_expression(map);
+    unique_ptr<Expression> right = filter_obj_right.to_expression(map);
     /*
     const FilterObj &filter_obj_left = filter_unit->left();
     const FilterObj &filter_obj_right = filter_unit->right();
+    // 这里加入Select之后需要重写
+    unique_ptr<Expression> left(nullptr);
+    unique_ptr<Expression> right(nullptr);
+    if (filter_obj_left.is_selects) {
+      // TODO
+      left = std::move(unique_ptr<Expression>(static_cast<Expression *>(
+          new SelectExpr(filter_obj_left.stmt, map))));
 
-    unique_ptr<Expression> left(
-        filter_obj_left.is_attr
-            ? static_cast<Expression *>(new FieldExpr(filter_obj_left.field))
-            : static_cast<Expression *>(new ValueExpr(filter_obj_left.value)));
-
-    unique_ptr<Expression> right(
-        filter_obj_right.is_attr
-            ? static_cast<Expression *>(new FieldExpr(filter_obj_right.field))
-            : static_cast<Expression *>(new ValueExpr(filter_obj_right.value)));
+    } else {
+      left = std::move(unique_ptr<Expression>(
+          filter_obj_left.is_attr
+              ? static_cast<Expression *>(new FieldExpr(filter_obj_left.field))
+              : static_cast<Expression *>(
+                    new ValueExpr(filter_obj_left.value))));
+    }
+    if (filter_obj_right.is_selects) {
+      right = std::move(unique_ptr<Expression>(static_cast<Expression *>(
+          new SelectExpr(filter_obj_right.stmt, map))));
+    } else {
+      right = std::move(unique_ptr<Expression>(
+          filter_obj_right.is_attr
+              ? static_cast<Expression *>(new FieldExpr(filter_obj_right.field))
+              : static_cast<Expression *>(
+                    new ValueExpr(filter_obj_right.value))));
+    }
     */
 
     ComparisonExpr *cmp_expr = new ComparisonExpr(

@@ -29,6 +29,7 @@ RC AggregationPhysicalOperator::open(Trx* trx) {
     speces.push_back(tmp_cell);
   }
   this->tuple_.set_speces(speces);
+   is_dirty_ = false;
 
   return RC::SUCCESS;
 }
@@ -241,6 +242,8 @@ RC AggregationPhysicalOperator::close() {
   if (!children_.empty()) {
     children_[0]->close();
   }
+  std::vector<TupleCellSpec*> speces;
+  this->tuple_.set_speces(speces);
   return RC::SUCCESS;
 }
 

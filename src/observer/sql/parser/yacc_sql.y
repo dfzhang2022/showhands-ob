@@ -115,6 +115,9 @@ ArithmeticExpr *create_arithmetic_expression(ArithmeticExpr::Type type,
         MIN_FUNC
         AVG_FUNC
         SUM_FUNC
+        ROUND
+        LENGTH
+        DATE_FORMAT
         EQ
         LT
         GT
@@ -150,11 +153,13 @@ ArithmeticExpr *create_arithmetic_expression(ArithmeticExpr::Type type,
   JoinedRelationSqlNode*            join_rel;
   std::vector<JoinedRelationSqlNode>* join_rel_list;
   GroupBySqlNode*                   group_by;
+  RelAttrSqlNode *                  function; 
   char *                            string;
   int                               number;
   float                             floats;
-}
-
+  bool		                          boolean;
+            
+}      
 %token <number> NUMBER
 %token <floats> FLOAT
 %token <string> ID
@@ -197,6 +202,7 @@ ArithmeticExpr *create_arithmetic_expression(ArithmeticExpr::Type type,
 %type <order_list>          order_list
 %type <rel_attr_list>       group_by
 %type <aggr_func>           aggregation_func
+%type <function>            function
 %type <sql_node>            calc_stmt
 %type <sql_node>            select_stmt
 %type <sql_node>            insert_stmt
@@ -710,6 +716,15 @@ select_stmt:        /*  select 语句的语法解析树*/
       }
 
     }
+    | SELECT select_attr
+    {
+      $$ = new ParsedSqlNode(SCF_SELECT);
+      if($2 != nullptr){
+        $$->selection.attributes.swap(*$2);
+        delete $2;
+      }
+
+    }
     ;
 calc_stmt:
     CALC expression_list
@@ -979,6 +994,10 @@ rel_attr:
         free($4);
       }
     }
+    | function
+    {
+      $$ = $1;
+    }
     | aggregation_func LBRACE ID RBRACE{
       $$ = new RelAttrSqlNode;
       $$->attribute_name = $3;
@@ -1044,6 +1063,19 @@ as_alias:
       strcpy($$+strlen($2)+1,$4);
       free($2);
       free($4);
+    }
+    | ID{
+      $$ = (char*)malloc(strlen($1)+1);
+      strcpy($$,$1);
+      free($1);
+    }
+    | ID DOT ID{
+      $$ = (char*)malloc(strlen($1)+strlen($3)+2);
+      strcpy($$,$1);
+      strcpy($$+strlen($1),".");
+      strcpy($$+strlen($1)+1,$3);
+      free($1);
+      free($3);
     }
     ;
 attr_list:
@@ -1407,6 +1439,87 @@ order_list:
       $$->emplace_back(*$1);
       delete $1;
     }
+    ;
+
+function:
+    LENGTH LBRACE rel_attr RBRACE
+    {
+      
+      if($3 == nullptr){
+        $$ = new RelAttrSqlNode;
+        $$->is_syntax_error = true;
+      }
+      else{
+        $$ = $3;
+        $$->is_function = true;
+        $$->function_type = FunctionType::LENGTH_FUNC;
+      }
+
+    }
+    |LENGTH LBRACE SSS RBRACE
+    {
+        $$ = new RelAttrSqlNode;
+        $$->is_function = true;
+        $$->function_type = FunctionType::LENGTH_FUNC;
+        FunctionMetaInfo tmp_func_info;
+        tmp_func_info.is_length_of_attr = true;
+        char *tmp = common::substr($3,1,strlen($3)-2);
+        tmp_func_info.length_str = tmp;
+        $$->function_meta_info = tmp_func_info;
+        $$->is_constant_value = true;
+        $$->constant_value.set_string(tmp,strlen(tmp));
+        free(tmp);
+        
+    }
+    | ROUND LBRACE rel_attr COMMA NUMBER RBRACE
+    {
+
+      if($3 == nullptr){
+        $$ = new RelAttrSqlNode;
+        $$->is_syntax_error = true;
+      }
+      else{
+        $$ = $3;
+        $$->is_function = true;
+        $$->function_type = FunctionType::ROUND_FUNC;
+        FunctionMetaInfo tmp_func_info;
+        tmp_func_info.round_type = (int)$5;
+        $$->function_meta_info = tmp_func_info;
+        
+      }
+        
+    }
+    | ROUND LBRACE NUMBER COMMA NUMBER RBRACE
+    {
+
+        $$ = new RelAttrSqlNode;
+        $$->is_function = true;
+        $$->function_type = FunctionType::ROUND_FUNC;
+        FunctionMetaInfo tmp_func_info;
+        tmp_func_info.round_type = (int)$5;
+        $$->function_meta_info = tmp_func_info;
+        $$->is_constant_value = true;
+        $$->constant_value.set_value(Value((float)$3));
+        
+    }
+    | DATE_FORMAT LBRACE rel_attr COMMA SSS RBRACE
+    {
+      if($3 == nullptr){
+        $$ = new RelAttrSqlNode;
+        $$->is_syntax_error = true;
+      }
+      else{
+        $$ = $3;
+        $$->is_function = true;
+        $$->function_type = FunctionType::DATE_FORMAT_FUNC;
+        FunctionMetaInfo tmp_func_info;
+        char *tmp = common::substr($5,1,strlen($5)-2);
+        tmp_func_info.date_format_str = tmp;
+        $$->function_meta_info = tmp_func_info;
+        
+      } 
+    }
+    ;
 
 null_or_nullable:
     NULL_T
@@ -1430,6 +1543,8 @@ comp_op:
     | IS NOT{$$ = IS_NOT_EQUAL;}
     | LIKE_MARK {$$ = LIKE;}
     | NOT LIKE_MARK {$$ = NOT_LIKE;}
+    | IN {$$ = IN_COMP;}
+    | NOT IN {$$ = NOT_IN_COMP;}
     ;
 
 load_data_stmt:

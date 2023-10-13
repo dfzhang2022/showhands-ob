@@ -1,7 +1,9 @@
-./bin/observer -f ../etc/observer.ini -P cli
+./bin/observer -f ../etc/observer.ini -P cli 
 
 create table t_basic(id int, age int, name char, score float);
-create table t_2(id int,  name char,age float);
+
+create table t_2(id int, name char,age float);
+
 insert into t_2 values (1.9,'3.5',11.5);
 
 create index i_id on t_basic (id);
@@ -9,52 +11,59 @@ create index i_id on t_basic (id);
 drop table t_basic;
 
 #多列查询的测试用例 (已通过)
+
 select *,age from t_basic;
+
 select * from t_basic;
 
-4 | 4 | E
-ID | AGE | NAME
-SELECT * FROM T_BASIC;
--4 | 4 | C | 3
-5 | 5 | E | 5.5
-7 | 7 | G | 7.7
--8 | 8 | H | 8.8
-ID | AGE | NAME | SCORE
-SELECT * FROM T_BASIC2;
-1 | 1 | A
+4 | 4 | E ID | AGE | NAME SELECT * FROM T_BASIC;
 
+-4 | 4 | C | 3 5 | 5 | E | 5.5 7 | 7 | G | 7.7 -8 | 8 | H | 8.8 ID | AGE | NAME | SCORE
+SELECT *
+FROM T_BASIC2;
+
+1 | 1 | A 
 
 # select tables
-3 | C | 11 | 3 | 2 | 11.5
-SELECT_TABLES_7.ID | SELECT_TABLES_7.COL1 | SELECT_TABLES_7.COL2 | SELECT_TABLES_8.ID | SELECT_TABLES_8.COL1 | SELECT_TABLES_8.COL2
-SELECT * from Select_tables_7,Select_tables_8 WHERE Select_tables_7.col1<>Select_tables_8.col1;
-+1 | A | 9 | 1 | 0 | 9.5
-1 | A | 9 | 2 | 1 | 10.5
-1 | A | 9 | 3 | 2 | 11.5
-+2 | B | 10 | 1 | 0 | 9.5
-2 | B | 10 | 2 | 1 | 10.5
-2 | B | 10 | 3 | 2 | 11.5
-+3 | C | 11 | 1 | 0 | 9.5
 
+3 | C | 11 | 3 | 2 | 11.5 SELECT_TABLES_7.ID | SELECT_TABLES_7.COL1 | SELECT_TABLES_7.COL2 | SELECT_TABLES_8.ID | SELECT_TABLES_8.COL1 | SELECT_TABLES_8.COL2
+SELECT *
+from
+    Select_tables_7,
+    Select_tables_8
+WHERE
+    Select_tables_7.col1 <> Select_tables_8.col1;
+
++ 1 | A | 9 | 1 | 0 | 9.5 1 | A | 9 | 2 | 1 | 10.5 1 | A | 9 | 3 | 2 | 11.5 + 2 | B | 10 | 1 | 0 | 9.5 2 | B | 10 | 2 | 1 | 10.5 2 | B | 10 | 3 | 2 | 11.5 + 3 | C | 11 | 1 | 0 | 9.5
 
 -- echo basic insert
 
 create table t_basic(id int, age int, name char, score float);
+
 insert into t_basic values(1,1, 'a', 1.0);
+
 insert into t_basic values(2,2, 'b', 2.0);
+
 insert into t_basic values(4,4, 'c', 3.0);
+
 insert into t_basic values(3,3, 'd', 4.0);
+
 insert into t_basic values(5,5, 'e', 5.5);
+
 insert into t_basic values(6,6, 'f', 6.6);
+
 insert into t_basic values(7,7, 'g', 7.7);
 
 --sort select * from t_basic;
 
 -- echo basic delete
+
 delete from t_basic where id=3;
+
 -- sort select * from t_basic;
 
 -- echo basic select
+
 select * from t_basic where id=1;
 
 -- sort select * from t_basic where id>=5;
@@ -72,208 +81,378 @@ select * from t_basic where id=1 and age=1;
 -- sort select t_basic.id, t_basic.age, name from t_basic;
 
 -- echo create index
+
 create index i_id on t_basic (id);
+
 -- sort select * from t_basic;
 
-
-
-
-
-// show INDEX
+// show INDEX 
 
 create table Index_table_1(id int, age int, name char, score float);
+
 CREATE INDEX index_id on Index_table_1(id);
+
 CREATE INDEX index_age on Index_table_1(age);
-SUCCESS
-SHOW INDEX FROM Index_table_1;
--INDEX_TABLE_1 | 1 | INDEX_AGE | 1 | AGE
-+INDEX_TABLE_1 | 1 | INDEX_AGE | 2 | AGE
-INDEX_TABLE_1 | 1 | INDEX_ID | 1 | ID
-TABLE | NON_UNIQUE | KEY_NAME | SEQ_IN_INDEX | COLUMN_NAME
-2. ERROR
-SHOW INDEX FROM Index_table_no_exist;
--FAILURE
 
+SUCCESS SHOW INDEX FROM Index_table_1;
 
-// UPDATE
+- INDEX_TABLE_1 | 1 | INDEX_AGE | 1 | AGE + INDEX_TABLE_1 | 1 | INDEX_AGE | 2 | AGE INDEX_TABLE_1 | 1 | INDEX_ID | 1 | ID
+TABLE
+    | NON_UNIQUE | KEY_NAME | SEQ_IN_INDEX | COLUMN_NAME 2. ERROR
+SHOW INDEX
+FROM Index_table_no_exist;
+
+-FAILURE 
+
+// UPDATE 
 
 select * from t;
-update t set age =100 where id=2; 
-update t set age=20; 
+
+update t set age =100 where id=2;
+
+update t set age=20;
 
 insert into t_basic values(1,1, 'a', 1.0);
-update t_basic set age =5 where id=1; 
+
+update t_basic set age =5 where id=1;
 
 select * from t_basic;
 
-compile failed,In file included from /home/miniob/miniob_test/players/v1oLet/miniob/src/observer/sql/executor/sql_result.h:20,,                 from /home/miniob/miniob_test/players/v1oLet/miniob/src/observer/event/session_event.h:21,,                 from /home/miniob/miniob_test/players/v1oLet/miniob/src/observer/event/sql_debug.cpp:19:,/home/miniob/miniob_test/players/v1oLet/miniob/src/observer/sql/expr/tuple.h: In member function 'RC RowTuple::update_record_by_attr_name(std::string, Value, Record*&)':,/home/miniob/miniob_test/players/v1oLet/miniob/src/observer/sql/expr/tuple.h:165:21: error: 'strcmp' is not a member of 'std'; did you mean 'strcmp'?,  165 |       if (0 == std::strcmp(field_meta->name(), attribute_name.c_str())) {,      |                     ^~~~~~,In file included from /home/miniob/miniob_test/players/v1oLet/miniob/src/observer/event/session_event.h:17,,                 from /home/miniob/miniob_test/players/v1oLet/miniob/src/observer/event/sql_debug.cpp:19:,/usr/include/string.h:140:12: note: 'strcmp' declared here,  140 | extern int strcmp (const char *__s1, const char *__s2),      |            ^~~~~~,In file included from /home/miniob/miniob_test/players/v1oLet/miniob/src/observer/sql/executor/sql_result.h:20,,                 from /home/miniob/miniob_test/players/v1oLet/miniob/src/observer/event/session_event.h:21,,                 from /home/miniob/miniob_test/players/v1oLet/miniob/src/observer/event/sql_debug.cpp:19:,/home/miniob/miniob_test/players/v1oLet/miniob/src/observer/sql/expr/tuple.h:176:14: error: 'memcpy' is not a member of 'std'; did you mean 'wmemcpy'?,  176 |         std::memcpy(new_record->data() + field_meta->offset(), value.data(),,      |              ^~~~~~,      |              wmemcpy,In file included from /home/miniob/miniob_test/players/v1oLet/miniob/src/observer/sql/executor/sql_result.h:20,,                 from /home/miniob/miniob_test/players/v1oLet/miniob/src/observer/event/session_event.h:21,,                 from /home/miniob/miniob_test/players/v1oLet/miniob/src/observer/event/session_event.cpp:15:,/home/miniob/miniob_test/players/v1oLet/miniob/src/observer/sql/expr/tuple.h: In member function 'RC RowTuple::update_record_by_attr_name(std::string, Value, Record*&)':,/home/miniob/miniob_test/players/v1oLet/miniob/src/observer/sql/expr/tuple.h:165:21: error: 'strcmp' is not a member of 'std'; did you mean 'strcmp'?,  165 |       if (0 == std::strcmp(field_meta->name(), attribute_name.c_str())) {,      |                     ^~~~~~,In file included from /home/miniob/miniob_test/players/v1oLet/miniob/src/observer/event/session_event.h:17,,                 from /home/miniob/miniob_test/players/v1oLet/miniob/src/observer/event/session_event.cpp:15:,/usr/include/string.h:140:12: note: 'strcmp' declared here,  140 | extern int strcmp (const char *__s1, const char *__s2),      |            ^~~~~~,In file included from /home/miniob/miniob_test/players/v1oLet/miniob/src/observer/sql/executor/sql_result.h:20,,                 from /home/miniob/miniob_test/players/v1oLet/miniob/src/observer/event/session_event.h:21,,                 from /home/miniob/miniob_test/players/v1oLet/miniob/src/observer/event/session_event.cpp:15:,/home/miniob/miniob_test/players/v1oLet/miniob/src/observer/sql/expr/tuple.h:176:14: error: 'memcpy' is not a member of 'std'; did you mean 'wmemcpy'?,  176 |         std::memcpy(new_record->data() + field_meta->offset(), value.data(),,      |              ^~~~~~,      |              wmemcpy,make[2]: *** [src/observer/CMakeFiles/observer_static.dir/event/sql_debug.cpp.o] Error 1,make[2]: *** Waiting for unfinished jobs....,In file included from /home/miniob/miniob_test/players/v1oLet/miniob/src/observer/sql/operator/physical_operator.h:22,,                 from /home/miniob/miniob_test/players/v1oLet/miniob/src/observer/sql/optimizer/optimize_stage.h:21,,                 from /home/miniob/miniob_test/players/v1oLet/miniob/src/observer/session/session_stage.h:21,,                 from /home/miniob/miniob_test/players/v1oLet/miniob/src/observer/common/init.cpp:28:,/home/miniob/miniob_test/players/v1oLet/miniob/src/observer/sql/expr/tuple.h: In member function 'RC RowTuple::update_record_by_attr_name(std::string, Value, Record*&)':,/home/miniob/miniob_test/players/v1oLet/miniob/src/observer/sql/expr/tuple.h:165:21: error: 'strcmp' is not a member of 'std'; did you mean 'strcmp'?,  165 |       if (0 == std::strcmp(field_meta->name(), attribute_name.c_str())) {,      |                     ^~~~~~,In file included from /home/miniob/miniob_test/players/v1oLet/miniob/deps/common/log/log.h:21,,                 from /home/miniob/miniob_test/players/v1oLet/miniob/src/observer/common/init.cpp:20:,/usr/include/string.h:140:12: note: 'strcmp' declared here,  140 | extern int strcmp (const char *__s1, const char *__s2),      |            ^~~~~~,In file included from /home/miniob/miniob_test/players/v1oLet/miniob/src/observer/sql/operator/physical_operator.h:22,,                 from /home/miniob/miniob_test/players/v1oLet/miniob/src/observer/sql/optimizer/optimize_stage.h:21,,                 from /home/miniob/miniob_test/players/v1oLet/miniob/src/observer/session/session_stage.h:21,,                 from /home/miniob/miniob_test/players/v1oLet/miniob/src/observer/common/init.cpp:28:,/home/miniob/miniob_test/players/v1oLet/miniob/src/observer/sql/expr/tuple.h:176:14: error: 'memcpy' is not a member of 'std'; did you mean 'wmemcpy'?,  176 |         std::memcpy(new_record->data() + field_meta->offset(), value.data(),,      |              ^~~~~~,      |              wmemcpy,make[2]: *** [src/observer/CMakeFiles/observer_static.dir/event/session_event.cpp.o] Error 1,make[2]: *** [src/observer/CMakeFiles/observer_static.dir/common/init.cpp.o] Error 1,make[1]: *** [src/observer/CMakeFiles/observer_static.dir/all] Error 2,make: *** [all] Error 2,,failed to run make,compile failed
+compile failed,
+In file included
+from
+    / home / miniob / miniob_test / players / v1oLet / miniob / src / observer / sql / executor / sql_result.h: 20,
+,
+from
+    / home / miniob / miniob_test / players / v1oLet / miniob / src / observer / event / session_event.h: 21,
+,
+from
+    / home / miniob / miniob_test / players / v1oLet / miniob / src / observer / event / sql_debug.cpp: 19:,
+    / home / miniob / miniob_test / players / v1oLet / miniob / src / observer / sql / expr / tuple.h: In member function 'RC RowTuple::update_record_by_attr_name(std::string, Value, Record*&)':,
+    / home / miniob / miniob_test / players / v1oLet / miniob / src / observer / sql / expr / tuple.h: 165: 21: error: 'strcmp' is not a member of 'std';
+
+ did you mean 'strcmp'?,  165 |       if (0 == std::strcmp(field_meta->name(), attribute_name.c_str())) {,      |                     ^~~~~~,In file included from /home/miniob/miniob_test/players/v1oLet/miniob/src/observer/event/session_event.h:17,,                 from /home/miniob/miniob_test/players/v1oLet/miniob/src/observer/event/sql_debug.cpp:19:,/usr/include/string.h:140:12: note: 'strcmp' declared here,  140 | extern int strcmp (const char *__s1, const char *__s2),      |            ^~~~~~,In file included from /home/miniob/miniob_test/players/v1oLet/miniob/src/observer/sql/executor/sql_result.h:20,,                 from /home/miniob/miniob_test/players/v1oLet/miniob/src/observer/event/session_event.h:21,,                 from /home/miniob/miniob_test/players/v1oLet/miniob/src/observer/event/sql_debug.cpp:19:,/home/miniob/miniob_test/players/v1oLet/miniob/src/observer/sql/expr/tuple.h:176:14: error: 'memcpy' is not a member of 'std';
+
+ did you mean 'wmemcpy'?,  176 |         std::memcpy(new_record->data() + field_meta->offset(), value.data(),,      |              ^~~~~~,      |              wmemcpy,In file included from /home/miniob/miniob_test/players/v1oLet/miniob/src/observer/sql/executor/sql_result.h:20,,                 from /home/miniob/miniob_test/players/v1oLet/miniob/src/observer/event/session_event.h:21,,                 from /home/miniob/miniob_test/players/v1oLet/miniob/src/observer/event/session_event.cpp:15:,/home/miniob/miniob_test/players/v1oLet/miniob/src/observer/sql/expr/tuple.h: In member function 'RC RowTuple::update_record_by_attr_name(std::string, Value, Record*&)':,/home/miniob/miniob_test/players/v1oLet/miniob/src/observer/sql/expr/tuple.h:165:21: error: 'strcmp' is not a member of 'std';
+
+ did you mean 'strcmp'?,  165 |       if (0 == std::strcmp(field_meta->name(), attribute_name.c_str())) {,      |                     ^~~~~~,In file included from /home/miniob/miniob_test/players/v1oLet/miniob/src/observer/event/session_event.h:17,,                 from /home/miniob/miniob_test/players/v1oLet/miniob/src/observer/event/session_event.cpp:15:,/usr/include/string.h:140:12: note: 'strcmp' declared here,  140 | extern int strcmp (const char *__s1, const char *__s2),      |            ^~~~~~,In file included from /home/miniob/miniob_test/players/v1oLet/miniob/src/observer/sql/executor/sql_result.h:20,,                 from /home/miniob/miniob_test/players/v1oLet/miniob/src/observer/event/session_event.h:21,,                 from /home/miniob/miniob_test/players/v1oLet/miniob/src/observer/event/session_event.cpp:15:,/home/miniob/miniob_test/players/v1oLet/miniob/src/observer/sql/expr/tuple.h:176:14: error: 'memcpy' is not a member of 'std';
+
+ did you mean 'wmemcpy'?,  176 |         std::memcpy(new_record->data() + field_meta->offset(), value.data(),,      |              ^~~~~~,      |              wmemcpy,make[2]: *** [src/observer/CMakeFiles/observer_static.dir/event/sql_debug.cpp.o] Error 1,make[2]: *** Waiting for unfinished jobs....,In file included from /home/miniob/miniob_test/players/v1oLet/miniob/src/observer/sql/operator/physical_operator.h:22,,                 from /home/miniob/miniob_test/players/v1oLet/miniob/src/observer/sql/optimizer/optimize_stage.h:21,,                 from /home/miniob/miniob_test/players/v1oLet/miniob/src/observer/session/session_stage.h:21,,                 from /home/miniob/miniob_test/players/v1oLet/miniob/src/observer/common/init.cpp:28:,/home/miniob/miniob_test/players/v1oLet/miniob/src/observer/sql/expr/tuple.h: In member function 'RC RowTuple::update_record_by_attr_name(std::string, Value, Record*&)':,/home/miniob/miniob_test/players/v1oLet/miniob/src/observer/sql/expr/tuple.h:165:21: error: 'strcmp' is not a member of 'std';
+
+ did you mean 'strcmp'?,  165 |       if (0 == std::strcmp(field_meta->name(), attribute_name.c_str())) {,      |                     ^~~~~~,In file included from /home/miniob/miniob_test/players/v1oLet/miniob/deps/common/log/log.h:21,,                 from /home/miniob/miniob_test/players/v1oLet/miniob/src/observer/common/init.cpp:20:,/usr/include/string.h:140:12: note: 'strcmp' declared here,  140 | extern int strcmp (const char *__s1, const char *__s2),      |            ^~~~~~,In file included from /home/miniob/miniob_test/players/v1oLet/miniob/src/observer/sql/operator/physical_operator.h:22,,                 from /home/miniob/miniob_test/players/v1oLet/miniob/src/observer/sql/optimizer/optimize_stage.h:21,,                 from /home/miniob/miniob_test/players/v1oLet/miniob/src/observer/session/session_stage.h:21,,                 from /home/miniob/miniob_test/players/v1oLet/miniob/src/observer/common/init.cpp:28:,/home/miniob/miniob_test/players/v1oLet/miniob/src/observer/sql/expr/tuple.h:176:14: error: 'memcpy' is not a member of 'std';
+
+ did you mean 'wmemcpy'?,  176 |         std::memcpy(new_record->data() + field_meta->offset(), value.data(),,      |              ^~~~~~,      |              wmemcpy,make[2]: *** [src/observer/CMakeFiles/observer_static.dir/event/session_event.cpp.o] Error 1,make[2]: *** [src/observer/CMakeFiles/observer_static.dir/common/init.cpp.o] Error 1,make[1]: *** [src/observer/CMakeFiles/observer_static.dir/all] Error 2,make: *** [all] Error 2,,failed to run make,compile failed
 
 
+= = = = DATE_T -- echo initialization
+CREATE TABLE
+    date_table(id int, u_date date);
 
-====DATE_T
--- echo initialization
-CREATE TABLE date_table(id int, u_date date);
 CREATE INDEX index_id on date_table(u_date);
 
 -- echo 1. insert normal date data
+
 INSERT INTO date_table VALUES (1,'2020-01-21');
-INSERT INTO date_table VALUES (1, 2020;01;21);
+
+INSERT INTO date_table VALUES (1, 2020;
+
+01;
+
+21);
 
 INSERT INTO date_table VALUES (2,'2020-10-21');
+
 INSERT INTO date_table VALUES (3,'2020-1-01');
+
 INSERT INTO date_table VALUES (4,'2020-01-1');
+
 INSERT INTO date_table VALUES (5,'2019-12-21');
+
 INSERT INTO date_table VALUES (6,'2016-2-29');
+
 INSERT INTO date_table VALUES (7,'1970-1-1');
+
 INSERT INTO date_table VALUES (8,'2000-01-01');
+
 INSERT INTO date_table VALUES (9,'2038-1-19');
 
 INSERT INTO date_table VALUES (11,'2042-02-02');
 
-
-SELECT * FROM date_table
+SELECT * FROM date_table 
 
 -- echo 2. compare date data
+
 -- sort SELECT * FROM date_table WHERE u_date>'2020-1-20';
+
 -- sort SELECT * FROM date_table WHERE u_date<'2019-12-31';
+
 -- sort SELECT * FROM date_table WHERE u_date='2020-1-1';
 
 -- echo 3. delete data
+
 DELETE FROM date_table WHERE u_date>'2012-2-29';
+
 -- sort SELECT * FROM date_table;
 
 -- echo 4. check invalid date data
+
 SELECT * FROM date_table WHERE u_date='2017-2-29';
+
 SELECT * FROM date_table WHERE u_date='2017-21-29';
+
 SELECT * FROM date_table WHERE u_date='2017-12-32';
+
 SELECT * FROM date_table WHERE u_date='2017-11-31';
 
 INSERT INTO date_table VALUES (10,'2017-2-29');
+
 INSERT INTO date_table VALUES (11,'2017-21-29');
+
 INSERT INTO date_table VALUES (12,'2017-12-32');
+
 INSERT INTO date_table VALUES (13,'2017-11-31');
 
-8 | 2000-01-01
-ID | U_DATE
-SELECT * FROM date_table WHERE u_date='2020-1-1';
--3 | 2020-01-01
--4 | 2020-01-01
-ID | U_DATE
-3. DELETE DATA
-DELETE FROM date_table WHERE u_date>'2017-5-30';
+8 | 2000 -01 -01 ID | U_DATE
+SELECT *
+FROM date_table
+WHERE u_date = '2020-1-1';
 
+-3 | 2020 -01 -01 -4 | 2020 -01 -01 ID | U_DATE 3.
+DELETE DATA
+DELETE FROM date_table
+WHERE u_date > '2017-5-30';
 
-ID | U_DATE
-4. CHECK INVALID DATE DATA
-SELECT * FROM date_table WHERE u_date='2017-2-29';
--FAILURE
-+ID | U_DATE
-SELECT * FROM date_table WHERE u_date='2017-21-29';
--FAILURE
-+ID | U_DATE
-SELECT * FROM date_table WHERE u_date='2017-12-32';
--FAILURE
+ID | U_DATE 4. CHECK INVALID DATE DATA
+SELECT *
+FROM date_table
+WHERE u_date = '2017-2-29';
 
-===typecast
+- FAILURE + ID | U_DATE
+SELECT *
+FROM date_table
+WHERE u_date = '2017-21-29';
+
+- FAILURE + ID | U_DATE
+SELECT *
+FROM date_table
+WHERE u_date = '2017-12-32';
+
+-FAILURE 
+
+===typecast 
 
 INSERT INTO Typecast_table_2 VALUES(1.9,'3.5',11.5);
-SUCCESS
-SELECT * FROM Typecast_table_2;
--0 | 1.5 | 9.5
--1 | 2.5 | 10.5
--2 | 3.5 | 11.5
-+0 | 1.50 | 9.5
-+0 | 2.50 | 10.5
-+1 | 3.5 | 11.5
-ID | NAME | AGE
+
+SUCCESS SELECT * FROM Typecast_table_2;
+
+-0 | 1.5 | 9.5 -1 | 2.5 | 10.5 -2 | 3.5 | 11.5 + 0 | 1.50 | 9.5 + 0 | 2.50 | 10.5 + 1 | 3.5 | 11.5 ID | NAME | AGE
 
 insert into t_2 values (1.6,'2.50','10.5');
 
+create table t_3(id int, name float,age float);
 
-create table t_3(id int,  name float,age float);
 INSERT INTO t_3 VALUES(1.9,'3.5',11.5);
+
 insert into t_3 values (1.6,'2.50','10.5');
+
 insert into t_3 values (0.9,'1.50',9.5000);
+
 insert into t_3 values (0.9,1.50,9.5000);
 
 select * from t where name like 'W%';
 
-1 | 2.5 | 10.5
-ID | NAME | AGE
-SELECT * FROM Typecast_table_2 WHERE age>'a9.5';
--0 | 1.5 | 9.5
--1 | 2.5 | 10.5
--2 | 3.5 | 11.5
-ID | NAME | AGE
-SELECT * FROM Typecast_table_2 WHERE age>'9.5a';
--1 | 2.5 | 10.5
--2 | 3.5 | 11.5
+1 | 2.5 | 10.5 ID | NAME | AGE
+SELECT *
+FROM Typecast_table_2
+WHERE age > 'a9.5';
+
+-0 | 1.5 | 9.5 -1 | 2.5 | 10.5 -2 | 3.5 | 11.5 ID | NAME | AGE
+SELECT *
+FROM Typecast_table_2
+WHERE age > '9.5a';
+
+-1 | 2.5 | 10.5 -2 | 3.5 | 11.5 
 
 SELECT * FROM t_3 WHERE age>'a9.5';
-SELECT * FROM t_3 WHERE age>'9.5a';
 
+SELECT * FROM t_3 WHERE age>'9.5a';
 
 create table tb (id int, name char);
 
-insert into tb values (1,'apple'),(3,'pineapple'),(5,'orange'),(2,'grape');
+insert into tb
+values (1, 'apple'), (3, 'pineapple'), (5, 'orange'), (2, 'grape');
 
 select * from tb;
 
 SELECT * FROM tb WHERE name LIKE '%e';
+
 SELECT * FROM tb WHERE name LIKE '%pp%';
 
+/ /
+update
+select
+update t_basic
+set age = (
+        select age
+        from t
+        where id = 2
+    )
+where id = 2;
 
-//update select
-update t_basic set age=(select age from t where id=2) where id=2;
+// aggregation function 
 
+select max(id), name
+from t
+where id = 1
+select max(id)
+from t
+where id = 1
 
+https://gitee.com/dfzhang2022/showhands-ob.git 
 
-// aggregation function
+acf851414a82dc42633c56911e15106ee6b1c06f 
 
-select max(id),name from t where id =1
-select max(id) from t where id =1
+docker run - d - p 8034: 3306 --name my-mysql -e MYSQL_ROOT_PASSWORD=my-secret-pw mysql:latest
 
+docker run - d - p 8034: 3306 --name my-mysql -e MYSQL_ROOT_PASSWORD=123456 mysql:latest
 
-https://gitee.com/dfzhang2022/showhands-ob.git
+mysql -h 10.77.30.153 -P 8034 -u root -p 123456 
 
-acf851414a82dc42633c56911e15106ee6b1c06f
-
-docker run -d -p 8034:3306 --name my-mysql -e MYSQL_ROOT_PASSWORD=my-secret-pw mysql:latest
-
-docker run -d -p 8034:3306 --name my-mysql -e MYSQL_ROOT_PASSWORD=123456 mysql:latest
-
-mysql -h 10.77.30.153 -P 8034 -u root -p 123456
-
-
-sudo apt install mysql-client-core-8.0
+sudo apt install mysql-client-core-8.0 
 
 CREATE TABLE null_table5(id int nullable, num int);
+
 CREATE TABLE null_table5(id int , num int not NULL);
+
 CREATE UNIQUE INDEX index_id on null_table5(id);
+
 INSERT INTO null_table5 VALUES(1,1);
+
 INSERT INTO null_table5 VALUES(1,1);
+
 INSERT INTO null_table5 VALUES(null,1);
+
 INSERT INTO null_table5 VALUES(null,2);
-- SUCCESS
-+ FAILURE
 
-select * from null_table5
+- SUCCESS + FAILURE 
 
+select * from null_table5 
 
-=====ORDER BY
+=====ORDER BY 
 
 select id from t_order_by_3 order by id;
-  ID
-  NULL
-+ 5
-  NULL
-  2
-  4
-- 5
--- below are some requests executed before(partial) --
-create table t_order_by_3(id int nullable, score float);
+
+ID NULL + 5 NULL 2 4 - 5 -- below are some requests executed before(partial) --
+create table
+    t_order_by_3(id int nullable, score float);
+
 insert into t_order_by_3 values(4, 2.1);
+
 insert into t_order_by_3 values(2, 3.1);
+
 insert into t_order_by_3 values(null, 4.1);
+
 insert into t_order_by_3 values(5, 5.1);
+
 insert into t_order_by_3 values(null,5.5);
+
+function
+状态：未通过通过率：1.8%难度：中等题目总分：10
+实现一些常见的函数：length()、round()、date_format()。
+其中length只考虑char类型，round只考虑float类型，date_format只考虑date类型，遇到其他的数据类型返回FAILURE即可。
+测试用例示例：
+
+
+select length('this is a string') as len;
+
+select length(name) from table;
+
+select round(score, 2) from table;
+
+select date_format(u_date, '%Y-%m-%d') from table;
+
+select id, length(name) from t_group_by 
+
+select * from t1 where 
+
+-- echo initialization
+
+CREATE TABLE csq_1(id int, col1 int, feat1 float);
+
+CREATE TABLE csq_2(id int, col2 int, feat2 float);
+
+CREATE TABLE csq_3(id int, col3 int, feat3 float);
+
+CREATE TABLE csq_4(id int, col4 int, feat4 float);
+
+INSERT INTO csq_1 VALUES (1, 4, 11.2);
+
+INSERT INTO csq_1 VALUES (2, 2, 12.0);
+
+INSERT INTO csq_1 VALUES (3, 3, 13.5);
+
+INSERT INTO csq_2 VALUES (1, 2, 13.0);
+
+INSERT INTO csq_2 VALUES (2, 7, 10.5);
+
+INSERT INTO csq_2 VALUES (5, 3, 12.6);
+
+INSERT INTO csq_3 VALUES (1, 2, 11.0);
+
+INSERT INTO csq_3 VALUES (3, 6, 16.5);
+
+INSERT INTO csq_3 VALUES (5, 5, 14.6);
+
+-- echo 1. Select
+
+select *
+from csq_1
+where id in (
+        select csq_2.id
+        from csq_2
+        where csq_2.id in (
+                select
+                    csq_3.id
+                from csq_3
+            )
+    );
+
+select *from csq_1where id in (select csq_2.id from csq_2 where csq_2.feat2 > csq_1.feat1 );
+
+select *
+from csq_1
+where id in (
+        select csq_2.id
+        from csq_2
+        where csq_2.id not in (
+                select
+                    csq_3.id
+                from csq_3
+            )
+    );
+
+select *
+from csq_1
+where col1 not in (
+        select csq_2.col2
+        from csq_2
+        where csq_2.id not in (
+                select
+                    csq_3.id
+                from csq_3
+            )
+    );
+
+select *
+from csq_1
+where col1 not in (
+        select csq_2.col2
+        from csq_2
+        where csq_2.id in (
+                select
+                    csq_3.id
+                from csq_3
+            )
+    );
+
+    select *from csq_1 where id in (select csq_2.id from csq_2 where csq_2.feat2 > csq_1.feat1 )

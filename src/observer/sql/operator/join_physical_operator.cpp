@@ -17,14 +17,18 @@ See the Mulan PSL v2 for more details. */
 NestedLoopJoinPhysicalOperator::NestedLoopJoinPhysicalOperator() {}
 
 RC NestedLoopJoinPhysicalOperator::open(Trx *trx) {
-  if (children_.size() != 2) {
+  if (children_.size() != 2 && !(is_left_sub_link() || is_right_sub_link())) {
     LOG_WARN("nlj operator should have 2 children");
     return RC::INTERNAL;
   }
 
   RC rc = RC::SUCCESS;
-  left_ = children_[0].get();
-  right_ = children_[1].get();
+  if (!is_left_sub_link()) {
+    left_ = children_[0].get();
+  }
+  if (!is_right_sub_link()) {
+    right_ = children_[1].get();
+  }
   right_closed_ = true;
   round_done_ = true;
 
@@ -83,7 +87,6 @@ RC NestedLoopJoinPhysicalOperator::next() {
       return rc;
     }
   }
-  
 }
 
 RC NestedLoopJoinPhysicalOperator::close() {
@@ -107,18 +110,17 @@ Tuple *NestedLoopJoinPhysicalOperator::current_tuple() {
   return &joined_tuple_;
 }
 
-void NestedLoopJoinPhysicalOperator::set_predicates(std::vector<std::unique_ptr<Expression>> &&exprs)
-{
+void NestedLoopJoinPhysicalOperator::set_predicates(
+    std::vector<std::unique_ptr<Expression>> &&exprs) {
   predicates_ = std::move(exprs);
 }
 
-std::vector<std::unique_ptr<Expression>> &NestedLoopJoinPhysicalOperator::predicates()
-{
+std::vector<std::unique_ptr<Expression>> &
+NestedLoopJoinPhysicalOperator::predicates() {
   return predicates_;
 }
 
-RC NestedLoopJoinPhysicalOperator::filter(JoinedTuple &tuple, bool &result)
-{
+RC NestedLoopJoinPhysicalOperator::filter(JoinedTuple &tuple, bool &result) {
   RC rc = RC::SUCCESS;
   Value value;
   for (std::unique_ptr<Expression> &expr : predicates_) {
@@ -140,46 +142,75 @@ RC NestedLoopJoinPhysicalOperator::filter(JoinedTuple &tuple, bool &result)
 
 RC NestedLoopJoinPhysicalOperator::left_next() {
   RC rc = RC::SUCCESS;
-  rc = left_->next();
-  if (rc != RC::SUCCESS) {
+  if (is_left_sub_link()) {
+    // 虚链接 不实际调用子节点的next() 但更新tuple
+    if (is_left_sub_link_accessed_) {
+      return RC::RECORD_EOF;
+    }
+    is_right_sub_link_accessed_ = true;
+    left_tuple_ = left_->current_tuple();
+    joined_tuple_.set_right(left_tuple_);
+    return RC::SUCCESS;
+  } else {
+    rc = left_->next();
+    if (rc != RC::SUCCESS) {
+      return rc;
+    }
+
+    left_tuple_ = left_->current_tuple();
+    joined_tuple_.set_left(left_tuple_);
     return rc;
   }
-
-  left_tuple_ = left_->current_tuple();
-  joined_tuple_.set_left(left_tuple_);
-  return rc;
 }
 
 RC NestedLoopJoinPhysicalOperator::right_next() {
   RC rc = RC::SUCCESS;
-  if (round_done_) {
-    if (!right_closed_) {
-      rc = right_->close();
-      right_closed_ = true;
+  if (is_right_sub_link()) {
+    // 虚链接 不实际调用子节点的next() 但更新tuple
+    if (is_right_sub_link_accessed_) {
+      round_done_ = true;
+      return RC::RECORD_EOF;
+    }
+    is_right_sub_link_accessed_ = true;
+    if (round_done_) {
+      right_closed_ = false;
+
+      round_done_ = false;
+    }
+    right_tuple_ = right_->current_tuple();
+    joined_tuple_.set_right(right_tuple_);
+    return rc;
+  } else {
+    if (round_done_) {
+      if (!right_closed_) {
+        rc = right_->close();
+        right_closed_ = true;
+        if (rc != RC::SUCCESS) {
+          return rc;
+        }
+      }
+
+      rc = right_->open(trx_);
       if (rc != RC::SUCCESS) {
         return rc;
       }
+      right_closed_ = false;
+
+      round_done_ = false;
     }
 
-    rc = right_->open(trx_);
+    rc = right_->next();
     if (rc != RC::SUCCESS) {
+      if (rc == RC::RECORD_EOF) {
+        round_done_ = true;
+      }
       return rc;
     }
-    right_closed_ = false;
 
-    round_done_ = false;
-  }
-
-  rc = right_->next();
-  if (rc != RC::SUCCESS) {
-    if (rc == RC::RECORD_EOF) {
-      round_done_ = true;
-    }
+    right_tuple_ = right_->current_tuple();
+    joined_tuple_.set_right(right_tuple_);
     return rc;
   }
-
-  right_tuple_ = right_->current_tuple();
-  joined_tuple_.set_right(right_tuple_);
   return rc;
 }
 
@@ -210,16 +241,20 @@ RC HashJoinPhysicalOperator::open(Trx *trx) {
   if (predicates_.size() > 1) {
     return RC::EXPRESSION_NOT_VALID;
   }
-  ComparisonExpr *comp_expr = static_cast<ComparisonExpr *>(predicates_.front().get());
-  if (comp_expr->left()->type() != ExprType::FIELD || comp_expr->right()->type() != ExprType::FIELD) {
+  ComparisonExpr *comp_expr =
+      static_cast<ComparisonExpr *>(predicates_.front().get());
+  if (comp_expr->left()->type() != ExprType::FIELD ||
+      comp_expr->right()->type() != ExprType::FIELD) {
     return RC::EXPRESSION_NOT_VALID;
   }
-  FieldExpr *right_filed_expr = static_cast<FieldExpr *>(comp_expr->right().get());
-  TupleCellSpec *tuple_cell_spec = new TupleCellSpec(right_filed_expr->table_name(), right_filed_expr->field_name());
+  FieldExpr *right_filed_expr =
+      static_cast<FieldExpr *>(comp_expr->right().get());
+  TupleCellSpec *tuple_cell_spec = new TupleCellSpec(
+      right_filed_expr->table_name(), right_filed_expr->field_name());
   Value value;
   size_t hash;
-  std::vector<Tuple*> empty_bucket;
-  while((rc = right_->next()) == RC::SUCCESS) {
+  std::vector<Tuple *> empty_bucket;
+  while ((rc = right_->next()) == RC::SUCCESS) {
     right_tuple_ = right_->current_tuple()->clone();
     right_tuple_->find_cell(*tuple_cell_spec, value);
     hash = hasher(value.to_string());
@@ -251,11 +286,10 @@ RC HashJoinPhysicalOperator::next() {
   }
 
   if (left_need_step) {
-    while((rc = left_next()) != RC::SUCCESS) {
+    while ((rc = left_next()) != RC::SUCCESS) {
       if (rc == RC::VALUE_NOT_EXISTS) {
         continue;
-      }
-      else {
+      } else {
         return rc;
       }
     }
@@ -284,13 +318,13 @@ RC HashJoinPhysicalOperator::close() {
 
 Tuple *HashJoinPhysicalOperator::current_tuple() { return &joined_tuple_; }
 
-void HashJoinPhysicalOperator::set_predicates(std::vector<std::unique_ptr<Expression>> &&exprs)
-{
+void HashJoinPhysicalOperator::set_predicates(
+    std::vector<std::unique_ptr<Expression>> &&exprs) {
   predicates_ = std::move(exprs);
 }
 
-std::vector<std::unique_ptr<Expression>> &HashJoinPhysicalOperator::predicates()
-{
+std::vector<std::unique_ptr<Expression>> &
+HashJoinPhysicalOperator::predicates() {
   return predicates_;
 }
 
@@ -301,9 +335,12 @@ RC HashJoinPhysicalOperator::left_next() {
     return rc;
   }
 
-  ComparisonExpr *comp_expr = static_cast<ComparisonExpr *>(predicates_.front().get());
-  FieldExpr *left_filed_expr = static_cast<FieldExpr *>(comp_expr->left().get());
-  TupleCellSpec *tuple_cell_spec = new TupleCellSpec(left_filed_expr->table_name(), left_filed_expr->field_name());
+  ComparisonExpr *comp_expr =
+      static_cast<ComparisonExpr *>(predicates_.front().get());
+  FieldExpr *left_filed_expr =
+      static_cast<FieldExpr *>(comp_expr->left().get());
+  TupleCellSpec *tuple_cell_spec = new TupleCellSpec(
+      left_filed_expr->table_name(), left_filed_expr->field_name());
   Value value;
   size_t hash;
   left_tuple_ = left_->current_tuple();
