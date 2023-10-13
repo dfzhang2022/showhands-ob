@@ -67,23 +67,6 @@ struct FilterObj
   {
     return expr_obj_.to_expression(map);
   }
-  /*
-  bool is_attr;
-  Field field;
-  Value value;
-
-  bool is_selects = false;
-  Stmt *stmt = nullptr;
-
-  void init_attr(const Field &field) {
-    is_attr = true;
-    this->field = field;
-  }
-
-  void init_value(const Value &value) {
-    is_attr = false;
-    this->value = value;
-  }*/
 };
 
 class FilterUnit {
