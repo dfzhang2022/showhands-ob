@@ -537,25 +537,17 @@ RC Table::create_index(Trx *trx, std::vector<const FieldMeta*> &fields_meta,
 // 可能会出现不一致性
 RC Table::delete_record(const Record &record) {
   RC rc = RC::SUCCESS;
-  for (Index *index : indexes_) {
-    rc = index->delete_entry(record.data(), &record.rid());
-    ASSERT(RC::SUCCESS == rc,
-           "failed to delete entry from index. table name=%s, index name=%s, "
-           "rid=%s, rc=%s",
-           name(), index->index_meta().name(), record.rid().to_string().c_str(),
-           strrc(rc));
-  }
   rc = record_handler_->delete_record(&record.rid());
   if (rc != RC::SUCCESS) {
-    LOG_ERROR("failed to update record. rid=%s, table=%s, rc=%s",
+    LOG_WARN("failed to delete record. rid=%s, table=%s, rc=%s",
              record.rid().to_string().c_str(), name(), strrc(rc));
     return rc;
   }
 
   // 删除索引
-  rc = delete_entry_of_indexes(record.data(), record.rid(), false);
+  rc = delete_entry_of_indexes(record.data(), record.rid(), true);
   if (rc != RC::SUCCESS) {
-    LOG_ERROR("failed to delete indexes of record (rid=%s). rc=%d:%s",
+    LOG_WARN("failed to delete indexes of record (rid=%s). rc=%d:%s",
                 record.rid().to_string(), rc, strrc(rc));
     return rc;
   } 
@@ -568,7 +560,7 @@ RC Table::update_record(Record &old_record,
   RC rc = RC::SUCCESS;
   if (attr_name_vec.size() != value_vec.size()) {
     rc = RC::INVALID_ARGUMENT;
-    LOG_ERROR("attr_num not equal to value_num.");
+    LOG_WARN("attr_num not equal to value_num.");
   }
 
   /**
@@ -592,7 +584,7 @@ RC Table::update_record(Record &old_record,
       const FieldMeta* field_meta = table_meta_.field(attr_name_vec[i].c_str());
       // LOG_INFO("field_name is %s", field_meta->name());
       if (field_meta == nullptr) {
-        LOG_ERROR("Update unexist column. ");
+        LOG_WARN("Update unexist column. ");
         return RC::SCHEMA_FIELD_NOT_EXIST;
       }
       // 找到对应的列
@@ -605,7 +597,7 @@ RC Table::update_record(Record &old_record,
           memcpy(new_record.data() + field_meta->offset(),
                   value_vec.at(i).data(), field_meta->len());
         } else {
-          LOG_ERROR("Update null to un-nullable column.");
+          LOG_WARN("Update null to un-nullable column.");
           return RC::NULL_VALUE_ERROR;
         }
       } else if (field_meta->type() != value_vec.at(i).attr_type()) {
@@ -614,7 +606,7 @@ RC Table::update_record(Record &old_record,
           // 实际上这里应该是可以合法, 插入0,但是样例给的是不通过
           // 在线测试又会有向int列更新浮点数的操作...总之在这里特判了
           if (field_meta->type() != AttrType::TEXTS) {
-            LOG_ERROR("Update value with different type.");
+            LOG_WARN("Update value with different type.");
             return RC::SCHEMA_FIELD_TYPE_MISMATCH;
           }
         }
@@ -622,7 +614,7 @@ RC Table::update_record(Record &old_record,
         tmp_value.set_value(value_vec.at(i));
         rc = tmp_value.typecast_to(field_meta->type());
         if (rc != RC::SUCCESS) {
-          LOG_ERROR("Update value with different type.");
+          LOG_WARN("Update value with different type.");
           return RC::SCHEMA_FIELD_TYPE_MISMATCH;
         } else {
           LOG_INFO("Typecasting in update clause.");
