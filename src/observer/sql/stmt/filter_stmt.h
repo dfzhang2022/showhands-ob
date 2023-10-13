@@ -58,14 +58,14 @@ class FilterUnit {
     left_.is_attr = obj.is_attr;
     left_.is_selects = obj.is_selects;
     left_.field = obj.field;
-    left_.value.set_value(obj.value);
+    left_.value = obj.value;
     left_.stmt = obj.stmt;
   }
   void set_right(const FilterObj &obj) {
     right_.is_attr = obj.is_attr;
     right_.is_selects = obj.is_selects;
     right_.field = obj.field;
-    right_.value.set_value(obj.value);
+    right_.value = obj.value;
     right_.stmt = obj.stmt;
   }
 

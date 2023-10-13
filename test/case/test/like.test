@@ -1,0 +1,19 @@
+-- echo like insert
+
+CREATE TABLE like_table(id int, name char(12));
+INSERT INTO like_table VALUES (1,'apple');
+INSERT INTO like_table VALUES (2,'orange');
+INSERT INTO like_table VALUES (3,'peach');
+INSERT INTO like_table VALUES (4,'lemon');
+INSERT INTO like_table VALUES (5,'banana');
+INSERT INTO like_table VALUES (6,'grape');
+INSERT INTO like_table VALUES (7,'coconut');
+INSERT INTO like_table VALUES (8,'mango');
+INSERT INTO like_table VALUES (9,'fig');
+INSERT INTO like_table VALUES (10,'cherry');
+INSERT INTO like_table VALUES (11,'pineapple');
+INSERT INTO like_table VALUES (12,'strawberry');
+
+--sort select * from like_table;
+
+SELECT * FROM like_table WHERE name LIKE 'c%';

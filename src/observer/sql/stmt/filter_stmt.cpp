@@ -95,7 +95,7 @@ RC FilterStmt::create_filter_unit(
 
   CompOp comp = condition.comp;
 
-  if (comp == CompOp::IN_COMP) {
+  if (comp == CompOp::IN_COMP || comp == CompOp::NOT_IN_COMP) {
     filter_unit = new FilterUnit;
     if (condition.left_is_attr == 1) {
       Table *table = nullptr;

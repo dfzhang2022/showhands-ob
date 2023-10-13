@@ -345,6 +345,9 @@ void Value::set_value(const Value &value) {
     case TEXTS: {
       set_text(value.get_string().c_str());
     } break;
+    case LIKE_STR: {
+      set_string(value.get_string().c_str());
+    } break;
     case NULL_ATTR: {
       set_null(nullptr);
     } break;
