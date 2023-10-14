@@ -67,6 +67,9 @@ RC NestedLoopJoinPhysicalOperator::next() {
 
     if (left_need_step) {
       rc = left_next();
+      if (is_right_sub_link_) {
+        is_right_sub_link_accessed_ = false;
+      }
       if (rc != RC::SUCCESS) {
         return rc;
       }

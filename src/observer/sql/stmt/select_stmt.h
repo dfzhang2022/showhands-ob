@@ -40,8 +40,10 @@ class SelectStmt : public Stmt {
   StmtType type() const override { return StmtType::SELECT; }
 
  public:
-  static RC create(Db *db, const SelectSqlNode &select_sql, Stmt *&stmt,
-                   bool is_sub_select = false);
+  static RC create(
+      Db *db, const SelectSqlNode &select_sql, Stmt *&stmt,
+      bool is_sub_select = false,
+      std::unordered_map<std::string, Table *> *table_map = nullptr);
 
  public:
   const std::vector<Table *> &tables() const { return tables_; }

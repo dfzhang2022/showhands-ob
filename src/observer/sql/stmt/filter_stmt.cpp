@@ -143,7 +143,8 @@ RC FilterStmt::create_filter_unit(
     if (condition.right_type == ExpressType::SELECT_T) {
       FilterObj filter_obj;
       Stmt *tmp_ptr;
-      rc = SelectStmt::create(db, *condition.right_selects, tmp_ptr, true);
+      rc = SelectStmt::create(db, *condition.right_selects, tmp_ptr, true,
+                              tables);
       filter_obj.init_select(tmp_ptr);
       filter_unit->set_right(filter_obj);
     }
