@@ -147,6 +147,14 @@ RC FilterStmt::create_filter_unit(
                               tables);
       filter_obj.init_select(tmp_ptr);
       filter_unit->set_right(filter_obj);
+    } else if (condition.right_type == ExpressType::EXPR_LIST_T) {
+      FilterObj filter_obj;
+      rc =
+          filter_obj.init_list(db, default_table, tables, condition.right_expr);
+      if (rc != RC::SUCCESS) {
+        return rc;
+      }
+      filter_unit->set_right(filter_obj);
     }
     filter_unit->set_comp(comp);
 

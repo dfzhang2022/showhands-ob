@@ -555,5 +555,8 @@ RC SelectStmt::create(Db *db, const SelectSqlNode &select_sql, Stmt *&stmt,
   select_stmt->is_sub_select_ = is_sub_select;
 
   stmt = select_stmt;
+
+  // 释放占用资源
+  delete local_table_map;
   return RC::SUCCESS;
 }

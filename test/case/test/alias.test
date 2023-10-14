@@ -16,3 +16,5 @@ INSERT INTO table_name_3 VALUES (5, 5, 14.6);
 select * from table_name_1
 
 select * from table_name_1 t1 where id in (select t2.id from table_name_2 t2 where t2.col2 >= t1.col1);
+
+select t1.id num, t1.col1 age, t1.feat1 from table_name_1 t1;

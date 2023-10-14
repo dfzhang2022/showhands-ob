@@ -94,21 +94,22 @@ enum ExprOp {
   NOT_LIKE,      ///< "NOT LIKE"
   IN_COMP,
   NOT_IN_COMP,
-  COMP_LIMIT,    ///< seperate compare and arithmetic op
-  ADD,           ///< "+"
-  SUB,           ///< "-"
-  MUL,           ///< "*"
-  DIV,           ///< "/"
-  NEGATIVE,      ///< "-"
+  COMP_LIMIT,  ///< seperate compare and arithmetic op
+  ADD,         ///< "+"
+  SUB,         ///< "-"
+  MUL,         ///< "*"
+  DIV,         ///< "/"
+  NEGATIVE,    ///< "-"
   NO_OP
 
 };
 
 enum ExpressType {
-  VALUE_T,        /// value type
-  ATTR_T,         /// attribute type
-  SELECT_T,       /// sub select type
-  EXPR_T,         /// expression type
+  VALUE_T,      /// value type
+  ATTR_T,       /// attribute type
+  SELECT_T,     /// sub select type
+  EXPR_T,       /// expression type
+  EXPR_LIST_T,  /// expression list type
   INVALID_T
 };
 
@@ -140,62 +141,62 @@ struct ExprSqlNode {
   std::string name;
   ExpressType type;  ///< 当表达式类型不为EXPR_T时，值存在左边
   ExpressType left_type;  ///< TRUE if left-hand side is an attribute
-                     ///< 1时，操作符左边是属性名，0时，是属性值
-                     ///< 2时,是select子查询
-                     /// 详见CompType字段
-  Value left_value;          ///< left-hand side value if left_type = FALSE
-  RelAttrSqlNode left_attr;  ///< left-hand side attribute
+                          ///< 1时，操作符左边是属性名，0时，是属性值
+                          ///< 2时,是select子查询
+                          /// 详见CompType字段
+  Value left_value;             ///< left-hand side value if left_type = FALSE
+  RelAttrSqlNode left_attr;     ///< left-hand side attribute
   SelectSqlNode* left_selects;  ///< left-hand side select_sql
-  ExprSqlNode* left_expr;  ///< left-hand side expression
+  ExprSqlNode* left_expr;       ///< left-hand side expression
   ExprOp comp;                  ///< comparison operator
-  ExpressType right_type;            ///< TRUE if right-hand side is an attribute
-                      ///< 1时，操作符右边是属性名，0时，是属性值
-                      ///< 2时,是select子查询
+  ExpressType right_type;       ///< TRUE if right-hand side is an attribute
+                           ///< 1时，操作符右边是属性名，0时，是属性值
+                           ///< 2时,是select子查询
   RelAttrSqlNode right_attr;  ///< right-hand side attribute if right_type =
                               ///< TRUE 右边的属性
-  Value right_value;  ///< right-hand side value if right_type = FALSE
+  Value right_value;          ///< right-hand side value if right_type = FALSE
   SelectSqlNode* right_selects;  ///< right-hand side select_sql
-  ExprSqlNode* right_expr;  ///< right-hand side expression
-  
-  void add_left_child(ExprSqlNode *left_child) {
+  ExprSqlNode* right_expr;       ///< right-hand side expression
+
+  std::vector<ExprSqlNode*> expr_list;  ///< valid this is a expression list
+
+  void add_left_child(ExprSqlNode* left_child) {
     left_type = left_child->type;
-    switch (left_type)
-    {
-    case ExpressType::VALUE_T:
-      left_value = left_child->left_value;
-      break;
-    case ExpressType::ATTR_T:
-      left_attr = left_child->left_attr;
-      break;
-    case ExpressType::SELECT_T:
-      left_selects = left_child->left_selects;
-      break;
-    case ExpressType::EXPR_T:
-      left_expr = left_child;
-      break;
-    default:
-      break;
+    switch (left_type) {
+      case ExpressType::VALUE_T:
+        left_value = left_child->left_value;
+        break;
+      case ExpressType::ATTR_T:
+        left_attr = left_child->left_attr;
+        break;
+      case ExpressType::SELECT_T:
+        left_selects = left_child->left_selects;
+        break;
+      case ExpressType::EXPR_T:
+        left_expr = left_child;
+        break;
+      default:
+        break;
     }
   }
 
-  void add_right_child(ExprSqlNode *right_child) {
+  void add_right_child(ExprSqlNode* right_child) {
     right_type = right_child->type;
-    switch (right_type)
-    {
-    case ExpressType::VALUE_T:
-      right_value = right_child->left_value;
-      break;
-    case ExpressType::ATTR_T:
-      right_attr = right_child->left_attr;
-      break;
-    case ExpressType::SELECT_T:
-      right_selects = right_child->left_selects;
-      break;
-    case ExpressType::EXPR_T:
-      right_expr = right_child;
-      break;
-    default:
-      break;
+    switch (right_type) {
+      case ExpressType::VALUE_T:
+        right_value = right_child->left_value;
+        break;
+      case ExpressType::ATTR_T:
+        right_attr = right_child->left_attr;
+        break;
+      case ExpressType::SELECT_T:
+        right_selects = right_child->left_selects;
+        break;
+      case ExpressType::EXPR_T:
+        right_expr = right_child;
+        break;
+      default:
+        break;
     }
   }
 };
@@ -210,22 +211,22 @@ struct ExprSqlNode {
  */
 struct ConditionSqlNode {
   ExpressType left_type;  ///< TRUE if left-hand side is an attribute
-                     ///< 1时，操作符左边是属性名，0时，是属性值
-                     ///< 2时,是select子查询
-                     /// 详见CompType字段
-  Value left_value;          ///< left-hand side value if left_type = FALSE
-  RelAttrSqlNode left_attr;  ///< left-hand side attribute
+                          ///< 1时，操作符左边是属性名，0时，是属性值
+                          ///< 2时,是select子查询
+                          /// 详见CompType字段
+  Value left_value;             ///< left-hand side value if left_type = FALSE
+  RelAttrSqlNode left_attr;     ///< left-hand side attribute
   SelectSqlNode* left_selects;  ///< left-hand side select_sql
-  ExprSqlNode* left_expr;  ///< left-hand side expression
+  ExprSqlNode* left_expr;       ///< left-hand side expression
   ExprOp comp;                  ///< comparison operator
-  ExpressType right_type;            ///< TRUE if right-hand side is an attribute
-                      ///< 1时，操作符右边是属性名，0时，是属性值
-                      ///< 2时,是select子查询
+  ExpressType right_type;       ///< TRUE if right-hand side is an attribute
+                           ///< 1时，操作符右边是属性名，0时，是属性值
+                           ///< 2时,是select子查询
   RelAttrSqlNode right_attr;  ///< right-hand side attribute if right_type =
                               ///< TRUE 右边的属性
-  Value right_value;  ///< right-hand side value if right_type = FALSE
+  Value right_value;          ///< right-hand side value if right_type = FALSE
   SelectSqlNode* right_selects;  ///< right-hand side select_sql
-  ExprSqlNode* right_expr;  ///< right-hand side expression
+  ExprSqlNode* right_expr;       ///< right-hand side expression
 };
 /**
  * @brief 描述一个多表join的表
@@ -263,7 +264,7 @@ struct RelationSqlNode {
  */
 
 struct SelectSqlNode {
-  std::vector<ExprSqlNode *> attributes;  ///< attributes in select clause
+  std::vector<ExprSqlNode*> attributes;    ///< attributes in select clause
   std::vector<RelationSqlNode> relations;  ///< relations in from clause
   std::vector<ConditionSqlNode>
       conditions;  ///< 查询条件，使用AND串联起来多个条件

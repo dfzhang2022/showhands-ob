@@ -48,6 +48,7 @@ enum class ExprType {
   CONJUNCTION,  ///< 多个表达式使用同一种关系(AND或OR)来联结
   ARITHMETIC,   ///< 算术运算
   SELECTION,    ///< 代表一个select语句 对应应该包含一个算子树
+  LIST,         ///< 代表一个ListExpression 对应于各种集合操作
 };
 
 /**
@@ -179,6 +180,8 @@ class SelectExpr : public Expression {
   ExprType type() const override { return ExprType::SELECTION; }
   RC get_value(const Tuple &tuple, Value &value) const override;
   AttrType value_type() const override { return AttrType::UNDEFINED; }
+
+  RC get_value_list(const Tuple &tuple, std::vector<Value> *&value_set);
 
   RC gen_physical() override;
   RC open();
@@ -404,4 +407,24 @@ class ArithmeticExpr : public Expression {
   Type arithmetic_type_;
   std::unique_ptr<Expression> left_;
   std::unique_ptr<Expression> right_;
+};
+
+class ListExpression : public Expression {
+ public:
+  ListExpression() = default;
+  virtual ~ListExpression() = default;
+
+  ExprType type() const override { return ExprType::LIST; }
+  RC get_value(const Tuple &tuple, Value &value) const override;
+  AttrType value_type() const override { return AttrType::UNDEFINED; }
+  RC gen_physical() override { return RC::SUCCESS; }
+
+  RC get_value_list(const Tuple &tuple, std::vector<Value> *&value_set);
+
+  std::vector<std::unique_ptr<Expression>> *get_expr_list() {
+    return &expr_list;
+  }
+
+ private:
+  std::vector<std::unique_ptr<Expression>> expr_list;
 };

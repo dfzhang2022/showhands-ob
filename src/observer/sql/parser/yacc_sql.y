@@ -830,19 +830,27 @@ express:
       $$->left_value = *$1;
       delete $1;
     }
-    | ID {
+    | ID as_alias{
       $$ = new ExprSqlNode;
       $$->name = token_name(sql_string, &@$);
       $$->type = ExpressType::ATTR_T;
       $$->left_attr.attribute_name = $1;
+      if($2!=nullptr){
+        $$->left_attr.has_alias = true;
+        $$->left_attr.alias = $2;
+      }
       free($1);
     }
-    | ID DOT ID {
+    | ID DOT ID as_alias{
       $$ = new ExprSqlNode;
       $$->name = token_name(sql_string, &@$);
       $$->type = ExpressType::ATTR_T;
       $$->left_attr.relation_name = $1;
       $$->left_attr.attribute_name = $3;
+      if($4 != nullptr){
+        $$->left_attr.has_alias = true;
+        $$->left_attr.alias = $4;
+      }
       free($1);
       free($3);
     }
@@ -904,6 +912,17 @@ express:
       $$->name = token_name(sql_string, &@$);
       $$->type = ExpressType::SELECT_T;
       $$->left_selects = &($2->selection);
+    }
+    | LBRACE express COMMA express express_list RBRACE
+    {
+      $$ = new ExprSqlNode;
+      $$->name = token_name(sql_string, &@$);
+      $$->type = ExpressType::EXPR_LIST_T;
+      if ($5 != nullptr) {
+        $$->expr_list.swap(*$5);
+      }
+      $$->expr_list.emplace_back($4);
+      $$->expr_list.emplace_back($2);
     }
     ;
 
@@ -1309,8 +1328,12 @@ condition:
         $$->left_type = ExpressType::SELECT_T;
         $$->left_selects = $1->left_selects;
       }
-      else {
+      else if ($1->type == ExpressType::EXPR_T){
         $$->left_type = ExpressType::EXPR_T;
+        $$->left_expr = $1;
+      }
+      else if ($1->type == ExpressType::EXPR_LIST_T){
+        $$->left_type = ExpressType::EXPR_LIST_T;
         $$->left_expr = $1;
       }
       $$->comp = $2;
@@ -1328,8 +1351,12 @@ condition:
         $$->right_type = ExpressType::SELECT_T;
         $$->right_selects = $3->left_selects;
       }
-      else {
+      else if ($3->type == ExpressType::EXPR_T){
         $$->right_type = ExpressType::EXPR_T;
+        $$->right_expr = $3;
+      }
+      else if ($3->type == ExpressType::EXPR_LIST_T){
+        $$->right_type = ExpressType::EXPR_LIST_T;
         $$->right_expr = $3;
       }
     }
