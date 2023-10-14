@@ -431,7 +431,8 @@ RC SelectStmt::create(Db *db, const SelectSqlNode &select_sql, Stmt *&stmt,
       if (condition.left_type == ExpressType::ATTR_T) {
         RelAttrSqlNode relattrsqlnode = condition.left_attr;
         const char *table_name = relattrsqlnode.relation_name.c_str();
-        if (table_name != nullptr && local_table_map->count(table_name) == 0) {
+        if (0 != strcmp(table_name, "") &&
+            local_table_map->count(table_name) == 0) {
           // 本查询中不存在该表 那么从包含外部表的table_map中拿指针
           //  Table *table = db->find_table(table_name);
           Table *table = table_map->at(table_name);
@@ -442,7 +443,8 @@ RC SelectStmt::create(Db *db, const SelectSqlNode &select_sql, Stmt *&stmt,
       if (condition.right_type == ExpressType::ATTR_T) {
         RelAttrSqlNode relattrsqlnode = condition.right_attr;
         const char *table_name = relattrsqlnode.relation_name.c_str();
-        if (table_name != nullptr && local_table_map->count(table_name) == 0) {
+        if (0 != strcmp(table_name, "") &&
+            local_table_map->count(table_name) == 0) {
           // 本查询中不存在该表 那么从包含外部表的table_map中拿指针
           // Table *table = db->find_table(table_name);
           Table *table = table_map->at(table_name);
