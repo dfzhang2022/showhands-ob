@@ -854,6 +854,18 @@ express:
       free($1);
       free($3);
     }
+    | ID DOT '*' as_alias{
+      $$ = new ExprSqlNode;
+      $$->name = token_name(sql_string, &@$);
+      $$->type = ExpressType::ATTR_T;
+      $$->left_attr.relation_name = $1;
+      $$->left_attr.attribute_name = "*";
+      if($4 != nullptr){
+        $$->left_attr.has_alias = true;
+        $$->left_attr.alias = $4;
+      }
+      free($1);
+    }
     | aggregation_func LBRACE ID RBRACE{
       $$ = new ExprSqlNode;
       $$->name = token_name(sql_string, &@$);

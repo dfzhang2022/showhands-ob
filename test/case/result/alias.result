@@ -40,3 +40,10 @@ NUM | AGE | T1.FEAT1
 1 | 4 | 11.2
 2 | 2 | 12
 3 | 3 | 13.5
+
+SELECT T1.ID AS NUM, T1.COL1 AS AGE, T1.FEAT1, T2.* FROM TABLE_NAME_1 T1, TABLE_NAME_2 T2 WHERE T1.ID < T2.ID;
+NUM | AGE | T1.FEAT1 | T2.ID | T2.COL2 | T2.FEAT2
+1 | 4 | 11.2 | 2 | 7 | 10.5
+1 | 4 | 11.2 | 5 | 3 | 12.6
+2 | 2 | 12 | 5 | 3 | 12.6
+3 | 3 | 13.5 | 5 | 3 | 12.6

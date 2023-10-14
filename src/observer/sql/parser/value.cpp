@@ -574,6 +574,7 @@ RC Value::compare(const Value &other, int &cmp_result) const {
     return rc;
   } else if (other.attr_type_ == AttrType::NULL_ATTR ||
              this->attr_type_ == AttrType::NULL_ATTR) {
+    cmp_result = 1;
     rc = RC::NULL_COMPARE_ERROR;
     return rc;
   } else if (other.attr_type_ == AttrType::LIKE_STR) {

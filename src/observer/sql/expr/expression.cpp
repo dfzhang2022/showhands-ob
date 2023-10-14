@@ -236,9 +236,10 @@ RC ComparisonExpr::get_value(const Tuple &tuple, Value &value) const {
         return rc;
       }
       bool result = false;
+      value.set_boolean(false);
       for (auto iter : *tmp_value_set) {
         rc = compare_value(left_value, iter, result);
-        if (rc != RC::SUCCESS) {
+        if (rc != RC::SUCCESS && rc != RC::NULL_COMPARE_ERROR) {
           LOG_WARN("Error when compare value.");
           return rc;
         }
@@ -281,30 +282,58 @@ RC ComparisonExpr::get_value(const Tuple &tuple, Value &value) const {
       LOG_WARN("failed to get value of left expression. rc=%s", strrc(rc));
       return rc;
     }
-    bool result = false;
-    Value tmp_value(0);
-    // std::vector<Value> *tmp_value_set = new std::vector<Value>;
-    // rc = static_cast<SelectExpr *>(right_.get())->get_value_list(tuple,
-    // tmp_value_set);
-    rc = static_cast<SelectExpr *>(right_.get())->open();
-    while (1) {
-      rc = right_->get_value(tuple, tmp_value);
+    if (right_->type() == ExprType::LIST) {
+      std::vector<Value> *tmp_value_set = new std::vector<Value>;
+      rc = static_cast<ListExpression *>(right_.get())
+               ->get_value_list(tuple, tmp_value_set);
       if (rc != RC::SUCCESS) {
-        if (rc == RC::RECORD_EOF) {
-          break;
-        } else {
+        LOG_WARN("Error when get value set from ExprList: %s.",
+                 right_->name().c_str());
+        return rc;
+      }
+      bool result = true;
+      value.set_boolean(true);
+      for (auto iter : *tmp_value_set) {
+        rc = compare_value(left_value, iter, result);
+        if (rc != RC::SUCCESS && rc != RC::NULL_COMPARE_ERROR) {
+          LOG_WARN("Error when compare value.");
           return rc;
         }
+        if (result) {
+          value.set_boolean(false);
+          break;
+        }
       }
-      compare_value(left_value, tmp_value, result);
-      if (result) {
-        value.set_boolean(false);
-        return RC::SUCCESS;
+      delete tmp_value_set;
+
+      return RC::SUCCESS;
+    } else {
+      bool result = false;
+      Value tmp_value(0);
+      // std::vector<Value> *tmp_value_set = new std::vector<Value>;
+      // rc = static_cast<SelectExpr *>(right_.get())->get_value_list(tuple,
+      // tmp_value_set);
+      rc = static_cast<SelectExpr *>(right_.get())->open();
+      while (1) {
+        rc = right_->get_value(tuple, tmp_value);
+        if (rc != RC::SUCCESS) {
+          if (rc == RC::RECORD_EOF) {
+            break;
+          } else {
+            return rc;
+          }
+        }
+        compare_value(left_value, tmp_value, result);
+        if (result) {
+          value.set_boolean(false);
+          return RC::SUCCESS;
+        }
       }
+      rc = static_cast<SelectExpr *>(right_.get())->close();
+      value.set_boolean(true);
+      return RC::SUCCESS;
     }
-    rc = static_cast<SelectExpr *>(right_.get())->close();
-    value.set_boolean(true);
-    return RC::SUCCESS;
+
   } else {
     RC rc = RC::SUCCESS;
     if (left_->type() == ExprType::SELECTION) {
