@@ -20,3 +20,5 @@ select * from table_name_1 t1 where id in (select t2.id from table_name_2 t2 whe
 select t1.id num, t1.col1 age, t1.feat1 from table_name_1 t1;
 
 select t1.id as num, t1.col1 as age, t1.feat1, t2.* from table_name_1 t1, table_name_2 t2 where t1.id < t2.id;
+
+select count(*) as num, avg(t1.col1) score from table_name_1 t1, table_name_2 t2 where t1.id < t2.id;

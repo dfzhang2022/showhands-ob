@@ -866,7 +866,7 @@ express:
       }
       free($1);
     }
-    | aggregation_func LBRACE ID RBRACE{
+    | aggregation_func LBRACE ID RBRACE as_alias{
       $$ = new ExprSqlNode;
       $$->name = token_name(sql_string, &@$);
       $$->type = ExpressType::ATTR_T;
@@ -874,8 +874,12 @@ express:
       free($3);
       $$->left_attr.is_aggregation_func = true;
       $$->left_attr.aggr_func_type = $1;
+      if($5 != nullptr){
+        $$->left_attr.has_alias = true;
+        $$->left_attr.alias = $5;
+      }
     }
-    | aggregation_func LBRACE ID DOT ID RBRACE{
+    | aggregation_func LBRACE ID DOT ID RBRACE as_alias{
       $$ = new ExprSqlNode;
       $$->name = token_name(sql_string, &@$);
       $$->type = ExpressType::ATTR_T;
@@ -885,8 +889,12 @@ express:
       free($5);
       $$->left_attr.is_aggregation_func = true;
       $$->left_attr.aggr_func_type = $1;
+      if($7 != nullptr){
+        $$->left_attr.has_alias = true;
+        $$->left_attr.alias = $7;
+      }
     }
-    | aggregation_func LBRACE '*' RBRACE{
+    | aggregation_func LBRACE '*' RBRACE as_alias{
       $$ = new ExprSqlNode;
       $$->name = token_name(sql_string, &@$);
       $$->type = ExpressType::ATTR_T;
@@ -894,6 +902,10 @@ express:
       $$->left_attr.attribute_name = "*";
       $$->left_attr.is_aggregation_func = true;
       $$->left_attr.aggr_func_type = $1;
+      if($5 != nullptr){
+        $$->left_attr.has_alias = true;
+        $$->left_attr.alias = $5;
+      }
     }
     | aggregation_func LBRACE RBRACE{
       $$ = new ExprSqlNode;
@@ -1273,6 +1285,7 @@ condition_list:
       $$->emplace_back(*$1);
       delete $1;
     }
+    // TODO 添加OR对应的逻辑 或许需要重构condition部分的逻辑
     ;
 condition:
     /*rel_attr comp_op value
