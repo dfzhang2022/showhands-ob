@@ -282,6 +282,11 @@ RC ComparisonExpr::get_value(const Tuple &tuple, Value &value) const {
       LOG_WARN("failed to get value of left expression. rc=%s", strrc(rc));
       return rc;
     }
+    if (left_value.attr_type() == AttrType::NULL_ATTR) {
+      LOG_INFO("Left-side value is NULL in 'NOT IN' comparison.");
+      value.set_boolean(false);
+      return RC::SUCCESS;
+    }
     if (right_->type() == ExprType::LIST) {
       std::vector<Value> *tmp_value_set = new std::vector<Value>;
       rc = static_cast<ListExpression *>(right_.get())
@@ -294,6 +299,11 @@ RC ComparisonExpr::get_value(const Tuple &tuple, Value &value) const {
       bool result = true;
       value.set_boolean(true);
       for (auto iter : *tmp_value_set) {
+        if (iter.attr_type() == AttrType::NULL_ATTR) {
+          LOG_INFO("Right-side value set has NULL.");
+          value.set_boolean(false);
+          break;
+        }
         rc = compare_value(left_value, iter, result);
         if (rc != RC::SUCCESS && rc != RC::NULL_COMPARE_ERROR) {
           LOG_WARN("Error when compare value.");

@@ -109,6 +109,9 @@ RC LogicalPlanGenerator::create_plan(
     if (map->count(table->name()) > 0) {
       if (table_oper == nullptr) {
         // 不应该有这个分支 因为默认外部子查询的链接是在join树的右边
+        unique_ptr<LogicalOperator> table_get_oper(
+            new TableGetLogicalOperator(table, fields, true /*readonly*/));
+        table_oper = std::move(table_get_oper);
       } else {
         JoinLogicalOperator *join_oper = new JoinLogicalOperator;
         join_oper->add_child(std::move(table_oper));

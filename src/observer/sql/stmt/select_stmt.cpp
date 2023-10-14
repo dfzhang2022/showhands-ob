@@ -192,6 +192,7 @@ RC SelectStmt::create(Db *db, const SelectSqlNode &select_sql, Stmt *&stmt,
   std::vector<Field> query_fields;           // 投影列
   std::vector<Field> aggr_query_fields;      // 聚合列
   std::vector<Field> function_query_fields;  // 简单函数列
+  // TODO 外层的外部查询的别名可以作为参数传入内部子查询
   // 聚合列和投影列本来是一一对应的 只有出现AGGR(*)时才会出现数量不一致
   // 其实只有COUNT(*)
   // COUNT(*.*)是语法错误
