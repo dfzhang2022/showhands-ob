@@ -104,6 +104,8 @@ enum ExprOp {
 
 };
 
+enum ConjuctionType { AND_T, OR_T };
+
 enum ExpressType {
   VALUE_T,      /// value type
   ATTR_T,       /// attribute type
@@ -227,6 +229,22 @@ struct ConditionSqlNode {
   Value right_value;          ///< right-hand side value if right_type = FALSE
   SelectSqlNode* right_selects;  ///< right-hand side select_sql
   ExprSqlNode* right_expr;       ///< right-hand side expression
+};
+/**
+ * @brief 表示conditionTree
+ * @ingroup SQLParser
+ * @details 二叉树每个节点用来表示左右两个子节点用什么连接词(OR/AND)进行连接
+ */
+struct ConditionTreeSqlNode {
+  bool is_left_subtree = false;
+  ConditionSqlNode* left_child;
+  ConditionTreeSqlNode* left_sub_tree;
+
+  ConjuctionType type = ConjuctionType::AND_T;
+
+  bool is_right_subtree = false;
+  ConditionSqlNode* right_child;
+  ConditionTreeSqlNode* right_sub_tree;
 };
 /**
  * @brief 描述一个多表join的表

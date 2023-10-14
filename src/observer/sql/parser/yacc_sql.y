@@ -92,6 +92,7 @@ ArithmeticExpr *create_arithmetic_expression(ArithmeticExpr::Type type,
         JOIN
         WHERE
         AND
+        OR
         ORDER
         GROUP
         BY
@@ -132,6 +133,7 @@ ArithmeticExpr *create_arithmetic_expression(ArithmeticExpr::Type type,
   Value *                           value;
   enum ExprOp                       comp;
   enum AggrFuncType                 aggr_func;
+  enum ConjuctionType               conj_type;
   RelAttrSqlNode *                  rel_attr;
   std::vector<AttrInfoSqlNode> *    attr_infos;
   AttrInfoSqlNode *                 attr_info;
@@ -154,6 +156,7 @@ ArithmeticExpr *create_arithmetic_expression(ArithmeticExpr::Type type,
   std::vector<JoinedRelationSqlNode>* join_rel_list;
   GroupBySqlNode*                   group_by;
   RelAttrSqlNode *                  function; 
+  ConditionTreeSqlNode*             condition_tree;
   char *                            string;
   int                               number;
   float                             floats;
@@ -202,7 +205,9 @@ ArithmeticExpr *create_arithmetic_expression(ArithmeticExpr::Type type,
 %type <order_list>          order_list
 %type <rel_attr_list>       group_by
 %type <aggr_func>           aggregation_func
+%type <conj_type>           conj_type
 %type <function>            function
+%type <condition_tree>      condition_tree
 %type <sql_node>            calc_stmt
 %type <sql_node>            select_stmt
 %type <sql_node>            insert_stmt
@@ -1433,6 +1438,33 @@ condition:
       // delete $2;
       delete $5;
     }*/
+    ;
+conj_type:
+    AND
+    {
+      $$ = AND_T;
+    }
+    | OR
+    {
+      $$ = OR_T;
+    }
+    ;
+
+condition_tree:
+    //TODO 完成condition树的语法解析
+    condition conj_type condition
+    {
+      $$ = new ConditionTreeSqlNode;
+      $$->type = $2;
+    }
+    |condition conj_type LBRACE condition_tree RBRACE
+    {
+      $$ = nullptr;
+    }
+    |LBRACE condition_tree RBRACE conj_type condition
+    {
+      $$ = nullptr;
+    }
     ;
 
 group_by:
