@@ -81,7 +81,7 @@ RC CastExpr::try_get_value(Value &value) const {
 
 ////////////////////////////////////////////////////////////////////////////////
 
-ComparisonExpr::ComparisonExpr(CompOp comp, unique_ptr<Expression> left,
+ComparisonExpr::ComparisonExpr(ExprOp comp, unique_ptr<Expression> left,
                                unique_ptr<Expression> right)
     : comp_(comp), left_(std::move(left)), right_(std::move(right)) {}
 
@@ -119,7 +119,7 @@ RC ComparisonExpr::compare_value(const Value &left, const Value &right,
     case GREAT_THAN: {
       result = (cmp_result > 0);
     } break;
-    case CompOp::IS_EQUAL: {
+    case ExprOp::IS_EQUAL: {
       // 只要两边同时是null即返回通过
       //  result = (0 == cmp_result);
       if ((left.attr_type() == AttrType::NULL_ATTR) &&
@@ -131,7 +131,7 @@ RC ComparisonExpr::compare_value(const Value &left, const Value &right,
         result = false;
       }
     } break;
-    case CompOp::IS_NOT_EQUAL: {
+    case ExprOp::IS_NOT_EQUAL: {
       // 只要不是两边同时是null即返回通过
       //  result = (0 == cmp_result);
       if (!((left.attr_type() == AttrType::NULL_ATTR) &&
@@ -143,16 +143,16 @@ RC ComparisonExpr::compare_value(const Value &left, const Value &right,
         result = false;
       }
     } break;
-    case CompOp::LIKE: {
+    case ExprOp::LIKE: {
       result = (0 == cmp_result);
     } break;
-    case CompOp::NOT_LIKE: {
+    case ExprOp::NOT_LIKE: {
       result = (0 != cmp_result);
     } break;
-    case CompOp::IN_COMP: {
+    case ExprOp::IN_COMP: {
       result = (0 == cmp_result);
     } break;
-    case CompOp::NOT_IN_COMP: {
+    case ExprOp::NOT_IN_COMP: {
       result = (0 == cmp_result);
     } break;
     default: {
@@ -215,7 +215,7 @@ RC ComparisonExpr::try_get_value(Value &cell) const {
 RC ComparisonExpr::get_value(const Tuple &tuple, Value &value) const {
   Value left_value;
   Value right_value;
-  if (this->comp() == CompOp::IN_COMP) {
+  if (this->comp() == ExprOp::IN_COMP) {
     // todo 这里要判断一个集合的逻辑 不断取左右的value形成左右value的集合
     //  然后比较两边的集合
     // 当前仅考虑左边是单值 右边是集合
@@ -225,28 +225,56 @@ RC ComparisonExpr::get_value(const Tuple &tuple, Value &value) const {
       LOG_WARN("failed to get value of left expression. rc=%s", strrc(rc));
       return rc;
     }
-    bool result = false;
-    Value tmp_value(0);
-    rc = static_cast<SelectExpr *>(right_.get())->open();
-    while (1) {
-      rc = right_->get_value(tuple, tmp_value);
+
+    if (right_->type() == ExprType::LIST) {
+      std::vector<Value> *tmp_value_set = new std::vector<Value>;
+      rc = static_cast<ListExpression *>(right_.get())
+               ->get_value_list(tuple, tmp_value_set);
       if (rc != RC::SUCCESS) {
-        if (rc == RC::RECORD_EOF) {
-          break;
-        } else {
+        LOG_WARN("Error when get value set from ExprList: %s.",
+                 right_->name().c_str());
+        return rc;
+      }
+      bool result = false;
+      value.set_boolean(false);
+      for (auto iter : *tmp_value_set) {
+        rc = compare_value(left_value, iter, result);
+        if (rc != RC::SUCCESS && rc != RC::NULL_COMPARE_ERROR) {
+          LOG_WARN("Error when compare value.");
           return rc;
         }
+        if (result) {
+          value.set_boolean(true);
+          break;
+        }
       }
-      compare_value(left_value, tmp_value, result);
-      if (result) {
-        value.set_boolean(true);
-        return RC::SUCCESS;
+      delete tmp_value_set;
+      return RC::SUCCESS;
+    } else {
+      bool result = false;
+      Value tmp_value(0);
+      rc = static_cast<SelectExpr *>(right_.get())->open();
+      while (1) {
+        rc = right_->get_value(tuple, tmp_value);
+        if (rc != RC::SUCCESS) {
+          if (rc == RC::RECORD_EOF) {
+            break;
+          } else {
+            return rc;
+          }
+        }
+        compare_value(left_value, tmp_value, result);
+        if (result) {
+          value.set_boolean(true);
+          return RC::SUCCESS;
+        }
       }
+      rc = static_cast<SelectExpr *>(right_.get())->close();
+      value.set_boolean(false);
+      return RC::SUCCESS;
     }
-    rc = static_cast<SelectExpr *>(right_.get())->close();
-    value.set_boolean(false);
-    return RC::SUCCESS;
-  } else if (this->comp() == CompOp::NOT_IN_COMP) {
+
+  } else if (this->comp() == ExprOp::NOT_IN_COMP) {
     //  这里判断NOT IN的逻辑
 
     RC rc = left_->get_value(tuple, left_value);
@@ -254,28 +282,58 @@ RC ComparisonExpr::get_value(const Tuple &tuple, Value &value) const {
       LOG_WARN("failed to get value of left expression. rc=%s", strrc(rc));
       return rc;
     }
-    bool result = false;
-    Value tmp_value(0);
-    std::vector<Value> value_set;
-    rc = static_cast<SelectExpr *>(right_.get())->open();
-    while (1) {
-      rc = right_->get_value(tuple, tmp_value);
+    if (right_->type() == ExprType::LIST) {
+      std::vector<Value> *tmp_value_set = new std::vector<Value>;
+      rc = static_cast<ListExpression *>(right_.get())
+               ->get_value_list(tuple, tmp_value_set);
       if (rc != RC::SUCCESS) {
-        if (rc == RC::RECORD_EOF) {
-          break;
-        } else {
+        LOG_WARN("Error when get value set from ExprList: %s.",
+                 right_->name().c_str());
+        return rc;
+      }
+      bool result = true;
+      value.set_boolean(true);
+      for (auto iter : *tmp_value_set) {
+        rc = compare_value(left_value, iter, result);
+        if (rc != RC::SUCCESS && rc != RC::NULL_COMPARE_ERROR) {
+          LOG_WARN("Error when compare value.");
           return rc;
         }
+        if (result) {
+          value.set_boolean(false);
+          break;
+        }
       }
-      compare_value(left_value, tmp_value, result);
-      if (result) {
-        value.set_boolean(false);
-        return RC::SUCCESS;
+      delete tmp_value_set;
+
+      return RC::SUCCESS;
+    } else {
+      bool result = false;
+      Value tmp_value(0);
+      // std::vector<Value> *tmp_value_set = new std::vector<Value>;
+      // rc = static_cast<SelectExpr *>(right_.get())->get_value_list(tuple,
+      // tmp_value_set);
+      rc = static_cast<SelectExpr *>(right_.get())->open();
+      while (1) {
+        rc = right_->get_value(tuple, tmp_value);
+        if (rc != RC::SUCCESS) {
+          if (rc == RC::RECORD_EOF) {
+            break;
+          } else {
+            return rc;
+          }
+        }
+        compare_value(left_value, tmp_value, result);
+        if (result) {
+          value.set_boolean(false);
+          return RC::SUCCESS;
+        }
       }
+      rc = static_cast<SelectExpr *>(right_.get())->close();
+      value.set_boolean(true);
+      return RC::SUCCESS;
     }
-    rc = static_cast<SelectExpr *>(right_.get())->close();
-    value.set_boolean(true);
-    return RC::SUCCESS;
+
   } else {
     RC rc = RC::SUCCESS;
     if (left_->type() == ExprType::SELECTION) {
@@ -422,6 +480,11 @@ AttrType ArithmeticExpr::value_type() const {
     return left_->value_type();
   }
 
+  if (left_->value_type() == AttrType::NULL_ATTR ||
+      right_->value_type() == AttrType::NULL_ATTR) {
+    return AttrType::NULL_ATTR;
+  }
+
   if (left_->value_type() == AttrType::INTS &&
       right_->value_type() == AttrType::INTS && arithmetic_type_ != Type::DIV) {
     return AttrType::INTS;
@@ -435,6 +498,10 @@ RC ArithmeticExpr::calc_value(const Value &left_value, const Value &right_value,
   RC rc = RC::SUCCESS;
 
   const AttrType target_type = value_type();
+  if (target_type == AttrType::NULL_ATTR) {
+    value.set_null(nullptr, 4);
+    return rc;
+  }
 
   switch (arithmetic_type_) {
     case Type::ADD: {
@@ -466,7 +533,8 @@ RC ArithmeticExpr::calc_value(const Value &left_value, const Value &right_value,
         if (right_value.get_int() == 0) {
           // NOTE:
           // 设置为整数最大值是不正确的。通常的做法是设置为NULL，但是当前的miniob没有NULL概念，所以这里设置为整数最大值。
-          value.set_int(numeric_limits<int>::max());
+          // value.set_int(numeric_limits<int>::max());
+          value.set_null(nullptr, 4);
         } else {
           value.set_int(left_value.get_int() / right_value.get_int());
         }
@@ -475,7 +543,8 @@ RC ArithmeticExpr::calc_value(const Value &left_value, const Value &right_value,
             right_value.get_float() < EPSILON) {
           // NOTE:
           // 设置为浮点数最大值是不正确的。通常的做法是设置为NULL，但是当前的miniob没有NULL概念，所以这里设置为浮点数最大值。
-          value.set_float(numeric_limits<float>::max());
+          // value.set_float(numeric_limits<float>::max());
+          value.set_null(nullptr, 4);
         } else {
           value.set_float(left_value.get_float() / right_value.get_float());
         }
@@ -554,6 +623,37 @@ RC SelectExpr::get_value(const Tuple &tuple, Value &value) const {
   return rc;
 }
 
+RC SelectExpr::get_value_list(const Tuple &tuple,
+                              std::vector<Value> *&value_set) {
+  RC rc = RC::SUCCESS;
+  rc = this->open();
+  if (rc != RC::SUCCESS) {
+    LOG_WARN("error when open SelectExpr.");
+    return rc;
+  }
+
+  while (1) {
+    Value *tmp_value = new Value(0);
+    rc = this->get_value(tuple, *tmp_value);
+    if (rc != RC::SUCCESS) {
+      if (rc == RC::RECORD_EOF) {
+        break;
+      } else {
+        LOG_WARN("Error when get value from child in %s.",
+                 this->name().c_str());
+        return rc;
+      }
+    }
+    value_set->push_back(*tmp_value);
+  }
+  rc = this->close();
+  if (rc != RC::SUCCESS) {
+    LOG_WARN("error when close SelectExpr.");
+    return rc;
+  }
+  return rc;
+}
+
 SelectExpr::SelectExpr(Stmt *stmt,
                        std::map<std::string, LogicalOperator *> *map) {
   std::unique_ptr<LogicalOperator> tmp_ptr(nullptr);
@@ -570,3 +670,37 @@ RC SelectExpr::gen_physical() {
 RC SelectExpr::open() { return this->pyhsical_root_ptr_->open(nullptr); }
 
 RC SelectExpr::close() { return this->pyhsical_root_ptr_->close(); }
+
+///////////////////////////////////////////////////////////////
+
+// ListExpression
+
+RC ListExpression::get_value(const Tuple &tuple, Value &value) const {
+  // 理论来说一个ListExpression是不应该有get_value单值的
+  // 我们这里返回列表第一个值
+  if (this->expr_list.empty()) {
+    value.set_null(nullptr, 4);
+  }
+  RC rc = expr_list.at(0)->get_value(tuple, value);
+  return rc;
+}
+
+RC ListExpression::get_value_list(const Tuple &tuple,
+                                  std::vector<Value> *&value_set) {
+  // 返回列表中的Expression对应的值的vector
+  if (this->expr_list.empty()) {
+    return RC::EXPRESSION_LIST_NULL;
+  }
+  RC rc = RC::SUCCESS;
+  for (int i = 0; i < expr_list.size(); i++) {
+    Value tmp_value;
+    rc = expr_list[i]->get_value(tuple, tmp_value);
+    if (rc != RC::SUCCESS) {
+      LOG_WARN("Error when get value of %s.", expr_list[i]->name().c_str());
+      return rc;
+    }
+    LOG_INFO("Get value of %s.", expr_list[i]->name().c_str());
+    value_set->push_back(tmp_value);
+  }
+  return rc;
+}

@@ -143,7 +143,7 @@ union YYSTYPE
   ParsedSqlNode *                   sql_node;
   ConditionSqlNode *                condition;
   Value *                           value;
-  enum CompOp                       comp;
+  enum ExprOp                       comp;
   enum AggrFuncType                 aggr_func;
   RelAttrSqlNode *                  rel_attr;
   std::vector<AttrInfoSqlNode> *    attr_infos;
@@ -154,6 +154,8 @@ union YYSTYPE
   std::vector<InsertValueSqlNode> * insert_value_list;
   Expression *                      expression;
   std::vector<Expression *> *       expression_list;
+  ExprSqlNode *                     express;
+  std::vector<ExprSqlNode *> *      express_list;
   OrderBySqlNode*                   order;
   std::vector<OrderBySqlNode> *     order_list;
   std::vector<Value> *              value_list;
@@ -171,7 +173,7 @@ union YYSTYPE
   bool		                          boolean;
             
 
-#line 175 "yacc_sql.hpp"
+#line 177 "yacc_sql.hpp"
 
 };
 typedef union YYSTYPE YYSTYPE;

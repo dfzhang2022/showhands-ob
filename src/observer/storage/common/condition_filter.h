@@ -46,7 +46,7 @@ public:
   DefaultConditionFilter();
   virtual ~DefaultConditionFilter();
 
-  RC init(const ConDesc &left, const ConDesc &right, AttrType attr_type, CompOp comp_op);
+  RC init(const ConDesc &left, const ConDesc &right, AttrType attr_type, ExprOp comp_op);
   RC init(Table &table, const ConditionSqlNode &condition);
 
   virtual bool filter(const Record &rec) const;
@@ -62,7 +62,7 @@ public:
     return right_;
   }
 
-  CompOp comp_op() const
+  ExprOp comp_op() const
   {
     return comp_op_;
   }
@@ -76,7 +76,7 @@ private:
   ConDesc left_;
   ConDesc right_;
   AttrType attr_type_ = UNDEFINED;
-  CompOp comp_op_ = NO_OP;
+  ExprOp comp_op_ = NO_OP;
 };
 
 class CompositeConditionFilter : public ConditionFilter 

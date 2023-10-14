@@ -41,7 +41,8 @@ static void wildcard_fields(Table *table, std::vector<Field> &field_metas) {
 }
 
 RC SelectStmt::create(Db *db, const SelectSqlNode &select_sql, Stmt *&stmt,
-                      bool is_sub_select) {
+                      bool is_sub_select,
+                      std::unordered_map<std::string, Table *> *table_map) {
   // is_sub_select 用来标记当前的select语句是不是一个子查询的语句
   // 如果是子查询的stmt如果where中出现了不在from中出现的表需要在外层结构进行连接
   // 这一步只是认为该行为合法 正确性交由生成算子树的部分再做判断
@@ -52,10 +53,16 @@ RC SelectStmt::create(Db *db, const SelectSqlNode &select_sql, Stmt *&stmt,
 
   // collect tables in `from` statement
   std::vector<Table *> tables;
-  std::unordered_map<std::string, Table *> table_map;
+  if (table_map == nullptr) {
+    table_map = new std::unordered_map<std::string, Table *>;
+  }
   std::vector<ConditionSqlNode> conditions = select_sql.conditions;
   std::vector<ConditionSqlNode> having_conditions =
       select_sql.having_conditions;
+  // 用于记录哪些列是在该查询中第一次出现的 用于区别外部查询的表名
+  std::unordered_map<std::string, Table *> *local_table_map =
+      new std::unordered_map<std::string, Table *>;
+
   for (size_t i = 0; i < select_sql.relations.size(); i++) {
     const char *table_name = select_sql.relations[i].relation.c_str();
     const char *table_alias = select_sql.relations[i].alias.c_str();
@@ -75,11 +82,15 @@ RC SelectStmt::create(Db *db, const SelectSqlNode &select_sql, Stmt *&stmt,
       if (select_sql.relations[i].has_alias) {
         table->set_has_alias(true);
         table->set_alias(select_sql.relations[i].alias);
-        table_map.insert(std::pair<std::string, Table *>(table_alias, table));
+        table_map->insert(std::pair<std::string, Table *>(table_alias, table));
+        local_table_map->insert(
+            std::pair<std::string, Table *>(table_alias, table));
       }
 
       tables.push_back(table);
-      table_map.insert(std::pair<std::string, Table *>(table_name, table));
+      table_map->insert(std::pair<std::string, Table *>(table_name, table));
+      local_table_map->insert(
+          std::pair<std::string, Table *>(table_name, table));
     } else {
       for (auto relation : relationsqlnode.inner_join_sql_node.relations) {
         const char *table_name = relation.c_str();
@@ -97,11 +108,16 @@ RC SelectStmt::create(Db *db, const SelectSqlNode &select_sql, Stmt *&stmt,
         if (select_sql.relations[i].has_alias) {
           table->set_has_alias(true);
           table->set_alias(select_sql.relations[i].alias);
-          table_map.insert(std::pair<std::string, Table *>(table_alias, table));
+          table_map->insert(
+              std::pair<std::string, Table *>(table_alias, table));
+          local_table_map->insert(
+              std::pair<std::string, Table *>(table_alias, table));
         }
 
         tables.push_back(table);
-        table_map.insert(std::pair<std::string, Table *>(table_name, table));
+        table_map->insert(std::pair<std::string, Table *>(table_name, table));
+        local_table_map->insert(
+            std::pair<std::string, Table *>(table_name, table));
       }
       conditions.insert(
           conditions.end(),
@@ -129,8 +145,8 @@ RC SelectStmt::create(Db *db, const SelectSqlNode &select_sql, Stmt *&stmt,
         return RC::INVALID_ARGUMENT;
       } else {
         // 对应"rel.attr"或"rel.*"
-        auto iter = table_map.find(table_name);
-        if (iter == table_map.end()) {
+        auto iter = table_map->find(table_name);
+        if (iter == table_map->end()) {
           LOG_WARN("no such table in from list: %s", table_name);
           return RC::SCHEMA_FIELD_MISSING;
         }
@@ -183,7 +199,9 @@ RC SelectStmt::create(Db *db, const SelectSqlNode &select_sql, Stmt *&stmt,
   int aggr_func_count = 0;  // 计算列中的聚合函数数量
   for (int i = static_cast<int>(select_sql.attributes.size()) - 1; i >= 0;
        i--) {
-    if (select_sql.attributes[i].aggr_func_type != AggrFuncType::NONE)
+    if (select_sql.attributes[i]->type == ExpressType::ATTR_T &&
+        select_sql.attributes[i]->left_attr.aggr_func_type !=
+            AggrFuncType::NONE)
       aggr_func_count++;
   }
   // 如果聚合列和非聚合列共存 那么非聚合列必须等于在group by的列
@@ -196,7 +214,8 @@ RC SelectStmt::create(Db *db, const SelectSqlNode &select_sql, Stmt *&stmt,
 
   for (int i = static_cast<int>(select_sql.attributes.size()) - 1; i >= 0;
        i--) {
-    const RelAttrSqlNode &relation_attr = select_sql.attributes[i];
+    const ExprSqlNode &tmp_expr_sql_node = *select_sql.attributes[i];
+    const RelAttrSqlNode &relation_attr = tmp_expr_sql_node.left_attr;
     if (relation_attr.is_syntax_error)
       return RC::SQL_SYNTAX;  // 排除语法解析错误
     // 只剩下两种非法:1. non-aggr和aggr的混用 2.非COUNT(*)以外的AGGR(*)
@@ -213,8 +232,8 @@ RC SelectStmt::create(Db *db, const SelectSqlNode &select_sql, Stmt *&stmt,
           Field *tmp_field = new Field();
           tmp_field->set_aggr_func_type(AggrFuncType::CNT);
           tmp_field->set_alias("COUNT(*)");
-          if (select_sql.attributes[i].has_alias) {
-            tmp_field->set_alias(select_sql.attributes[i].alias);
+          if (relation_attr.has_alias) {
+            tmp_field->set_alias(relation_attr.alias);
           }
           aggr_query_fields.emplace_back(*tmp_field);
           aggr_field_to_query_field_map[aggr_query_fields.size() - 1] =
@@ -249,8 +268,8 @@ RC SelectStmt::create(Db *db, const SelectSqlNode &select_sql, Stmt *&stmt,
 
       } else {
         // 对应"rel.attr"或"rel.*"
-        auto iter = table_map.find(table_name);
-        if (iter == table_map.end()) {
+        auto iter = table_map->find(table_name);
+        if (iter == table_map->end()) {
           LOG_WARN("no such table in from list: %s", table_name);
           return RC::SCHEMA_FIELD_MISSING;
         }
@@ -295,8 +314,8 @@ RC SelectStmt::create(Db *db, const SelectSqlNode &select_sql, Stmt *&stmt,
             tmp_field->set_func_info(relation_attr.function_meta_info);
           }
 
-          if (select_sql.attributes[i].has_alias) {
-            tmp_field->set_alias(select_sql.attributes[i].alias);
+          if (relation_attr.has_alias) {
+            tmp_field->set_alias(relation_attr.alias);
             tmp_field->set_has_alias(true);
 
           } else if (table->has_alias()) {
@@ -315,8 +334,8 @@ RC SelectStmt::create(Db *db, const SelectSqlNode &select_sql, Stmt *&stmt,
             }
 
             tmp_field->set_has_alias(true);
-            if (select_sql.attributes[i].has_alias) {
-              tmp_field->set_alias(select_sql.attributes[i].alias);
+            if (relation_attr.has_alias) {
+              tmp_field->set_alias(relation_attr.alias);
             } else if (table->has_alias()) {
               tmp_field->set_alias(
                   std::string(aggr_func_to_str(relation_attr.aggr_func_type)) +
@@ -362,8 +381,8 @@ RC SelectStmt::create(Db *db, const SelectSqlNode &select_sql, Stmt *&stmt,
         tmp_field->set_func_info(relation_attr.function_meta_info);
       }
 
-      if (select_sql.attributes[i].has_alias) {
-        tmp_field->set_alias(select_sql.attributes[i].alias);
+      if (relation_attr.has_alias) {
+        tmp_field->set_alias(relation_attr.alias);
         tmp_field->set_has_alias(true);
       }
       query_fields.emplace_back(*tmp_field);
@@ -381,8 +400,8 @@ RC SelectStmt::create(Db *db, const SelectSqlNode &select_sql, Stmt *&stmt,
         }
 
         tmp_field->set_has_alias(true);
-        if (select_sql.attributes[i].has_alias) {
-          tmp_field->set_alias(select_sql.attributes[i].alias);
+        if (relation_attr.has_alias) {
+          tmp_field->set_alias(relation_attr.alias);
         }
         aggr_query_fields.emplace_back(*tmp_field);
         aggr_field_to_query_field_map[aggr_query_fields.size() - 1] =
@@ -408,22 +427,26 @@ RC SelectStmt::create(Db *db, const SelectSqlNode &select_sql, Stmt *&stmt,
   // 首先将where中出现的新表加入到tables中以及更新table_map
   if (is_sub_select) {
     for (const auto condition : conditions) {
-      if (condition.left_is_attr == 1) {
+      if (condition.left_type == ExpressType::ATTR_T) {
         RelAttrSqlNode relattrsqlnode = condition.left_attr;
         const char *table_name = relattrsqlnode.relation_name.c_str();
-        if (table_name != nullptr && table_map.count(table_name) == 0) {
-          Table *table = db->find_table(table_name);
+        if (table_name != nullptr && local_table_map->count(table_name) == 0) {
+          // 本查询中不存在该表 那么从包含外部表的table_map中拿指针
+          //  Table *table = db->find_table(table_name);
+          Table *table = table_map->at(table_name);
           tables.push_back(table);
-          table_map.insert({table_name, table});
+          // table_map->insert({table_name, table});
         }
       }
-      if (condition.right_is_attr == 1) {
+      if (condition.right_type == ExpressType::ATTR_T) {
         RelAttrSqlNode relattrsqlnode = condition.right_attr;
         const char *table_name = relattrsqlnode.relation_name.c_str();
-        if (table_name != nullptr && table_map.count(table_name) == 0) {
-          Table *table = db->find_table(table_name);
+        if (table_name != nullptr && local_table_map->count(table_name) == 0) {
+          // 本查询中不存在该表 那么从包含外部表的table_map中拿指针
+          // Table *table = db->find_table(table_name);
+          Table *table = table_map->at(table_name);
           tables.push_back(table);
-          table_map.insert({table_name, table});
+          // table_map->insert({table_name, table});
         }
       }
     }
@@ -431,7 +454,7 @@ RC SelectStmt::create(Db *db, const SelectSqlNode &select_sql, Stmt *&stmt,
 
   FilterStmt *filter_stmt = nullptr;
 
-  RC rc = FilterStmt::create(db, default_table, &table_map, conditions.data(),
+  RC rc = FilterStmt::create(db, default_table, table_map, conditions.data(),
                              static_cast<int>(conditions.size()), filter_stmt);
   if (rc != RC::SUCCESS) {
     LOG_WARN("cannot construct filter stmt");
@@ -461,8 +484,8 @@ RC SelectStmt::create(Db *db, const SelectSqlNode &select_sql, Stmt *&stmt,
         return RC::INVALID_ARGUMENT;
       } else {
         // 对应"rel.attr"或"rel.*"
-        auto iter = table_map.find(table_name);
-        if (iter == table_map.end()) {
+        auto iter = table_map->find(table_name);
+        if (iter == table_map->end()) {
           LOG_WARN("no such table in from list: %s", table_name);
           return RC::SCHEMA_FIELD_MISSING;
         }
@@ -509,7 +532,7 @@ RC SelectStmt::create(Db *db, const SelectSqlNode &select_sql, Stmt *&stmt,
   FilterStmt *having_filter_stmt = nullptr;
 
   rc = FilterStmt::create(
-      db, default_table, &table_map, having_conditions.data(),
+      db, default_table, table_map, having_conditions.data(),
       static_cast<int>(having_conditions.size()), having_filter_stmt);
   if (rc != RC::SUCCESS) {
     LOG_WARN("cannot construct having filter stmt");
@@ -532,5 +555,8 @@ RC SelectStmt::create(Db *db, const SelectSqlNode &select_sql, Stmt *&stmt,
   select_stmt->is_sub_select_ = is_sub_select;
 
   stmt = select_stmt;
+
+  // 释放占用资源
+  delete local_table_map;
   return RC::SUCCESS;
 }

@@ -19,6 +19,7 @@ See the Mulan PSL v2 for more details. */
 
 #include "sql/expr/expression.h"
 #include "sql/parser/parse_defs.h"
+#include "sql/stmt/express_obj.h"
 #include "sql/stmt/select_stmt.h"
 #include "sql/stmt/stmt.h"
 
@@ -27,6 +28,47 @@ class Table;
 class FieldMeta;
 
 struct FilterObj {
+  ExpressType type_;
+  ExprObj expr_obj_;
+
+  void init_value(const Value &value) {
+    type_ = ExpressType::VALUE_T;
+    expr_obj_.init_value(value);
+  }
+
+  void init_attr(const Field &field) {
+    type_ = ExpressType::ATTR_T;
+    expr_obj_.init_attr(field);
+  }
+
+  void init_select(const Stmt *stmt) {
+    type_ = ExpressType::SELECT_T;
+    expr_obj_.init_select(stmt);
+  }
+
+  void init_expr(const ExprObj &expr_obj) {
+    type_ = ExpressType::EXPR_T;
+    expr_obj_ = expr_obj;
+  }
+
+  RC init_expr(Db *db, Table *default_table,
+               std::unordered_map<std::string, Table *> *tables,
+               ExprSqlNode *expr_sql_node) {
+    type_ = ExpressType::EXPR_T;
+    return expr_obj_.init(db, default_table, tables, expr_sql_node);
+  }
+  RC init_list(Db *db, Table *default_table,
+               std::unordered_map<std::string, Table *> *tables,
+               ExprSqlNode *expr_sql_node) {
+    type_ = ExpressType::EXPR_LIST_T;
+    return expr_obj_.init_list(db, default_table, tables, expr_sql_node);
+  }
+
+  std::unique_ptr<Expression> to_expression(
+      std::map<std::string, LogicalOperator *> *map = nullptr) {
+    return expr_obj_.to_expression(map);
+  }
+  /*
   bool is_attr;
   Field field;
   Value value;
@@ -42,7 +84,7 @@ struct FilterObj {
   void init_value(const Value &value) {
     is_attr = false;
     this->value = value;
-  }
+  }*/
 };
 
 class FilterUnit {
@@ -50,30 +92,18 @@ class FilterUnit {
   FilterUnit() = default;
   ~FilterUnit() {}
 
-  void set_comp(CompOp comp) { comp_ = comp; }
+  void set_comp(ExprOp comp) { comp_ = comp; }
 
-  CompOp comp() const { return comp_; }
+  ExprOp comp() const { return comp_; }
 
-  void set_left(const FilterObj &obj) {
-    left_.is_attr = obj.is_attr;
-    left_.is_selects = obj.is_selects;
-    left_.field = obj.field;
-    left_.value = obj.value;
-    left_.stmt = obj.stmt;
-  }
-  void set_right(const FilterObj &obj) {
-    right_.is_attr = obj.is_attr;
-    right_.is_selects = obj.is_selects;
-    right_.field = obj.field;
-    right_.value = obj.value;
-    right_.stmt = obj.stmt;
-  }
+  void set_left(const FilterObj &obj) { left_ = obj; }
+  void set_right(const FilterObj &obj) { right_ = obj; }
 
   const FilterObj &left() const { return left_; }
   const FilterObj &right() const { return right_; }
 
  private:
-  CompOp comp_ = NO_OP;
+  ExprOp comp_ = NO_OP;
   FilterObj left_;
   FilterObj right_;
 };

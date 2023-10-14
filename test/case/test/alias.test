@@ -1,0 +1,22 @@
+-- echo alias insert
+
+CREATE TABLE table_name_1(id int, col1 int, feat1 float);
+CREATE TABLE table_name_2(id int, col2 int, feat2 float);
+CREATE TABLE table_name_3(id int, col3 int, feat3 float);
+INSERT INTO table_name_1 VALUES (1, 4, 11.2);
+INSERT INTO table_name_1 VALUES (2, 2, 12.0);
+INSERT INTO table_name_1 VALUES (3, 3, 13.5);
+INSERT INTO table_name_2 VALUES (1, 2, 13.0);
+INSERT INTO table_name_2 VALUES (2, 7, 10.5);
+INSERT INTO table_name_2 VALUES (5, 3, 12.6);
+INSERT INTO table_name_3 VALUES (1, 2, 11.0);
+INSERT INTO table_name_3 VALUES (3, 6, 16.5);
+INSERT INTO table_name_3 VALUES (5, 5, 14.6);
+
+select * from table_name_1
+
+select * from table_name_1 t1 where id in (select t2.id from table_name_2 t2 where t2.col2 >= t1.col1);
+
+select t1.id num, t1.col1 age, t1.feat1 from table_name_1 t1;
+
+select t1.id as num, t1.col1 as age, t1.feat1, t2.* from table_name_1 t1, table_name_2 t2 where t1.id < t2.id;

@@ -416,7 +416,7 @@ RC PhysicalPlanGenerator::create_plan(JoinLogicalOperator &join_oper,
   if (predicates.size() == 1) {
     if (predicates.front()->type() == ExprType::COMPARISON) {
       auto comp_expr = static_cast<ComparisonExpr *>(predicates.front().get());
-      if (comp_expr->comp() == CompOp::EQUAL_TO) {
+      if (comp_expr->comp() == ExprOp::EQUAL_TO) {
         unique_ptr<HashJoinPhysicalOperator> join_physical_oper(
             new HashJoinPhysicalOperator);
         for (auto &child_oper : child_opers) {
