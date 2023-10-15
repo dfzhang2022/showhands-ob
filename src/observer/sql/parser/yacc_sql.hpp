@@ -147,7 +147,6 @@ union YYSTYPE
   Value *                           value;
   enum ExprOp                       comp;
   enum AggrFuncType                 aggr_func;
-  enum ConjuctionType               conj_type;
   RelAttrSqlNode *                  rel_attr;
   std::vector<AttrInfoSqlNode> *    attr_infos;
   AttrInfoSqlNode *                 attr_info;
@@ -177,7 +176,7 @@ union YYSTYPE
   bool		                          boolean;
             
 
-#line 181 "yacc_sql.hpp"
+#line 180 "yacc_sql.hpp"
 
 };
 typedef union YYSTYPE YYSTYPE;
