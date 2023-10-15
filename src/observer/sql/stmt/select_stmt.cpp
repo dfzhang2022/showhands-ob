@@ -68,7 +68,8 @@ RC SelectStmt::create(
   // 用于记录哪些列是在该查询中第一次出现的 用于区别外部查询的表名
   std::unordered_map<std::string, Table *> *local_table_map =
       new std::unordered_map<std::string, Table *>;
-
+  std::unordered_map<std::string, ExprSqlNode *> *local_attr_alias =
+      new std::unordered_map<std::string, ExprSqlNode *>;
   for (size_t i = 0; i < select_sql.relations.size(); i++) {
     const char *table_name = select_sql.relations[i].relation.c_str();
     const char *table_alias = select_sql.relations[i].alias.c_str();
@@ -253,8 +254,6 @@ RC SelectStmt::create(
           aggr_query_fields.emplace_back(*tmp_field);
           aggr_field_to_query_field_map[aggr_query_fields.size() - 1] =
               query_fields.size() - 1;
-          alias_to_select_attr->insert(
-              {tmp_field->get_alias(), select_sql.attributes[i]});
 
         } else {
           LOG_WARN("These aggr_func doesn't support \"*\".");
@@ -332,12 +331,14 @@ RC SelectStmt::create(
           }
 
           if (relation_attr.has_alias) {
-            if (alias_to_select_attr->count(relation_attr.alias) > 0) {
+            if (local_attr_alias->count(relation_attr.alias) > 0) {
               LOG_WARN("Multi attr has same alias.");
               return RC::SQL_SYNTAX;
             }
             tmp_field->set_alias(relation_attr.alias);
             tmp_field->set_has_alias(true);
+            local_attr_alias->insert(
+                {tmp_field->get_alias(), select_sql.attributes[i]});
             alias_to_select_attr->insert(
                 {tmp_field->get_alias(), select_sql.attributes[i]});
 
@@ -405,12 +406,14 @@ RC SelectStmt::create(
       }
 
       if (relation_attr.has_alias) {
-        if (alias_to_select_attr->count(relation_attr.alias) > 0) {
+        if (local_attr_alias->count(relation_attr.alias) > 0) {
           LOG_WARN("Multi attr has same alias.");
           return RC::SQL_SYNTAX;
         }
         tmp_field->set_alias(relation_attr.alias);
         tmp_field->set_has_alias(true);
+        local_attr_alias->insert(
+            {tmp_field->get_alias(), select_sql.attributes[i]});
         alias_to_select_attr->insert(
             {tmp_field->get_alias(), select_sql.attributes[i]});
       }
