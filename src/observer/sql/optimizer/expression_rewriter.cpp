@@ -61,6 +61,9 @@ RC ExpressionRewriter::rewrite(std::unique_ptr<LogicalOperator> &oper,
 RC ExpressionRewriter::rewrite_expression(std::unique_ptr<Expression> &expr,
                                           bool &change_made) {
   RC rc = RC::SUCCESS;
+  if (expr == nullptr) {
+    return rc;
+  }
 
   change_made = false;
   for (std::unique_ptr<ExpressionRewriteRule> &rule : expr_rewrite_rules_) {

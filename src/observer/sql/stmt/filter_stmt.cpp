@@ -161,12 +161,27 @@ RC FilterStmt::create_filter_unit(
       return rc;
     }
     filter_unit->set_left(filter_obj);
-  } else {
+  } else if (condition.left_type == ExpressType::SELECT_T) {
     FilterObj filter_obj;
     Stmt *tmp_ptr;
     rc = SelectStmt::create(db, *condition.left_selects, tmp_ptr, true, tables);
     filter_obj.init_select(tmp_ptr);
     filter_unit->set_left(filter_obj);
+  } else if (condition.left_type == ExpressType::EXPR_LIST_T) {
+    FilterObj filter_obj;
+    rc = filter_obj.init_list(db, default_table, tables, condition.left_expr);
+    if (rc != RC::SUCCESS) {
+      return rc;
+    }
+    filter_unit->set_left(filter_obj);
+  } else if (condition.left_type == ExpressType::INVALID_T) {
+    // DO NOTHING
+    FilterObj filter_obj;
+    filter_obj.init_null();
+    filter_unit->set_left(filter_obj);
+  } else {
+    LOG_WARN("Invalid type of condition left : %s.",
+             condition.left_expr->name.c_str());
   }
 
   if (condition.right_type == ExpressType::ATTR_T) {
@@ -210,12 +225,19 @@ RC FilterStmt::create_filter_unit(
     filter_unit->set_right(filter_obj);
   } else if (condition.right_type == ExpressType::EXPR_LIST_T) {
     FilterObj filter_obj;
-    rc =
-        filter_obj.init_list(db, default_table, tables, condition.right_expr);
+    rc = filter_obj.init_list(db, default_table, tables, condition.right_expr);
     if (rc != RC::SUCCESS) {
       return rc;
     }
     filter_unit->set_right(filter_obj);
+  } else if (condition.right_type == ExpressType::INVALID_T) {
+    // DO NOTHING
+    FilterObj filter_obj;
+    filter_obj.init_null();
+    filter_unit->set_right(filter_obj);
+  } else {
+    LOG_WARN("Invalid type of condition left : %s.",
+             condition.right_expr->name.c_str());
   }
   filter_unit->set_comp(comp);
   return rc;
