@@ -871,7 +871,14 @@ express:
       }
       free($1);
     }
-    | aggregation_func LBRACE ID RBRACE as_alias{
+    | function {
+      $$ = new ExprSqlNode;
+      $$->name = token_name(sql_string, &@$);
+      $$->type = ExpressType::ATTR_T;
+      $$->left_attr = *$1;
+      free($1);
+    }
+    | aggregation_func LBRACE ID RBRACE as_alias{    
       $$ = new ExprSqlNode;
       $$->name = token_name(sql_string, &@$);
       $$->type = ExpressType::ATTR_T;
@@ -1573,7 +1580,7 @@ function:
       }
         
     }
-    | ROUND LBRACE NUMBER COMMA NUMBER RBRACE
+    | ROUND LBRACE FLOAT COMMA NUMBER RBRACE
     {
 
         $$ = new RelAttrSqlNode;

@@ -1,0 +1,9 @@
+-- echo alias insert
+
+create table func_table(id int, col1 int, col2 int, col3 float, col4 float);
+insert into func_table VALUES (1, 1, 1, 1.0, 1.5);
+insert into func_table VALUES (2, 2, -2, 5.5, 1.0);
+insert into func_table VALUES (3, 3, 4, 5.0, 4.0);
+
+select round(3.1415, 2);
+select round(col4, 1) from func_table;

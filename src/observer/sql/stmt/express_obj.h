@@ -31,6 +31,12 @@ RC get_table_and_field(Db *db, Table *default_table,
                        const RelAttrSqlNode &attr, Table *&table,
                        const FieldMeta *&field);
 
+RC check_value_date(const Value &value);
+
+RC get_field(Db *db, Table *default_table,
+    std::unordered_map<std::string, Table *> *tables,
+    const RelAttrSqlNode &attr, Field &tmp_field);
+
 struct ExprObj {
   std::string name;
   ExpressType type;
@@ -119,75 +125,41 @@ struct ExprObj {
     RC rc = RC::SUCCESS;
     name = expr_sql_node->name;
     if (expr_sql_node->type == ExpressType::VALUE_T) {
-      init_value(expr_sql_node->left_value);
-      if (left_value.attr_type() == AttrType::DATES &&
-          left_value.get_date() == -1) {
-        rc = RC::INVALID_DATE;
-        LOG_WARN("Invalid date.");
+      rc = check_value_date(expr_sql_node->left_value);
+      if (rc != RC::SUCCESS) {
         return rc;
       }
-    } else if (expr_sql_node->type == ExpressType::ATTR_T) {
-      Table *table = nullptr;
-      const FieldMeta *field = nullptr;
-      if (expr_sql_node->left_attr.is_aggregation_func &&
-          expr_sql_node->left_attr.aggr_func_type == AggrFuncType::CNT &&
-          0 == strcmp("*", expr_sql_node->left_attr.attribute_name.c_str())) {
-        // 对于COUNT(*)>value做单独的处理
-        Field tmp_field;
-        tmp_field.set_aggr_func_type(expr_sql_node->left_attr.aggr_func_type);
-        init_attr(tmp_field);
-      } else {
-        rc = get_table_and_field(db, default_table, tables,
-                                 expr_sql_node->left_attr, table, field);
-        if (rc != RC::SUCCESS) {
-          LOG_WARN("cannot find attr");
-          return rc;
-        }
-        Field tmp_field(table, field);
-        if (expr_sql_node->left_attr.is_aggregation_func) {
-          tmp_field.set_aggr_func_type(expr_sql_node->left_attr.aggr_func_type);
-        }
-        init_attr(tmp_field);
+      init_value(expr_sql_node->left_value);
+    }
+    else if (expr_sql_node->type == ExpressType::ATTR_T) {
+      Field tmp_field;
+      rc = get_field(db, default_table, tables, expr_sql_node->left_attr, tmp_field);
+      if (rc != RC::SUCCESS) {
+        return rc;
       }
-    } else if (expr_sql_node->type == ExpressType::EXPR_T) {
+      init_attr(tmp_field);
+    }
+    else if (expr_sql_node->type == ExpressType::EXPR_T) {
       ExprObj *left_obj = new ExprObj();
       ExprObj *right_obj = new ExprObj();
       left_type = expr_sql_node->left_type;
       if (left_type == VALUE_T) {
-        left_obj->init_value(expr_sql_node->left_value);
-        if (left_obj->left_value.attr_type() == AttrType::DATES &&
-            left_obj->left_value.get_date() == -1) {
-          rc = RC::INVALID_DATE;
-          LOG_WARN("Invalid date.");
+        rc = check_value_date(expr_sql_node->left_value);
+        if (rc != RC::SUCCESS) {
           return rc;
         }
-      } else if (left_type == ATTR_T) {
-        Table *table = nullptr;
-        const FieldMeta *field = nullptr;
-        if (expr_sql_node->left_attr.is_aggregation_func &&
-            expr_sql_node->left_attr.aggr_func_type == AggrFuncType::CNT &&
-            0 == strcmp("*", expr_sql_node->left_attr.attribute_name.c_str())) {
-          // 对于COUNT(*)>value做单独的处理
-          Field tmp_field;
-          tmp_field.set_aggr_func_type(expr_sql_node->left_attr.aggr_func_type);
-          left_obj->init_attr(tmp_field);
-        } else {
-          rc = get_table_and_field(db, default_table, tables,
-                                   expr_sql_node->left_attr, table, field);
-          if (rc != RC::SUCCESS) {
-            LOG_WARN("cannot find attr");
-            return rc;
-          }
-          Field tmp_field(table, field);
-          if (expr_sql_node->left_attr.is_aggregation_func) {
-            tmp_field.set_aggr_func_type(
-                expr_sql_node->left_attr.aggr_func_type);
-          }
-          left_obj->init_attr(tmp_field);
+        left_obj->init_value(expr_sql_node->left_value);
+      }
+      else if (left_type == ATTR_T) {
+        Field tmp_field;
+        rc = get_field(db, default_table, tables, expr_sql_node->left_attr, tmp_field);
+        if (rc != RC::SUCCESS) {
+          return rc;
         }
-      } else if (left_type == EXPR_T) {
-        rc =
-            left_obj->init(db, default_table, tables, expr_sql_node->left_expr);
+        left_obj->init_attr(tmp_field);
+      }
+      else if (left_type == EXPR_T) {
+        rc = left_obj->init(db, default_table, tables, expr_sql_node->left_expr);
         if (rc != RC::SUCCESS) {
           return rc;
         }
@@ -197,42 +169,22 @@ struct ExprObj {
 
       right_type = expr_sql_node->right_type;
       if (right_type == VALUE_T) {
-        right_obj->init_value(expr_sql_node->right_value);
-        if (right_obj->left_value.attr_type() == AttrType::DATES &&
-            right_obj->left_value.get_date() == -1) {
-          rc = RC::INVALID_DATE;
-          LOG_WARN("Invalid date.");
+        rc = check_value_date(expr_sql_node->right_value);
+        if (rc != RC::SUCCESS) {
           return rc;
         }
-      } else if (right_type == ATTR_T) {
-        Table *table = nullptr;
-        const FieldMeta *field = nullptr;
-        if (expr_sql_node->right_attr.is_aggregation_func &&
-            expr_sql_node->right_attr.aggr_func_type == AggrFuncType::CNT &&
-            0 ==
-                strcmp("*", expr_sql_node->right_attr.attribute_name.c_str())) {
-          // 对于COUNT(*)>value做单独的处理
-          Field tmp_field;
-          tmp_field.set_aggr_func_type(
-              expr_sql_node->right_attr.aggr_func_type);
-          right_obj->init_attr(tmp_field);
-        } else {
-          rc = get_table_and_field(db, default_table, tables,
-                                   expr_sql_node->right_attr, table, field);
-          if (rc != RC::SUCCESS) {
-            LOG_WARN("cannot find attr");
-            return rc;
-          }
-          Field tmp_field(table, field);
-          if (expr_sql_node->right_attr.is_aggregation_func) {
-            tmp_field.set_aggr_func_type(
-                expr_sql_node->right_attr.aggr_func_type);
-          }
-          right_obj->init_attr(tmp_field);
+        right_obj->init_value(expr_sql_node->right_value);
+      }
+      else if (right_type == ATTR_T) {
+        Field tmp_field;
+        rc = get_field(db, default_table, tables, expr_sql_node->right_attr, tmp_field);
+        if (rc != RC::SUCCESS) {
+          return rc;
         }
-      } else if (right_type == EXPR_T) {
-        rc = right_obj->init(db, default_table, tables,
-                             expr_sql_node->right_expr);
+        right_obj->init_attr(tmp_field);
+      }
+      else if (right_type == EXPR_T) {
+        rc = right_obj->init(db, default_table, tables, expr_sql_node->right_expr);
         if (rc != RC::SUCCESS) {
           return rc;
         }
