@@ -84,7 +84,6 @@ ArithmeticExpr *create_arithmetic_expression(ArithmeticExpr::Type type,
         HELP
         EXIT
         DOT 
-        QUOTE
         INTO
         VALUES
         FROM

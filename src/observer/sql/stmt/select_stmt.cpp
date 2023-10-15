@@ -86,7 +86,7 @@ RC SelectStmt::create(
         return RC::SCHEMA_TABLE_NOT_EXIST;
       }
       if (select_sql.relations[i].has_alias) {
-        if (table_map->count(select_sql.relations[i].alias) > 0) {
+        if (local_table_map->count(select_sql.relations[i].alias) > 0) {
           LOG_WARN("Multi relation have same alias.");
           return RC::SQL_SYNTAX;
         }
@@ -116,7 +116,7 @@ RC SelectStmt::create(
           return RC::SCHEMA_TABLE_NOT_EXIST;
         }
         if (select_sql.relations[i].has_alias) {
-          if (table_map->count(select_sql.relations[i].alias) > 0) {
+          if (local_table_map->count(select_sql.relations[i].alias) > 0) {
             LOG_WARN("Multi relation have same alias.");
             return RC::SQL_SYNTAX;
           }

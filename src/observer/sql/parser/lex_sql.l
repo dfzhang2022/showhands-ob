@@ -82,7 +82,6 @@ QUOTE            [\'\"]
 
 ";"                                     RETURN_TOKEN(SEMICOLON);
 {DOT}                                   RETURN_TOKEN(DOT);
-{QUOTE}                                 RETURN_TOKEN(QUOTE);
 EXIT                                    RETURN_TOKEN(EXIT);
 HELP                                    RETURN_TOKEN(HELP);
 DESC                                    RETURN_TOKEN(DESC);
