@@ -131,12 +131,16 @@ class FilterStmt {
   static RC create(Db *db, Table *default_table,
                    std::unordered_map<std::string, Table *> *tables,
                    const ConditionSqlNode *conditions, int condition_num,
-                   FilterStmt *&stmt);
+                   FilterStmt *&stmt,
+                   std::unordered_map<std::string, ExprSqlNode *>
+                       *alias_to_select_attr = nullptr);
 
   static RC create_filter_unit(Db *db, Table *default_table,
                                std::unordered_map<std::string, Table *> *tables,
                                const ConditionSqlNode &condition,
-                               FilterUnit *&filter_unit);
+                               FilterUnit *&filter_unit,
+                               std::unordered_map<std::string, ExprSqlNode *>
+                                   *alias_to_select_attr = nullptr);
 
  private:
   std::vector<FilterUnit *> filter_units_;  // 默认当前都是AND关系
