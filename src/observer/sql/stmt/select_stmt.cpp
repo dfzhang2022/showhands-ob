@@ -445,10 +445,12 @@ RC SelectStmt::create(
         std::string tmp_field_name =
             tmp_condition_ptr->left_attr.attribute_name;
         if (alias_to_select_attr->count(tmp_field_name) > 0) {
-          // 该条件的attr是外层查询的一个别名
-          ExprSqlNode *tmp_ptr = alias_to_select_attr->at(tmp_field_name);
-          tmp_condition_ptr->left_expr = tmp_ptr;
-          tmp_condition_ptr->left_attr = tmp_ptr->left_attr;
+          // 该条件的attr是外层查询的一个别名 此时应该返回FAILURE 这是个语法错误
+          LOG_WARN("Cannot use alias of attr in outer parent query.");
+          return RC::SQL_SYNTAX;
+          // ExprSqlNode *tmp_ptr = alias_to_select_attr->at(tmp_field_name);
+          // tmp_condition_ptr->left_expr = tmp_ptr;
+          // tmp_condition_ptr->left_attr = tmp_ptr->left_attr;
         }
         RelAttrSqlNode relattrsqlnode = tmp_condition_ptr->left_attr;
         const char *table_name = relattrsqlnode.relation_name.c_str();
@@ -465,10 +467,12 @@ RC SelectStmt::create(
         std::string tmp_field_name =
             tmp_condition_ptr->right_attr.attribute_name;
         if (alias_to_select_attr->count(tmp_field_name) > 0) {
-          // 该条件的attr是外层查询的一个别名
-          ExprSqlNode *tmp_ptr = alias_to_select_attr->at(tmp_field_name);
-          tmp_condition_ptr->right_expr = tmp_ptr;
-          tmp_condition_ptr->right_attr = tmp_ptr->right_attr;
+          // 该条件的attr是外层查询的一个别名 此时应该返回FAILURE 这是个语法错误
+          LOG_WARN("Cannot use alias of attr in outer parent query.");
+          return RC::SQL_SYNTAX;
+          // ExprSqlNode *tmp_ptr = alias_to_select_attr->at(tmp_field_name);
+          // tmp_condition_ptr->right_expr = tmp_ptr;
+          // tmp_condition_ptr->right_attr = tmp_ptr->right_attr;
         }
         RelAttrSqlNode relattrsqlnode = tmp_condition_ptr->right_attr;
         const char *table_name = relattrsqlnode.relation_name.c_str();

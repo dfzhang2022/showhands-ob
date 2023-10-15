@@ -219,6 +219,9 @@ RC FilterStmt::create_filter_unit(
     Stmt *tmp_ptr;
     rc = SelectStmt::create(db, *condition.left_selects, tmp_ptr, true, tables,
                             alias_to_select_attr);
+    if (rc != RC::SUCCESS) {
+      return rc;
+    }
     filter_obj.init_select(tmp_ptr);
     filter_unit->set_left(filter_obj);
   } else if (condition.left_type == ExpressType::EXPR_LIST_T) {
@@ -297,6 +300,9 @@ RC FilterStmt::create_filter_unit(
     Stmt *tmp_ptr;
     rc = SelectStmt::create(db, *condition.right_selects, tmp_ptr, true, tables,
                             alias_to_select_attr);
+    if (rc != RC::SUCCESS) {
+      return rc;
+    }
     filter_obj.init_select(tmp_ptr);
     filter_unit->set_right(filter_obj);
   } else if (condition.right_type == ExpressType::EXPR_LIST_T) {
