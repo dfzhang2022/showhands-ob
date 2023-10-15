@@ -86,6 +86,10 @@ RC SelectStmt::create(
         return RC::SCHEMA_TABLE_NOT_EXIST;
       }
       if (select_sql.relations[i].has_alias) {
+        if (table_map->count(select_sql.relations[i].alias) > 0) {
+          LOG_WARN("Multi relation have same alias.");
+          return RC::SQL_SYNTAX;
+        }
         table->set_has_alias(true);
         table->set_alias(select_sql.relations[i].alias);
         table_map->insert(std::pair<std::string, Table *>(table_alias, table));
@@ -112,6 +116,10 @@ RC SelectStmt::create(
           return RC::SCHEMA_TABLE_NOT_EXIST;
         }
         if (select_sql.relations[i].has_alias) {
+          if (table_map->count(select_sql.relations[i].alias) > 0) {
+            LOG_WARN("Multi relation have same alias.");
+            return RC::SQL_SYNTAX;
+          }
           table->set_has_alias(true);
           table->set_alias(select_sql.relations[i].alias);
           table_map->insert(
@@ -324,6 +332,10 @@ RC SelectStmt::create(
           }
 
           if (relation_attr.has_alias) {
+            if (alias_to_select_attr->count(relation_attr.alias) > 0) {
+              LOG_WARN("Multi attr has same alias.");
+              return RC::SQL_SYNTAX;
+            }
             tmp_field->set_alias(relation_attr.alias);
             tmp_field->set_has_alias(true);
             alias_to_select_attr->insert(
@@ -393,6 +405,10 @@ RC SelectStmt::create(
       }
 
       if (relation_attr.has_alias) {
+        if (alias_to_select_attr->count(relation_attr.alias) > 0) {
+          LOG_WARN("Multi attr has same alias.");
+          return RC::SQL_SYNTAX;
+        }
         tmp_field->set_alias(relation_attr.alias);
         tmp_field->set_has_alias(true);
         alias_to_select_attr->insert(
