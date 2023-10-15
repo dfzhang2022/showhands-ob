@@ -133,7 +133,6 @@ ArithmeticExpr *create_arithmetic_expression(ArithmeticExpr::Type type,
   Value *                           value;
   enum ExprOp                       comp;
   enum AggrFuncType                 aggr_func;
-  enum ConjuctionType               conj_type;
   RelAttrSqlNode *                  rel_attr;
   std::vector<AttrInfoSqlNode> *    attr_infos;
   AttrInfoSqlNode *                 attr_info;
@@ -182,9 +181,10 @@ ArithmeticExpr *create_arithmetic_expression(ArithmeticExpr::Type type,
 %type <attr_infos>          attr_def_list
 %type <attr_info>           attr_def
 %type <value_list>          value_list
-%type <condition_list>      where
+%type <condition_tree>      condition_tree
+%type <condition_tree>      where
 %type <condition_list>      condition_list
-%type <condition_list>      having_clause
+%type <condition_tree>      having_clause
 %type <express_list>        select_attr
 %type <relation_list>       rel_list
 %type <relation>            rel_element
@@ -205,9 +205,7 @@ ArithmeticExpr *create_arithmetic_expression(ArithmeticExpr::Type type,
 %type <order_list>          order_list
 %type <rel_attr_list>       group_by
 %type <aggr_func>           aggregation_func
-%type <conj_type>           conj_type
 %type <function>            function
-%type <condition_tree>      condition_tree
 %type <sql_node>            calc_stmt
 %type <sql_node>            select_stmt
 %type <sql_node>            insert_stmt
@@ -237,6 +235,7 @@ ArithmeticExpr *create_arithmetic_expression(ArithmeticExpr::Type type,
 %left '+' '-'
 %left '*' '/'
 %nonassoc UMINUS
+%left AND OR
 %%
 
 commands: command_wrapper opt_semicolon  //commands or sqls. parser starts here.
@@ -703,8 +702,7 @@ select_stmt:        /*  select 语句的语法解析树*/
       std::reverse($$->selection.relations.begin(), $$->selection.relations.end());
 
       if ($5 != nullptr) {
-        $$->selection.conditions.swap(*$5);
-        delete $5;
+        $$->selection.conditions = $5;
       }
       if ($6 != nullptr) {
         $$->selection.order_by_sql_nodes.swap(*$6);
@@ -1167,13 +1165,11 @@ express_list:
     ;
 
 inner_join:
-    INNER JOIN ID ON condition_list
+    INNER JOIN ID ON condition_tree
     {
         $$ = new JoinedRelationSqlNode;
         $$->relations.push_back($3);
-        for(auto iter:*$5){
-          $$->join_on_conditions.emplace_back(iter);
-        }
+        $$->join_on_conditions.emplace_back($5);
         // free($3);
     }
     ;
@@ -1268,7 +1264,7 @@ where:
     {
       $$ = nullptr;
     }
-    | WHERE condition_list {
+    | WHERE condition_tree {
       $$ = $2;  
     }
     ;
@@ -1277,7 +1273,7 @@ having_clause:
     {
       $$ = nullptr;
     }
-    | HAVING condition_list {
+    | HAVING condition_tree {
       $$ = $2;  
     }
     ;
@@ -1446,7 +1442,7 @@ condition:
       delete $5;
     }*/
     ;
-conj_type:
+/*conj_type:
     AND
     {
       $$ = AND_T;
@@ -1455,22 +1451,36 @@ conj_type:
     {
       $$ = OR_T;
     }
-    ;
+    ;*/
 
 condition_tree:
     //TODO 完成condition树的语法解析
-    condition conj_type condition
+    /* empty */
+    {
+      $$ = nullptr;
+    }
+    | condition
+    {
+      $$->type = ConjuctionType::NO_T;
+      $$->node = $1;
+    }
+    | condition_tree AND condition_tree
     {
       $$ = new ConditionTreeSqlNode;
-      $$->type = $2;
+      $$->type = ConjuctionType::AND_T;
+      $$->left_sub_tree = $1;
+      $$->right_sub_tree = $3;
     }
-    |condition conj_type LBRACE condition_tree RBRACE
+    | condition_tree OR condition_tree
     {
-      $$ = nullptr;
+      $$ = new ConditionTreeSqlNode;
+      $$->type = ConjuctionType::OR_T;
+      $$->left_sub_tree = $1;
+      $$->right_sub_tree = $3;
     }
-    |LBRACE condition_tree RBRACE conj_type condition
+    | LBRACE condition_tree RBRACE
     {
-      $$ = nullptr;
+      $$ = $2;
     }
     ;
 
