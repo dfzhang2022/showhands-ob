@@ -93,6 +93,7 @@ ArithmeticExpr *create_arithmetic_expression(ArithmeticExpr::Type type,
         WHERE
         AND
         OR
+        EXISTS
         ORDER
         GROUP
         BY
@@ -1390,6 +1391,21 @@ condition:
         $$->right_expr = $3;
       }
     }
+    | comp_op express
+    {
+      if($2->type != ExpressType::SELECT_T && ($1!=EXISTS_COMP || $1!=NOT_EXISTS_COMP)){
+          $$ = nullptr;
+      }else
+      {
+        $$ = new ConditionSqlNode;
+        $$->left_type = ExpressType::INVALID_T;
+        
+        $$->comp = $1;
+        
+        $$->right_type = ExpressType::SELECT_T;
+        $$->right_selects = $2->left_selects;
+      }
+    }
     /*| value comp_op LBRACE select_stmt RBRACE
     {
       $$ = new ConditionSqlNode;
@@ -1629,6 +1645,8 @@ comp_op:
     | NOT LIKE_MARK {$$ = NOT_LIKE;}
     | IN {$$ = IN_COMP;}
     | NOT IN {$$ = NOT_IN_COMP;}
+    | EXISTS {$$ = EXISTS_COMP;}
+    | NOT EXISTS {$$ = NOT_EXISTS_COMP;}
     ;
 
 load_data_stmt:

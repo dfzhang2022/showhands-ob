@@ -99,68 +99,70 @@ RC FilterStmt::create_filter_unit(
     return RC::INVALID_ARGUMENT;
   }
 
-  if (comp == ExprOp::IN_COMP || comp == ExprOp::NOT_IN_COMP) {
-    filter_unit = new FilterUnit;
-    if (condition.left_type == ExpressType::ATTR_T) {
-      Table *table = nullptr;
-      const FieldMeta *field = nullptr;
-      if (condition.left_attr.is_aggregation_func &&
-          condition.left_attr.aggr_func_type == AggrFuncType::CNT &&
-          0 == strcmp("*", condition.left_attr.attribute_name.c_str())) {
-        // 对于COUNT(*)>value做单独的处理
-        FilterObj filter_obj;
-        Field tmp_field;
-        tmp_field.set_aggr_func_type(condition.left_attr.aggr_func_type);
-        filter_obj.init_attr(tmp_field);
-        filter_unit->set_left(filter_obj);
-      } else {
-        rc = get_table_and_field(db, default_table, tables, condition.left_attr,
-                                 table, field);
-        if (rc != RC::SUCCESS) {
-          LOG_WARN("cannot find attr");
-          return rc;
-        }
-        FilterObj filter_obj;
-        Field tmp_field(table, field);
-        if (condition.left_attr.is_aggregation_func) {
-          tmp_field.set_aggr_func_type(condition.left_attr.aggr_func_type);
-        }
-        filter_obj.init_attr(tmp_field);
-        filter_unit->set_left(filter_obj);
-      }
-    } else {
-      FilterObj filter_obj;
-      filter_obj.init_value(condition.left_value);
-      filter_unit->set_left(filter_obj);
-      if (filter_unit->left().expr_obj_.left_value.attr_type() ==
-              AttrType::DATES &&
-          filter_unit->left().expr_obj_.left_value.get_date() == -1) {
-        rc = RC::INVALID_DATE;
-        LOG_WARN("Invalid date.");
-        return rc;
-      }
-    }
-    if (condition.right_type == ExpressType::SELECT_T) {
-      FilterObj filter_obj;
-      Stmt *tmp_ptr;
-      rc = SelectStmt::create(db, *condition.right_selects, tmp_ptr, true,
-                              tables);
-      filter_obj.init_select(tmp_ptr);
-      filter_unit->set_right(filter_obj);
-    } else if (condition.right_type == ExpressType::EXPR_LIST_T) {
-      FilterObj filter_obj;
-      rc =
-          filter_obj.init_list(db, default_table, tables, condition.right_expr);
-      if (rc != RC::SUCCESS) {
-        return rc;
-      }
-      filter_unit->set_right(filter_obj);
-    }
-    filter_unit->set_comp(comp);
+  // if (comp == ExprOp::IN_COMP || comp == ExprOp::NOT_IN_COMP) {
+  //   filter_unit = new FilterUnit;
+  //   if (condition.left_type == ExpressType::ATTR_T) {
+  //     Table *table = nullptr;
+  //     const FieldMeta *field = nullptr;
+  //     if (condition.left_attr.is_aggregation_func &&
+  //         condition.left_attr.aggr_func_type == AggrFuncType::CNT &&
+  //         0 == strcmp("*", condition.left_attr.attribute_name.c_str())) {
+  //       // 对于COUNT(*)>value做单独的处理
+  //       FilterObj filter_obj;
+  //       Field tmp_field;
+  //       tmp_field.set_aggr_func_type(condition.left_attr.aggr_func_type);
+  //       filter_obj.init_attr(tmp_field);
+  //       filter_unit->set_left(filter_obj);
+  //     } else {
+  //       rc = get_table_and_field(db, default_table, tables,
+  //       condition.left_attr,
+  //                                table, field);
+  //       if (rc != RC::SUCCESS) {
+  //         LOG_WARN("cannot find attr");
+  //         return rc;
+  //       }
+  //       FilterObj filter_obj;
+  //       Field tmp_field(table, field);
+  //       if (condition.left_attr.is_aggregation_func) {
+  //         tmp_field.set_aggr_func_type(condition.left_attr.aggr_func_type);
+  //       }
+  //       filter_obj.init_attr(tmp_field);
+  //       filter_unit->set_left(filter_obj);
+  //     }
+  //   } else {
+  //     FilterObj filter_obj;
+  //     filter_obj.init_value(condition.left_value);
+  //     filter_unit->set_left(filter_obj);
+  //     if (filter_unit->left().expr_obj_.left_value.attr_type() ==
+  //             AttrType::DATES &&
+  //         filter_unit->left().expr_obj_.left_value.get_date() == -1) {
+  //       rc = RC::INVALID_DATE;
+  //       LOG_WARN("Invalid date.");
+  //       return rc;
+  //     }
+  //   }
+  //   if (condition.right_type == ExpressType::SELECT_T) {
+  //     FilterObj filter_obj;
+  //     Stmt *tmp_ptr;
+  //     rc = SelectStmt::create(db, *condition.right_selects, tmp_ptr, true,
+  //                             tables);
+  //     filter_obj.init_select(tmp_ptr);
+  //     filter_unit->set_right(filter_obj);
+  //   } else if (condition.right_type == ExpressType::EXPR_LIST_T) {
+  //     FilterObj filter_obj;
+  //     rc =
+  //         filter_obj.init_list(db, default_table, tables,
+  //         condition.right_expr);
+  //     if (rc != RC::SUCCESS) {
+  //       return rc;
+  //     }
+  //     filter_unit->set_right(filter_obj);
+  //   }
+  //   filter_unit->set_comp(comp);
 
-    // 检查两个类型是否能够比较
-    return rc;
-  }
+  //   // 检查两个类型是否能够比较
+  //   return rc;
+  // }
 
   filter_unit = new FilterUnit;
 
@@ -210,12 +212,27 @@ RC FilterStmt::create_filter_unit(
       return rc;
     }
     filter_unit->set_left(filter_obj);
-  } else {
+  } else if (condition.left_type == ExpressType::SELECT_T) {
     FilterObj filter_obj;
     Stmt *tmp_ptr;
     rc = SelectStmt::create(db, *condition.left_selects, tmp_ptr, true, tables);
     filter_obj.init_select(tmp_ptr);
     filter_unit->set_left(filter_obj);
+  } else if (condition.left_type == ExpressType::EXPR_LIST_T) {
+    FilterObj filter_obj;
+    rc = filter_obj.init_list(db, default_table, tables, condition.left_expr);
+    if (rc != RC::SUCCESS) {
+      return rc;
+    }
+    filter_unit->set_left(filter_obj);
+  } else if (condition.left_type == ExpressType::INVALID_T) {
+    // DO NOTHING
+    FilterObj filter_obj;
+    filter_obj.init_null();
+    filter_unit->set_left(filter_obj);
+  } else {
+    LOG_WARN("Invalid type of condition left : %s.",
+             condition.left_expr->name.c_str());
   }
 
   if (condition.right_type == ExpressType::ATTR_T) {
@@ -272,13 +289,28 @@ RC FilterStmt::create_filter_unit(
       return rc;
     }
     filter_unit->set_right(filter_obj);
-  } else {
+  } else if (condition.right_type == ExpressType::SELECT_T) {
     FilterObj filter_obj;
     Stmt *tmp_ptr;
     rc =
         SelectStmt::create(db, *condition.right_selects, tmp_ptr, true, tables);
     filter_obj.init_select(tmp_ptr);
     filter_unit->set_right(filter_obj);
+  } else if (condition.right_type == ExpressType::EXPR_LIST_T) {
+    FilterObj filter_obj;
+    rc = filter_obj.init_list(db, default_table, tables, condition.right_expr);
+    if (rc != RC::SUCCESS) {
+      return rc;
+    }
+    filter_unit->set_right(filter_obj);
+  } else if (condition.right_type == ExpressType::INVALID_T) {
+    // DO NOTHING
+    FilterObj filter_obj;
+    filter_obj.init_null();
+    filter_unit->set_right(filter_obj);
+  } else {
+    LOG_WARN("Invalid type of condition left : %s.",
+             condition.right_expr->name.c_str());
   }
   filter_unit->set_comp(comp);
   return rc;

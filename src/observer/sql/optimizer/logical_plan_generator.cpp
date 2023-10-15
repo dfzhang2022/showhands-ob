@@ -262,6 +262,7 @@ RC LogicalPlanGenerator::create_plan(
 
   unique_ptr<PredicateLogicalOperator> predicate_oper;
   if (!cmp_exprs.empty()) {
+    // TODO 添加生成conjuction_operator对于OR的支持
     unique_ptr<ConjunctionExpr> conjunction_expr(
         new ConjunctionExpr(ConjunctionExpr::Type::AND, cmp_exprs));
     predicate_oper = unique_ptr<PredicateLogicalOperator>(

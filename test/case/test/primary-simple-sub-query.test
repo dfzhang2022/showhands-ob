@@ -52,3 +52,5 @@ select * from ssq_1 where col1 not in (1,3,4,null);
 select * from ssq_1 where col1 not in (2,null);
 
 select * from ssq_1 where id = (select ssq_2.id from ssq_2 where col2 = 2);
+
+select * from ssq_1 where exists (select ssq_2.id from ssq_2 where ssq_1.id > ssq_2.id);

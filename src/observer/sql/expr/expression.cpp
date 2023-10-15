@@ -193,6 +193,9 @@ ComparisonExpr *ComparisonExpr::clone() {
 }
 
 RC ComparisonExpr::try_get_value(Value &cell) const {
+  if (left_ == nullptr || right_ == nullptr) {
+    return RC::INVALID_ARGUMENT;
+  }
   if (left_->type() == ExprType::VALUE && right_->type() == ExprType::VALUE) {
     ValueExpr *left_value_expr = static_cast<ValueExpr *>(left_.get());
     ValueExpr *right_value_expr = static_cast<ValueExpr *>(right_.get());
@@ -344,6 +347,30 @@ RC ComparisonExpr::get_value(const Tuple &tuple, Value &value) const {
       return RC::SUCCESS;
     }
 
+  } else if (this->comp() == ExprOp::EXISTS_COMP ||
+             this->comp() == ExprOp::NOT_EXISTS_COMP) {
+    bool has_row = false;
+    Value tmp_value(0);
+    RC rc = static_cast<SelectExpr *>(right_.get())->open();
+    while (1) {
+      rc = right_->get_value(tuple, tmp_value);
+      if (rc != RC::SUCCESS) {
+        if (rc == RC::RECORD_EOF) {
+          break;
+        } else {
+          return rc;
+        }
+      }
+      has_row = true;
+      break;
+    }
+    rc = static_cast<SelectExpr *>(right_.get())->close();
+    if (this->comp() == ExprOp::EXISTS_COMP) {
+      value.set_boolean(has_row);
+    } else {
+      value.set_boolean(!has_row);
+    }
+    return RC::SUCCESS;
   } else {
     RC rc = RC::SUCCESS;
     if (left_->type() == ExprType::SELECTION) {

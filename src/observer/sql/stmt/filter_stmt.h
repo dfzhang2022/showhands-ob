@@ -50,6 +50,7 @@ struct FilterObj {
     type_ = ExpressType::EXPR_T;
     expr_obj_ = expr_obj;
   }
+  void init_null() { type_ = ExpressType::INVALID_T; }
 
   RC init_expr(Db *db, Table *default_table,
                std::unordered_map<std::string, Table *> *tables,
@@ -66,7 +67,11 @@ struct FilterObj {
 
   std::unique_ptr<Expression> to_expression(
       std::map<std::string, LogicalOperator *> *map = nullptr) {
-    return expr_obj_.to_expression(map);
+    if (this->type_ != ExpressType::INVALID_T) {
+      return expr_obj_.to_expression(map);
+    } else {
+      return std::unique_ptr<Expression>(nullptr);
+    }
   }
   /*
   bool is_attr;

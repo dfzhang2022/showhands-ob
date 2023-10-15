@@ -242,14 +242,19 @@ class ComparisonExpr : public Expression {
   ExprType right_type() const { return right_->type(); }
   RC gen_physical() override {
     RC rc = RC::SUCCESS;
-    rc = left_->gen_physical();
-    if (rc != RC::SUCCESS) {
-      return rc;
+    if (left_ != nullptr) {
+      rc = left_->gen_physical();
+      if (rc != RC::SUCCESS) {
+        return rc;
+      }
     }
-    rc = right_->gen_physical();
-    if (rc != RC::SUCCESS) {
-      return rc;
+    if (right_ != nullptr) {
+      rc = right_->gen_physical();
+      if (rc != RC::SUCCESS) {
+        return rc;
+      }
     }
+
     return rc;
   }
 

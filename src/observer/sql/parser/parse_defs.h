@@ -94,12 +94,14 @@ enum ExprOp {
   NOT_LIKE,      ///< "NOT LIKE"
   IN_COMP,
   NOT_IN_COMP,
-  COMP_LIMIT,  ///< seperate compare and arithmetic op
-  ADD,         ///< "+"
-  SUB,         ///< "-"
-  MUL,         ///< "*"
-  DIV,         ///< "/"
-  NEGATIVE,    ///< "-"
+  EXISTS_COMP,      ///< "EXISTS"
+  NOT_EXISTS_COMP,  ///< "NOT EXISTS"
+  COMP_LIMIT,       ///< seperate compare and arithmetic op
+  ADD,              ///< "+"
+  SUB,              ///< "-"
+  MUL,              ///< "*"
+  DIV,              ///< "/"
+  NEGATIVE,         ///< "-"
   NO_OP
 
 };
@@ -112,6 +114,7 @@ enum ExpressType {
   SELECT_T,     /// sub select type
   EXPR_T,       /// expression type
   EXPR_LIST_T,  /// expression list type
+  EXISTS_T,     /// exists type
   INVALID_T
 };
 
