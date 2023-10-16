@@ -29,7 +29,7 @@ RC AggregationPhysicalOperator::open(Trx* trx) {
     speces.push_back(tmp_cell);
   }
   this->tuple_.set_speces(speces);
-   is_dirty_ = false;
+  is_dirty_ = false;
 
   return RC::SUCCESS;
 }
@@ -143,6 +143,9 @@ RC AggregationPhysicalOperator::next() {
         }
       }
       row_index++;
+    }
+    if (rc == RC::SELECT_EXPR_INVALID_ARGUMENT) {
+      return rc;
     }
 
     // 处理聚合函数最终结果
