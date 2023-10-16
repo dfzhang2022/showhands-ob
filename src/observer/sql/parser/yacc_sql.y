@@ -615,8 +615,7 @@ delete_stmt:    /*  delete 语句的语法解析树*/
       $$ = new ParsedSqlNode(SCF_DELETE);
       $$->deletion.relation_name = $3;
       if ($4 != nullptr) {
-        $$->deletion.conditions.swap(*$4);
-        delete $4;
+        $$->deletion.conditions.emplace_back($4);
       }
       free($3);
     }
@@ -635,8 +634,7 @@ update_stmt:      /*  update 语句的语法解析树*/
       std::reverse($$->update.update_values.begin(),$$->update.update_values.end());
       delete $4;
       if ($6 != nullptr) {
-        $$->update.conditions.swap(*$6);
-        delete $6;
+        $$->update.conditions.emplace_back($6);
       }
     }
     ;
@@ -703,7 +701,8 @@ select_stmt:        /*  select 语句的语法解析树*/
       std::reverse($$->selection.relations.begin(), $$->selection.relations.end());
 
       if ($5 != nullptr) {
-        $$->selection.conditions = $5;
+        printf("condition left type= %d\n", $5->node->left_type);
+        $$->selection.conditions.emplace_back($5);
       }
       if ($6 != nullptr) {
         $$->selection.order_by_sql_nodes.swap(*$6);
@@ -715,7 +714,7 @@ select_stmt:        /*  select 语句的语法解析树*/
         delete $7;
       }
       if ($8 != nullptr) {
-        $$->selection.having_conditions.swap(*$8);
+        $$->selection.having_conditions.emplace_back($8);
         delete $8;
       }
 
@@ -835,6 +834,7 @@ express:
       delete $1;
     }
     | ID as_alias{
+      printf("aaa\n");
       $$ = new ExprSqlNode;
       $$->name = token_name(sql_string, &@$);
       $$->type = ExpressType::ATTR_T;
@@ -1005,19 +1005,19 @@ select_attr:
     ; 
 aggregation_func:
     MAX_FUNC{
-      $$ = MAX;
+      $$ = AggrFuncType::MAX;
     }
     | MIN_FUNC{
-      $$ = MIN;
+      $$ = AggrFuncType::MIN;
     }
     | CNT_FUNC{
-      $$ = CNT;
+      $$ = AggrFuncType::CNT;
     }
     | AVG_FUNC{
-      $$ = AVG;
+      $$ = AggrFuncType::AVG;
     }
     | SUM_FUNC{
-      $$ = SUM;
+      $$ = AggrFuncType::SUM;
     }
     ;
 
@@ -1266,6 +1266,7 @@ where:
       $$ = nullptr;
     }
     | WHERE condition_tree {
+      printf("condition left type= %d\n", $2->node->left_type);
       $$ = $2;  
     }
     ;
@@ -1348,6 +1349,7 @@ condition:
     express comp_op express
     {
       $$ = new ConditionSqlNode;
+      printf("type= %d\n", $1->type);
       if ($1->type == ExpressType::VALUE_T) {
         $$->left_type = ExpressType::VALUE_T;
         $$->left_value = $1->left_value;
@@ -1356,7 +1358,7 @@ condition:
       else if ($1->type == ExpressType::ATTR_T) {
         $$->left_type = ExpressType::ATTR_T;
         $$->left_attr = $1->left_attr;
-        delete $1;
+        // delete $1;
       }
       else if ($1->type == ExpressType::SELECT_T) {
         $$->left_type = ExpressType::SELECT_T;
@@ -1369,6 +1371,9 @@ condition:
       else if ($1->type == ExpressType::EXPR_LIST_T){
         $$->left_type = ExpressType::EXPR_LIST_T;
         $$->left_expr = $1;
+      }
+      else {
+        $$->left_type = ExpressType::INVALID_T;
       }
       $$->comp = $2;
       if ($3->type == ExpressType::VALUE_T) {
@@ -1392,6 +1397,9 @@ condition:
       else if ($3->type == ExpressType::EXPR_LIST_T){
         $$->right_type = ExpressType::EXPR_LIST_T;
         $$->right_expr = $3;
+      }
+      else {
+        $$->right_type = ExpressType::INVALID_T;
       }
     }
     | comp_op express
@@ -1477,8 +1485,11 @@ condition_tree:
     }
     | condition
     {
-      $$->type = ConjuctionType::NO_T;
+      printf("conditiontree left type= %d\n", $1->left_type);
+      $$->type = ConjuctionType::ONE_T;
       $$->node = $1;
+      printf("conditiontree left type= %d\n", $1->left_type);
+      printf("conditiontree node left type= %d\n", $$->node->left_type);
     }
     | condition_tree AND condition_tree
     {

@@ -35,7 +35,7 @@ UpdateStmt::~UpdateStmt() {
     filter_stmt_ = nullptr;
   }
 }
-RC UpdateStmt::create(Db *db, const UpdateSqlNode &update_sql, Stmt *&stmt) {
+RC UpdateStmt::create(Db *db, UpdateSqlNode &update_sql, Stmt *&stmt) {
   // TODO
   const char *table_name = update_sql.relation_name.c_str();
   if (nullptr == db || nullptr == table_name) {

@@ -96,6 +96,9 @@ enum ExprOp {
   NOT_IN_COMP,
   EXISTS_COMP,      ///< "EXISTS"
   NOT_EXISTS_COMP,  ///< "NOT EXISTS"
+  CONJUNC_AND,
+  CONJUNC_OR,
+  NO_COMP,          ///< neither and nor or condition
   COMP_LIMIT,       ///< seperate compare and arithmetic op
   ADD,              ///< "+"
   SUB,              ///< "-"
@@ -103,20 +106,20 @@ enum ExprOp {
   DIV,              ///< "/"
   NEGATIVE,         ///< "-"
   ARITH_LIMIT,      ///< seperate arithmertic and aggregation op
-  MAX,
-  MIN,
-  CNT,
-  AVG,
-  SUM,
+  EXPR_MAX,
+  EXPR_MIN,
+  EXPR_CNT,
+  EXPR_AVG,
+  EXPR_SUM,
   AGGRE_LIMIT,      ///< seperate aggregation and function op
-  LENGTH_FUNC,      ///< length
-  ROUND_FUNC,       ///< round
-  DATE_FORMAT_FUNC, ///< date_format
+  FUNC_LENGTH,      ///< length
+  FUNC_ROUND,       ///< round
+  FUNC_DATE_FORMAT, ///< date_format
   NO_OP
 
 };
 
-enum ConjuctionType { AND_T, OR_T, NO_T };
+enum ConjuctionType { AND_T, OR_T, ONE_T, NO_TYPE_T };
 
 enum ExpressType {
   VALUE_T,      /// value type
@@ -251,7 +254,7 @@ struct ConditionSqlNode {
  * @details 二叉树每个节点用来表示左右两个子节点用什么连接词(OR/AND)进行连接
  */
 struct ConditionTreeSqlNode {
-  ConjuctionType type = ConjuctionType::NO_T;
+  ConjuctionType type = ConjuctionType::NO_TYPE_T;
   ConditionTreeSqlNode* left_sub_tree;
   ConditionTreeSqlNode* right_sub_tree;
 
@@ -343,7 +346,7 @@ struct InsertSqlNode {
  */
 struct DeleteSqlNode {
   std::string relation_name;  ///< Relation to delete from
-  std::vector<ConditionSqlNode> conditions;
+  std::vector<ConditionTreeSqlNode*> conditions;
 };
 
 /**
@@ -369,7 +372,7 @@ struct UpdateSqlNode {
   std::string relation_name;  ///< Relation to update
   // std::string attribute_name;  ///< 更新的字段，仅支持一个字段
   // Value value;                 ///< 更新的值，仅支持一个字段
-  std::vector<ConditionSqlNode> conditions;
+  std::vector<ConditionTreeSqlNode*> conditions;
   std::vector<UpdateValueSqlNode> update_values;
 };
 
