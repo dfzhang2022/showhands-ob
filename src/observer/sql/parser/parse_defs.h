@@ -38,7 +38,8 @@ struct relationAttributeName {
 };
 
 struct FunctionMetaInfo {
-  bool is_length_of_attr = false;
+  FunctionType function_type = FunctionType::NONE_FUNC;
+
   std::string length_str;  ///< for LENGTH("constant string");
 
   int round_type = 0;  ///< for ROUND(rel_attr,x)
@@ -98,23 +99,23 @@ enum ExprOp {
   NOT_EXISTS_COMP,  ///< "NOT EXISTS"
   CONJUNC_AND,
   CONJUNC_OR,
-  NO_COMP,          ///< neither and nor or condition
-  COMP_LIMIT,       ///< seperate compare and arithmetic op
-  ADD,              ///< "+"
-  SUB,              ///< "-"
-  MUL,              ///< "*"
-  DIV,              ///< "/"
-  NEGATIVE,         ///< "-"
-  ARITH_LIMIT,      ///< seperate arithmertic and aggregation op
+  NO_COMP,      ///< neither and nor or condition
+  COMP_LIMIT,   ///< seperate compare and arithmetic op
+  ADD,          ///< "+"
+  SUB,          ///< "-"
+  MUL,          ///< "*"
+  DIV,          ///< "/"
+  NEGATIVE,     ///< "-"
+  ARITH_LIMIT,  ///< seperate arithmertic and aggregation op
   EXPR_MAX,
   EXPR_MIN,
   EXPR_CNT,
   EXPR_AVG,
   EXPR_SUM,
-  AGGRE_LIMIT,      ///< seperate aggregation and function op
-  FUNC_LENGTH,      ///< length
-  FUNC_ROUND,       ///< round
-  FUNC_DATE_FORMAT, ///< date_format
+  AGGRE_LIMIT,       ///< seperate aggregation and function op
+  FUNC_LENGTH,       ///< length
+  FUNC_ROUND,        ///< round
+  FUNC_DATE_FORMAT,  ///< date_format
   NO_OP
 
 };
@@ -179,6 +180,7 @@ struct ExprSqlNode {
   ExprSqlNode* right_expr;       ///< right-hand side expression
 
   std::vector<ExprSqlNode*> expr_list;  ///< valid this is a expression list
+  FunctionMetaInfo* func_info;
 
   void add_left_child(ExprSqlNode* left_child) {
     left_type = left_child->type;

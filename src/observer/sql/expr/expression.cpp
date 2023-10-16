@@ -759,3 +759,26 @@ RC ListExpression::get_value_list(const Tuple &tuple,
   }
   return rc;
 }
+
+////////////////////////////////////////////////////////////////////////////////
+RC FuncExpr::get_value(const Tuple &tuple, Value &value) const {
+  RC rc = RC::SUCCESS;
+  rc = child_->get_value(tuple, value);
+  if (rc != RC::SUCCESS) {
+    return rc;
+  }
+  switch (meta_info_.function_type) {
+    case FunctionType::LENGTH_FUNC: {
+      value.set_int(value.get_string().length());
+    } break;
+    case FunctionType::ROUND_FUNC: {
+      value.set_float(customRound(value.get_float(), meta_info_.round_type));
+    } break;
+    case FunctionType::DATE_FORMAT_FUNC: {
+      // TODO 实现DATE_FORMAT函数
+    } break;
+    default:
+      break;
+  }
+  return rc;
+}

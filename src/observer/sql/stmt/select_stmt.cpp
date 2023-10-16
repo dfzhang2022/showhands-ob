@@ -483,7 +483,7 @@ RC SelectStmt::create(
         }
       }
       if (condition->node.right_type == ExpressType::ATTR_T) {
-        std::string tmp_field_name = condition->node.left_attr.attribute_name;
+        std::string tmp_field_name = condition->node.right_attr.attribute_name;
         if (alias_to_select_attr->count(tmp_field_name) > 0) {
           // 该条件的attr是外层查询的一个别名 此时应该返回FAILURE
           // 这是个语法错误

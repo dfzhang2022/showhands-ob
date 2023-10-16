@@ -203,7 +203,7 @@ ArithmeticExpr *create_arithmetic_expression(ArithmeticExpr::Type type,
 %type <order_list>          order_list
 %type <rel_attr_list>       group_by
 %type <aggr_func>           aggregation_func
-%type <function>            function
+//%type <function>            function
 %type <sql_node>            calc_stmt
 %type <sql_node>            select_stmt
 %type <sql_node>            insert_stmt
@@ -867,13 +867,13 @@ express:
       }
       free($1);
     }
-    | function {
+    /* | function {
       $$ = new ExprSqlNode;
       $$->name = token_name(sql_string, &@$);
       $$->type = ExpressType::ATTR_T;
       $$->left_attr = *$1;
       free($1);
-    }
+    } */
     | aggregation_func LBRACE ID RBRACE as_alias{    
       $$ = new ExprSqlNode;
       $$->name = token_name(sql_string, &@$);
@@ -955,6 +955,38 @@ express:
       }
       $$->expr_list.emplace_back($4);
       $$->expr_list.emplace_back($2);
+    }
+    | LENGTH LBRACE express RBRACE
+    {
+      $$ = new ExprSqlNode;
+      $$->name = token_name(sql_string, &@$);
+      $$->type = ExpressType::FUNC_T;
+      $$->left_expr = $3;
+      $$->func_info = new FunctionMetaInfo;
+      $$->func_info->function_type = FunctionType::LENGTH_FUNC;
+
+    }
+    | DATE_FORMAT LBRACE express COMMA SSS RBRACE
+    {
+      $$ = new ExprSqlNode;
+      $$->name = token_name(sql_string, &@$);
+      $$->type = ExpressType::FUNC_T;
+      $$->left_expr = $3;
+      $$->func_info = new FunctionMetaInfo;
+      $$->func_info->function_type = FunctionType::DATE_FORMAT_FUNC;
+      $$->func_info->date_format_str = $5;
+
+    }
+    | ROUND LBRACE express COMMA NUMBER RBRACE
+    {
+      $$ = new ExprSqlNode;
+      $$->name = token_name(sql_string, &@$);
+      $$->type = ExpressType::FUNC_T;
+      $$->left_expr = $3;
+      $$->func_info = new FunctionMetaInfo;
+      $$->func_info->function_type = FunctionType::ROUND_FUNC;
+      $$->func_info->round_type = $5;
+
     }
     ;
 
@@ -1050,10 +1082,10 @@ rel_attr:
         free($4);
       }
     }
-    | function
+    /* | function
     {
       $$ = $1;
-    }
+    } */
     | aggregation_func LBRACE ID RBRACE{
       $$ = new RelAttrSqlNode;
       $$->attribute_name = $3;
@@ -1556,7 +1588,7 @@ order_list:
     }
     ;
 
-function:
+/* function:
     LENGTH LBRACE rel_attr RBRACE
     {
       
@@ -1634,7 +1666,7 @@ function:
         
       } 
     }
-    ;
+    ; */
 
 null_or_nullable:
     NULL_T
