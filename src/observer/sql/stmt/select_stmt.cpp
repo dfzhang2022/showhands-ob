@@ -40,9 +40,10 @@ static void wildcard_fields(Table *table, std::vector<Field> &field_metas) {
   }
 }
 
-RC SelectStmt::create(Db *db, const SelectSqlNode &select_sql, Stmt *&stmt,
-                      bool is_sub_select,
-                      std::unordered_map<std::string, Table *> *table_map) {
+RC SelectStmt::create(
+    Db *db, const SelectSqlNode &select_sql, Stmt *&stmt, bool is_sub_select,
+    std::unordered_map<std::string, Table *> *table_map,
+    std::unordered_map<std::string, ExprSqlNode *> *alias_to_select_attr) {
   // is_sub_select 用来标记当前的select语句是不是一个子查询的语句
   // 如果是子查询的stmt如果where中出现了不在from中出现的表需要在外层结构进行连接
   // 这一步只是认为该行为合法 正确性交由生成算子树的部分再做判断
@@ -56,13 +57,19 @@ RC SelectStmt::create(Db *db, const SelectSqlNode &select_sql, Stmt *&stmt,
   if (table_map == nullptr) {
     table_map = new std::unordered_map<std::string, Table *>;
   }
+  // 记录某些具有别名(as)的列对应的ExprSqlNode
+  // 用于替换子查询中用别名记录的列
+  if (alias_to_select_attr == nullptr) {
+    alias_to_select_attr = new std::unordered_map<std::string, ExprSqlNode *>;
+  }
   std::vector<ConditionSqlNode> conditions = select_sql.conditions;
   std::vector<ConditionSqlNode> having_conditions =
       select_sql.having_conditions;
   // 用于记录哪些列是在该查询中第一次出现的 用于区别外部查询的表名
   std::unordered_map<std::string, Table *> *local_table_map =
       new std::unordered_map<std::string, Table *>;
-
+  std::unordered_map<std::string, ExprSqlNode *> *local_attr_alias =
+      new std::unordered_map<std::string, ExprSqlNode *>;
   for (size_t i = 0; i < select_sql.relations.size(); i++) {
     const char *table_name = select_sql.relations[i].relation.c_str();
     const char *table_alias = select_sql.relations[i].alias.c_str();
@@ -80,6 +87,10 @@ RC SelectStmt::create(Db *db, const SelectSqlNode &select_sql, Stmt *&stmt,
         return RC::SCHEMA_TABLE_NOT_EXIST;
       }
       if (select_sql.relations[i].has_alias) {
+        if (local_table_map->count(select_sql.relations[i].alias) > 0) {
+          LOG_WARN("Multi relation have same alias.");
+          return RC::SQL_SYNTAX;
+        }
         table->set_has_alias(true);
         table->set_alias(select_sql.relations[i].alias);
         table_map->insert(std::pair<std::string, Table *>(table_alias, table));
@@ -106,6 +117,10 @@ RC SelectStmt::create(Db *db, const SelectSqlNode &select_sql, Stmt *&stmt,
           return RC::SCHEMA_TABLE_NOT_EXIST;
         }
         if (select_sql.relations[i].has_alias) {
+          if (local_table_map->count(select_sql.relations[i].alias) > 0) {
+            LOG_WARN("Multi relation have same alias.");
+            return RC::SQL_SYNTAX;
+          }
           table->set_has_alias(true);
           table->set_alias(select_sql.relations[i].alias);
           table_map->insert(
@@ -316,8 +331,16 @@ RC SelectStmt::create(Db *db, const SelectSqlNode &select_sql, Stmt *&stmt,
           }
 
           if (relation_attr.has_alias) {
+            if (local_attr_alias->count(relation_attr.alias) > 0) {
+              LOG_WARN("Multi attr has same alias.");
+              return RC::SQL_SYNTAX;
+            }
             tmp_field->set_alias(relation_attr.alias);
             tmp_field->set_has_alias(true);
+            local_attr_alias->insert(
+                {tmp_field->get_alias(), select_sql.attributes[i]});
+            alias_to_select_attr->insert(
+                {tmp_field->get_alias(), select_sql.attributes[i]});
 
           } else if (table->has_alias()) {
             tmp_field->set_alias(table->get_alias() + "." + field_name);
@@ -383,8 +406,16 @@ RC SelectStmt::create(Db *db, const SelectSqlNode &select_sql, Stmt *&stmt,
       }
 
       if (relation_attr.has_alias) {
+        if (local_attr_alias->count(relation_attr.alias) > 0) {
+          LOG_WARN("Multi attr has same alias.");
+          return RC::SQL_SYNTAX;
+        }
         tmp_field->set_alias(relation_attr.alias);
         tmp_field->set_has_alias(true);
+        local_attr_alias->insert(
+            {tmp_field->get_alias(), select_sql.attributes[i]});
+        alias_to_select_attr->insert(
+            {tmp_field->get_alias(), select_sql.attributes[i]});
       }
       query_fields.emplace_back(*tmp_field);
       // if (relation_attr.function_type != FunctionType::NONE_FUNC) {
@@ -427,9 +458,20 @@ RC SelectStmt::create(Db *db, const SelectSqlNode &select_sql, Stmt *&stmt,
   // 如果is_sub_link = true,
   // 首先将where中出现的新表加入到tables中以及更新table_map
   if (is_sub_select) {
-    for (const auto condition : conditions) {
-      if (condition.left_type == ExpressType::ATTR_T) {
-        RelAttrSqlNode relattrsqlnode = condition.left_attr;
+    for (int i = 0; i < conditions.size(); i++) {
+      ConditionSqlNode *tmp_condition_ptr = &conditions[i];
+      if (tmp_condition_ptr->left_type == ExpressType::ATTR_T) {
+        std::string tmp_field_name =
+            tmp_condition_ptr->left_attr.attribute_name;
+        if (alias_to_select_attr->count(tmp_field_name) > 0) {
+          // 该条件的attr是外层查询的一个别名 此时应该返回FAILURE 这是个语法错误
+          LOG_WARN("Cannot use alias of attr in outer parent query.");
+          return RC::SQL_SYNTAX;
+          // ExprSqlNode *tmp_ptr = alias_to_select_attr->at(tmp_field_name);
+          // tmp_condition_ptr->left_expr = tmp_ptr;
+          // tmp_condition_ptr->left_attr = tmp_ptr->left_attr;
+        }
+        RelAttrSqlNode relattrsqlnode = tmp_condition_ptr->left_attr;
         const char *table_name = relattrsqlnode.relation_name.c_str();
         if (0 != strcmp(table_name, "") &&
             local_table_map->count(table_name) == 0) {
@@ -440,8 +482,18 @@ RC SelectStmt::create(Db *db, const SelectSqlNode &select_sql, Stmt *&stmt,
           // table_map->insert({table_name, table});
         }
       }
-      if (condition.right_type == ExpressType::ATTR_T) {
-        RelAttrSqlNode relattrsqlnode = condition.right_attr;
+      if (tmp_condition_ptr->right_type == ExpressType::ATTR_T) {
+        std::string tmp_field_name =
+            tmp_condition_ptr->right_attr.attribute_name;
+        if (alias_to_select_attr->count(tmp_field_name) > 0) {
+          // 该条件的attr是外层查询的一个别名 此时应该返回FAILURE 这是个语法错误
+          LOG_WARN("Cannot use alias of attr in outer parent query.");
+          return RC::SQL_SYNTAX;
+          // ExprSqlNode *tmp_ptr = alias_to_select_attr->at(tmp_field_name);
+          // tmp_condition_ptr->right_expr = tmp_ptr;
+          // tmp_condition_ptr->right_attr = tmp_ptr->right_attr;
+        }
+        RelAttrSqlNode relattrsqlnode = tmp_condition_ptr->right_attr;
         const char *table_name = relattrsqlnode.relation_name.c_str();
         if (0 != strcmp(table_name, "") &&
             local_table_map->count(table_name) == 0) {
@@ -458,7 +510,8 @@ RC SelectStmt::create(Db *db, const SelectSqlNode &select_sql, Stmt *&stmt,
   FilterStmt *filter_stmt = nullptr;
 
   RC rc = FilterStmt::create(db, default_table, table_map, conditions.data(),
-                             static_cast<int>(conditions.size()), filter_stmt);
+                             static_cast<int>(conditions.size()), filter_stmt,
+                             alias_to_select_attr);
   if (rc != RC::SUCCESS) {
     LOG_WARN("cannot construct filter stmt");
     return rc;

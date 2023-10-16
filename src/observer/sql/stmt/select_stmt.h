@@ -43,7 +43,9 @@ class SelectStmt : public Stmt {
   static RC create(
       Db *db, const SelectSqlNode &select_sql, Stmt *&stmt,
       bool is_sub_select = false,
-      std::unordered_map<std::string, Table *> *table_map = nullptr);
+      std::unordered_map<std::string, Table *> *table_map = nullptr,
+      std::unordered_map<std::string, ExprSqlNode *> *alias_to_select_attr =
+          nullptr);
 
  public:
   const std::vector<Table *> &tables() const { return tables_; }
