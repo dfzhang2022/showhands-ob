@@ -96,22 +96,37 @@ enum ExprOp {
   NOT_IN_COMP,
   EXISTS_COMP,      ///< "EXISTS"
   NOT_EXISTS_COMP,  ///< "NOT EXISTS"
+  CONJUNC_AND,
+  CONJUNC_OR,
+  NO_COMP,          ///< neither and nor or condition
   COMP_LIMIT,       ///< seperate compare and arithmetic op
   ADD,              ///< "+"
   SUB,              ///< "-"
   MUL,              ///< "*"
   DIV,              ///< "/"
   NEGATIVE,         ///< "-"
+  ARITH_LIMIT,      ///< seperate arithmertic and aggregation op
+  EXPR_MAX,
+  EXPR_MIN,
+  EXPR_CNT,
+  EXPR_AVG,
+  EXPR_SUM,
+  AGGRE_LIMIT,      ///< seperate aggregation and function op
+  FUNC_LENGTH,      ///< length
+  FUNC_ROUND,       ///< round
+  FUNC_DATE_FORMAT, ///< date_format
   NO_OP
 
 };
 
-enum ConjuctionType { AND_T, OR_T };
+enum ConjuctionType { AND_T, OR_T, ONE_T, NO_TYPE_T };
 
 enum ExpressType {
   VALUE_T,      /// value type
   ATTR_T,       /// attribute type
   SELECT_T,     /// sub select type
+  AGGR_T,       /// aggregation type
+  FUNC_T,       /// function type
   EXPR_T,       /// expression type
   EXPR_LIST_T,  /// expression list type
   EXISTS_T,     /// exists type
@@ -239,15 +254,11 @@ struct ConditionSqlNode {
  * @details 二叉树每个节点用来表示左右两个子节点用什么连接词(OR/AND)进行连接
  */
 struct ConditionTreeSqlNode {
-  bool is_left_subtree = false;
-  ConditionSqlNode* left_child;
+  ConjuctionType type = ConjuctionType::NO_TYPE_T;
   ConditionTreeSqlNode* left_sub_tree;
-
-  ConjuctionType type = ConjuctionType::AND_T;
-
-  bool is_right_subtree = false;
-  ConditionSqlNode* right_child;
   ConditionTreeSqlNode* right_sub_tree;
+
+  ConditionSqlNode node;
 };
 /**
  * @brief 描述一个多表join的表
@@ -258,7 +269,7 @@ struct ConditionTreeSqlNode {
 struct JoinedRelationSqlNode {
   std::vector<std::string> relations;  ///< 将要做join的表
 
-  std::vector<ConditionSqlNode> join_on_conditions;  ///< join on
+  std::vector<ConditionTreeSqlNode*> join_on_conditions;  ///< join on
 };
 
 struct RelationSqlNode {
@@ -287,7 +298,7 @@ struct RelationSqlNode {
 struct SelectSqlNode {
   std::vector<ExprSqlNode*> attributes;    ///< attributes in select clause
   std::vector<RelationSqlNode> relations;  ///< relations in from clause
-  std::vector<ConditionSqlNode>
+  std::vector<ConditionTreeSqlNode*>
       conditions;  ///< 查询条件，使用AND串联起来多个条件
 
   std::vector<OrderBySqlNode> order_by_sql_nodes;  ///< order by语句
@@ -295,7 +306,7 @@ struct SelectSqlNode {
 
   std::vector<RelAttrSqlNode> group_by_attributes;  ///< group by 语句
 
-  std::vector<ConditionSqlNode>
+  std::vector<ConditionTreeSqlNode*>
       having_conditions;  ///< having子句条件，使用AND串联起来多个条件
 };
 
@@ -335,7 +346,7 @@ struct InsertSqlNode {
  */
 struct DeleteSqlNode {
   std::string relation_name;  ///< Relation to delete from
-  std::vector<ConditionSqlNode> conditions;
+  std::vector<ConditionTreeSqlNode*> conditions;
 };
 
 /**
@@ -361,7 +372,7 @@ struct UpdateSqlNode {
   std::string relation_name;  ///< Relation to update
   // std::string attribute_name;  ///< 更新的字段，仅支持一个字段
   // Value value;                 ///< 更新的值，仅支持一个字段
-  std::vector<ConditionSqlNode> conditions;
+  std::vector<ConditionTreeSqlNode*> conditions;
   std::vector<UpdateValueSqlNode> update_values;
 };
 
