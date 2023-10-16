@@ -429,8 +429,8 @@ RC SelectStmt::create(Db *db, const SelectSqlNode &select_sql, Stmt *&stmt,
   if (is_sub_select) {
     // TODO: 需要判断condition的具体类型
     for (const auto condition : conditions) {
-      if (condition->node->left_type == ExpressType::ATTR_T) {
-        RelAttrSqlNode relattrsqlnode = condition->node->left_attr;
+      if (condition->node.left_type == ExpressType::ATTR_T) {
+        RelAttrSqlNode relattrsqlnode = condition->node.left_attr;
         const char *table_name = relattrsqlnode.relation_name.c_str();
         if (0 != strcmp(table_name, "") &&
             local_table_map->count(table_name) == 0) {
@@ -441,8 +441,8 @@ RC SelectStmt::create(Db *db, const SelectSqlNode &select_sql, Stmt *&stmt,
           // table_map->insert({table_name, table});
         }
       }
-      if (condition->node->right_type == ExpressType::ATTR_T) {
-        RelAttrSqlNode relattrsqlnode = condition->node->right_attr;
+      if (condition->node.right_type == ExpressType::ATTR_T) {
+        RelAttrSqlNode relattrsqlnode = condition->node.right_attr;
         const char *table_name = relattrsqlnode.relation_name.c_str();
         if (0 != strcmp(table_name, "") &&
             local_table_map->count(table_name) == 0) {

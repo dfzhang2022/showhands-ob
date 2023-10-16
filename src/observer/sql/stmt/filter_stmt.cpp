@@ -149,7 +149,7 @@ RC FilterStmt::create_filter_unit(
   }
   else if (condition_tree->type == ConjuctionType::OR_T) {
     filter_unit = new FilterUnit;
-    filter_unit->set_comp(ExprOp::CONJUNC_AND);
+    filter_unit->set_comp(ExprOp::CONJUNC_OR);
     FilterUnit *left_unit = nullptr;
     FilterUnit *right_unit = nullptr;
     rc = create_filter_unit(db, default_table, tables,
@@ -171,7 +171,7 @@ RC FilterStmt::create_filter_unit(
     // filter_unit = new FilterUnit;
     // filter_unit->set_comp(ExprOp::NO_COMP);
     rc = create_filter_unit(db, default_table, tables,
-                            *condition_tree->node, filter_unit);
+                            condition_tree->node, filter_unit);
     if (rc != RC::SUCCESS) {
       return rc;
     }
@@ -181,6 +181,7 @@ RC FilterStmt::create_filter_unit(
     LOG_WARN("invalid conjunction type : %d", condition_tree->type);
     return RC::INVALID_ARGUMENT;
   }
+  return rc;
 }
 
 RC FilterStmt::create_filter_unit(

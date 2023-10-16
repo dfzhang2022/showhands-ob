@@ -258,7 +258,7 @@ struct ConditionTreeSqlNode {
   ConditionTreeSqlNode* left_sub_tree;
   ConditionTreeSqlNode* right_sub_tree;
 
-  ConditionSqlNode* node;
+  ConditionSqlNode node;
 };
 /**
  * @brief 描述一个多表join的表

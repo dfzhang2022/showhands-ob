@@ -100,6 +100,37 @@ class FilterUnit {
   const FilterObj &left() const { return left_; }
   const FilterObj &right() const { return right_; }
 
+  std::unique_ptr<Expression> to_expression(
+      std::map<std::string, LogicalOperator *> *map = nullptr) {
+    if (comp_ == ExprOp::CONJUNC_AND) {
+      std::vector<std::unique_ptr<Expression>> cmp_exprs;
+      std::unique_ptr<Expression> left = left_unit_->to_expression(map);
+      std::unique_ptr<Expression> right = right_unit_->to_expression(map);
+      cmp_exprs.emplace_back(std::move(left));
+      cmp_exprs.emplace_back(std::move(right));
+      std::unique_ptr<ConjunctionExpr> conjunction_expr(
+        new ConjunctionExpr(ConjunctionExpr::Type::AND, cmp_exprs));
+      return conjunction_expr;
+    } else if (comp_ == ExprOp::CONJUNC_OR) {
+      std::vector<std::unique_ptr<Expression>> cmp_exprs;
+      std::unique_ptr<Expression> left = left_unit_->to_expression(map);
+      std::unique_ptr<Expression> right = right_unit_->to_expression(map);
+      cmp_exprs.emplace_back(std::move(left));
+      cmp_exprs.emplace_back(std::move(right));
+      std::unique_ptr<ConjunctionExpr> conjunction_expr(
+        new ConjunctionExpr(ConjunctionExpr::Type::OR, cmp_exprs));
+      return conjunction_expr;
+    } else if (comp_ != ExprOp::NO_OP) {
+      std::unique_ptr<Expression> left = left_.to_expression(map);
+      std::unique_ptr<Expression> right = right_.to_expression(map);
+      std::unique_ptr<ComparisonExpr> cmp_expr (
+        new ComparisonExpr(comp_, std::move(left), std::move(right)));
+      return cmp_expr;
+    } else {
+      return std::unique_ptr<Expression>(nullptr);
+    }
+  }
+
  private:
   ExprOp comp_ = NO_OP;
   FilterUnit *left_unit_;

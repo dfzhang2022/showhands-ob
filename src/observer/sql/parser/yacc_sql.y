@@ -701,7 +701,7 @@ select_stmt:        /*  select 语句的语法解析树*/
       std::reverse($$->selection.relations.begin(), $$->selection.relations.end());
 
       if ($5 != nullptr) {
-        printf("condition left type= %d\n", $5->node->left_type);
+        // printf("condition left type= %d\n", $5->node.left_type);
         $$->selection.conditions.emplace_back($5);
       }
       if ($6 != nullptr) {
@@ -834,7 +834,7 @@ express:
       delete $1;
     }
     | ID as_alias{
-      printf("aaa\n");
+      // printf("aaa\n");
       $$ = new ExprSqlNode;
       $$->name = token_name(sql_string, &@$);
       $$->type = ExpressType::ATTR_T;
@@ -1266,7 +1266,7 @@ where:
       $$ = nullptr;
     }
     | WHERE condition_tree {
-      printf("condition left type= %d\n", $2->node->left_type);
+      // printf("condition left type= %d\n", $2->node.left_type);
       $$ = $2;  
     }
     ;
@@ -1349,7 +1349,7 @@ condition:
     express comp_op express
     {
       $$ = new ConditionSqlNode;
-      printf("type= %d\n", $1->type);
+      // printf("type= %d\n", $1->type);
       if ($1->type == ExpressType::VALUE_T) {
         $$->left_type = ExpressType::VALUE_T;
         $$->left_value = $1->left_value;
@@ -1485,11 +1485,12 @@ condition_tree:
     }
     | condition
     {
-      printf("conditiontree left type= %d\n", $1->left_type);
+      $$ = new ConditionTreeSqlNode;
+      // printf("conditiontree left type= %d\n", $1->left_type);
       $$->type = ConjuctionType::ONE_T;
-      $$->node = $1;
-      printf("conditiontree left type= %d\n", $1->left_type);
-      printf("conditiontree node left type= %d\n", $$->node->left_type);
+      $$->node = *$1;
+      // printf("conditiontree left type= %d\n", $1->left_type);
+      // printf("conditiontree node left type= %d\n", $$->node.left_type);
     }
     | condition_tree AND condition_tree
     {
