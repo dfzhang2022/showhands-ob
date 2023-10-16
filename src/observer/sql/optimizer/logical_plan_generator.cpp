@@ -183,11 +183,11 @@ RC LogicalPlanGenerator::create_plan(
     const std::vector<FilterUnit *> &filter_units =
         select_stmt->having_filter_stmt()->filter_units();
     for (const FilterUnit *filter_unit : filter_units) {
-      FilterObj &filter_obj_left = (FilterObj &)filter_unit->left();
-      FilterObj &filter_obj_right = (FilterObj &)filter_unit->right();
+      // FilterObj &filter_obj_left = (FilterObj &)filter_unit->left();
+      // FilterObj &filter_obj_right = (FilterObj &)filter_unit->right();
 
-      unique_ptr<Expression> left = filter_obj_left.to_expression(nullptr);
-      unique_ptr<Expression> right = filter_obj_right.to_expression(nullptr);
+      // unique_ptr<Expression> left = filter_obj_left.to_expression(nullptr);
+      // unique_ptr<Expression> right = filter_obj_right.to_expression(nullptr);
       /*unique_ptr<Expression> left(
           filter_obj_left.is_attr
               ? static_cast<Expression *>(new FieldExpr(filter_obj_left.field))
@@ -200,16 +200,15 @@ RC LogicalPlanGenerator::create_plan(
               : static_cast<Expression *>(
                     new ValueExpr(filter_obj_right.value)));*/
 
-      unique_ptr<ComparisonExpr> cmp_expr(new ComparisonExpr(
-          filter_unit->comp(), std::move(left), std::move(right)));
-      aggr_oper->add_expression(std::move(cmp_expr));
+      FilterUnit *filter_unit_tmp = (FilterUnit *)filter_unit;
+      aggr_oper->add_expression(std::move(filter_unit_tmp->to_expression(map)));
     }
 
     aggr_oper->add_child(std::move(root_ptr));
     root_ptr = std::move(aggr_oper);
   }
 
-  logical_operator= std::move(root_ptr);
+  logical_operator = std::move(root_ptr);
 
   return RC::SUCCESS;
 }

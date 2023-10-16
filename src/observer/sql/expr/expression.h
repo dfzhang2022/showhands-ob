@@ -344,6 +344,7 @@ class ConjunctionExpr : public Expression {
  public:
   ConjunctionExpr(Type type,
                   std::vector<std::unique_ptr<Expression>> &children);
+  ConjunctionExpr(ConjunctionExpr &in);
   virtual ~ConjunctionExpr() = default;
 
   ExprType type() const override { return ExprType::CONJUNCTION; }
@@ -361,6 +362,7 @@ class ConjunctionExpr : public Expression {
     }
     return rc;
   }
+  ConjunctionExpr *clone();
 
   Type conjunction_type() const { return conjunction_type_; }
 

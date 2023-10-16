@@ -62,8 +62,8 @@ RC SelectStmt::create(
   if (alias_to_select_attr == nullptr) {
     alias_to_select_attr = new std::unordered_map<std::string, ExprSqlNode *>;
   }
-  std::vector<ConditionTreeSqlNode*> conditions = select_sql.conditions;
-  std::vector<ConditionTreeSqlNode*> having_conditions =
+  std::vector<ConditionTreeSqlNode *> conditions = select_sql.conditions;
+  std::vector<ConditionTreeSqlNode *> having_conditions =
       select_sql.having_conditions;
   // 用于记录哪些列是在该查询中第一次出现的 用于区别外部查询的表名
   std::unordered_map<std::string, Table *> *local_table_map =
@@ -232,8 +232,9 @@ RC SelectStmt::create(
        i--) {
     const ExprSqlNode &tmp_expr_sql_node = *select_sql.attributes[i];
     const RelAttrSqlNode &relation_attr = tmp_expr_sql_node.left_attr;
-    if (relation_attr.is_syntax_error)
+    if (relation_attr.is_syntax_error) {
       return RC::SQL_SYNTAX;  // 排除语法解析错误
+    }
     // 只剩下两种非法:1. non-aggr和aggr的混用 2.非COUNT(*)以外的AGGR(*)
 
     if (common::is_blank(relation_attr.relation_name.c_str()) &&
@@ -461,8 +462,7 @@ RC SelectStmt::create(
     // TODO: 需要判断condition的具体类型
     for (const auto condition : conditions) {
       if (condition->node.left_type == ExpressType::ATTR_T) {
-        std::string tmp_field_name =
-            condition->node.left_attr.attribute_name;
+        std::string tmp_field_name = condition->node.left_attr.attribute_name;
         if (alias_to_select_attr->count(tmp_field_name) > 0) {
           // 该条件的attr是外层查询的一个别名 此时应该返回FAILURE 这是个语法错误
           LOG_WARN("Cannot use alias of attr in outer parent query.");
@@ -483,10 +483,10 @@ RC SelectStmt::create(
         }
       }
       if (condition->node.right_type == ExpressType::ATTR_T) {
-        std::string tmp_field_name =
-            condition->node.left_attr.attribute_name;
+        std::string tmp_field_name = condition->node.left_attr.attribute_name;
         if (alias_to_select_attr->count(tmp_field_name) > 0) {
-          // 该条件的attr是外层查询的一个别名 此时应该返回FAILURE 这是个语法错误
+          // 该条件的attr是外层查询的一个别名 此时应该返回FAILURE
+          // 这是个语法错误
           LOG_WARN("Cannot use alias of attr in outer parent query.");
           return RC::SQL_SYNTAX;
           // ExprSqlNode *tmp_ptr = alias_to_select_attr->at(tmp_field_name);
@@ -614,5 +614,6 @@ RC SelectStmt::create(
 
   // 释放占用资源
   delete local_table_map;
+  delete local_attr_alias;
   return RC::SUCCESS;
 }

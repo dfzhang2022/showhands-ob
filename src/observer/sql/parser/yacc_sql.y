@@ -147,7 +147,6 @@ ArithmeticExpr *create_arithmetic_expression(ArithmeticExpr::Type type,
   OrderBySqlNode*                   order;
   std::vector<OrderBySqlNode> *     order_list;
   std::vector<Value> *              value_list;
-  std::vector<ConditionSqlNode> *   condition_list;
   std::vector<RelAttrSqlNode> *     rel_attr_list;
   std::vector<RelationSqlNode> *    relation_list;
   RelationSqlNode*                  relation;
@@ -183,7 +182,6 @@ ArithmeticExpr *create_arithmetic_expression(ArithmeticExpr::Type type,
 %type <value_list>          value_list
 %type <condition_tree>      condition_tree
 %type <condition_tree>      where
-%type <condition_list>      condition_list
 %type <condition_tree>      having_clause
 %type <express_list>        select_attr
 %type <relation_list>       rel_list
@@ -714,7 +712,7 @@ select_stmt:        /*  select 语句的语法解析树*/
       }
       if ($8 != nullptr) {
         $$->selection.having_conditions.emplace_back($8);
-        delete $8;
+        // delete $8;
       }
 
     }
@@ -1284,23 +1282,7 @@ having_clause:
     }
     ;
 
-condition_list:
-    /* empty */
-    {
-      $$ = nullptr;
-    }
-    | condition {
-      $$ = new std::vector<ConditionSqlNode>;
-      $$->emplace_back(*$1);
-      delete $1;
-    }
-    | condition AND condition_list {
-      $$ = $3;
-      $$->emplace_back(*$1);
-      delete $1;
-    }
-    // TODO 添加OR对应的逻辑 或许需要重构condition部分的逻辑
-    ;
+
 condition:
     /*rel_attr comp_op value
     {

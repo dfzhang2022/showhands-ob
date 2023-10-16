@@ -4,6 +4,43 @@
 #include "storage/record/record.h"
 #include "storage/table/table.h"
 
+static RC search_and_replace_count_star(ConjunctionExpr* expr, int row_num,
+                                        bool is_replaced) {
+  RC rc = RC::SUCCESS;
+  for (int i = 0; i < expr->children().size(); i++) {
+    if (expr->children()[i]->type() == ExprType::COMPARISON) {
+      ComparisonExpr* tmp_cmp_expr =
+          static_cast<ComparisonExpr*>(expr->children()[i].get());
+      ComparisonExpr* new_cmp_expr = tmp_cmp_expr->clone();
+      if (tmp_cmp_expr->left_type() == ExprType::FIELD) {
+        Field* tmp_field = tmp_cmp_expr->left_field();
+        if (tmp_field->get_aggr_func_type() == AggrFuncType::CNT) {
+          std::unique_ptr<Expression> new_exp(
+              static_cast<Expression*>(new ValueExpr(Value(row_num))));
+          new_cmp_expr->set_left_expr(std::move(new_exp));
+          is_replaced = true;
+        }
+      }
+      if (tmp_cmp_expr->right_type() == ExprType::FIELD) {
+        Field* tmp_field = tmp_cmp_expr->right_field();
+        if (tmp_field->get_aggr_func_type() == AggrFuncType::CNT) {
+          std::unique_ptr<Expression> new_exp(
+              static_cast<Expression*>(new ValueExpr(Value(row_num))));
+          new_cmp_expr->set_right_expr(std::move(new_exp));
+          is_replaced = true;
+        }
+      }
+    } else if (expr->children()[i]->type() == ExprType::CONJUNCTION) {
+      ConjunctionExpr* tmp_conj_expr =
+          static_cast<ConjunctionExpr*>(expr->children()[i].get());
+      rc = search_and_replace_count_star(tmp_conj_expr, row_num, is_replaced);
+    } else {
+      return RC::AGGR_FUNC_NOT_VALID;
+    }
+  }
+  return rc;
+}
+
 RC AggregationPhysicalOperator::open(Trx* trx) {
   if (children_.empty()) {
     return RC::SUCCESS;
@@ -199,37 +236,51 @@ RC AggregationPhysicalOperator::next() {
     if (rc == RC::RECORD_END_GROUP) return RC::RECORD_EOF;
 
     // 对having子句做筛选
+    // TODO 精简这部分的逻辑
     bool having_passed = true;
     for (size_t i = 0; i < this->cmp_exprs_.size(); i++) {
       Value value;
       bool is_replaced =
           false;  // having子句中出现count(*)需要在当前的分组中进行替换
-      ComparisonExpr* tmp_cmp_expr =
-          static_cast<ComparisonExpr*>(cmp_exprs_[i].get());
-      ComparisonExpr* new_cmp_expr = tmp_cmp_expr->clone();
-      if (tmp_cmp_expr->left_type() == ExprType::FIELD) {
-        Field* tmp_field = tmp_cmp_expr->left_field();
-        if (tmp_field->get_aggr_func_type() == AggrFuncType::CNT) {
-          std::unique_ptr<Expression> new_exp(
-              static_cast<Expression*>(new ValueExpr(Value(row_index))));
-          new_cmp_expr->set_left_expr(std::move(new_exp));
-          is_replaced = true;
+      if (cmp_exprs_[i]->type() == ExprType::COMPARISON) {
+        ComparisonExpr* tmp_cmp_expr =
+            static_cast<ComparisonExpr*>(cmp_exprs_[i].get());
+        ComparisonExpr* new_cmp_expr = tmp_cmp_expr->clone();
+        if (tmp_cmp_expr->left_type() == ExprType::FIELD) {
+          Field* tmp_field = tmp_cmp_expr->left_field();
+          if (tmp_field->get_aggr_func_type() == AggrFuncType::CNT) {
+            std::unique_ptr<Expression> new_exp(
+                static_cast<Expression*>(new ValueExpr(Value(row_index))));
+            new_cmp_expr->set_left_expr(std::move(new_exp));
+            is_replaced = true;
+          }
         }
-      }
-      if (tmp_cmp_expr->right_type() == ExprType::FIELD) {
-        Field* tmp_field = tmp_cmp_expr->right_field();
-        if (tmp_field->get_aggr_func_type() == AggrFuncType::CNT) {
-          std::unique_ptr<Expression> new_exp(
-              static_cast<Expression*>(new ValueExpr(Value(row_index))));
-          new_cmp_expr->set_right_expr(std::move(new_exp));
-          is_replaced = true;
+        if (tmp_cmp_expr->right_type() == ExprType::FIELD) {
+          Field* tmp_field = tmp_cmp_expr->right_field();
+          if (tmp_field->get_aggr_func_type() == AggrFuncType::CNT) {
+            std::unique_ptr<Expression> new_exp(
+                static_cast<Expression*>(new ValueExpr(Value(row_index))));
+            new_cmp_expr->set_right_expr(std::move(new_exp));
+            is_replaced = true;
+          }
         }
-      }
-      if (is_replaced) {
-        rc = new_cmp_expr->get_value(tuple_, value);
+        if (is_replaced) {
+          rc = new_cmp_expr->get_value(tuple_, value);
+        } else {
+          rc = cmp_exprs_[i]->get_value(tuple_, value);
+        }
       } else {
-        rc = cmp_exprs_[i]->get_value(tuple_, value);
+        ConjunctionExpr* tmp_cmp_expr =
+            static_cast<ConjunctionExpr*>(cmp_exprs_[i].get());
+        ConjunctionExpr* new_expr = new ConjunctionExpr(*tmp_cmp_expr);
+        search_and_replace_count_star(new_expr, row_index, is_replaced);
+        if (is_replaced) {
+          rc = new_expr->get_value(tuple_, value);
+        } else {
+          rc = cmp_exprs_[i]->get_value(tuple_, value);
+        }
       }
+
       if (rc != RC::SUCCESS) {
         return rc;
       }

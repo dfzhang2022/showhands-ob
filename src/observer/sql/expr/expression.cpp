@@ -499,7 +499,25 @@ RC ConjunctionExpr::get_value(const Tuple &tuple, Value &value) const {
   value.set_boolean(default_value);
   return rc;
 }
+ConjunctionExpr::ConjunctionExpr(ConjunctionExpr &in) {
+  this->conjunction_type_ = in.conjunction_type();
 
+  for (int i = 0; in.children().size(); i++) {
+    if (in.children()[i]->type() == ExprType::COMPARISON) {
+      ComparisonExpr *tmp =
+          static_cast<ComparisonExpr *>(in.children()[i].get());
+      unique_ptr<Expression> tmp_ptr(tmp->clone());
+      this->children_.emplace_back(std::move(tmp_ptr));
+    } else if (in.children()[i]->type() == ExprType::CONJUNCTION) {
+      ConjunctionExpr *tmp =
+          static_cast<ConjunctionExpr *>(in.children()[i].get());
+      unique_ptr<Expression> tmp_ptr(new ConjunctionExpr(*tmp));
+      this->children_.emplace_back(std::move(tmp_ptr));
+    } else {
+      LOG_ERROR("Invalid type in conjunctionExpr.");
+    }
+  }
+}
 ////////////////////////////////////////////////////////////////////////////////
 
 ArithmeticExpr::ArithmeticExpr(ArithmeticExpr::Type type, Expression *left,
