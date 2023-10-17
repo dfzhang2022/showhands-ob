@@ -27,18 +27,18 @@ FilterStmt::~FilterStmt() {
   filter_units_.clear();
 }
 
-RC FilterStmt::create(
-    Db *db, Table *default_table,
-    std::unordered_map<std::string, Table *> *tables,
-    const ConditionSqlNode *conditions, int condition_num, FilterStmt *&stmt,
-    std::unordered_map<std::string, ExprSqlNode *> *alias_to_select_attr) {
+RC FilterStmt::create(Db *db, Table *default_table,
+                      std::unordered_map<std::string, Table *> *tables,
+                      ConditionTreeSqlNode **condition_trees, int condition_num,
+                      FilterStmt *&stmt,
+                      std::unordered_map<std::string, ExprSqlNode *> *alias_to_select_attr) {
   RC rc = RC::SUCCESS;
   stmt = nullptr;
 
   FilterStmt *tmp_stmt = new FilterStmt();
   for (int i = 0; i < condition_num; i++) {
     FilterUnit *filter_unit = nullptr;
-    rc = create_filter_unit(db, default_table, tables, conditions[i],
+    rc = create_filter_unit(db, default_table, tables, condition_trees[i],
                             filter_unit, alias_to_select_attr);
     if (rc != RC::SUCCESS) {
       delete tmp_stmt;
@@ -120,6 +120,68 @@ RC get_field(Db *db, Table *default_table,
     if (attr.is_aggregation_func) {
       tmp_field.set_aggr_func_type(attr.aggr_func_type);
     }
+  }
+  return rc;
+}
+
+RC FilterStmt::create_filter_unit(
+    Db *db, Table *default_table,
+    std::unordered_map<std::string, Table *> *tables,
+    ConditionTreeSqlNode *&condition_tree, FilterUnit *&filter_unit,
+    std::unordered_map<std::string, ExprSqlNode *> *alias_to_select_attr) {
+  RC rc = RC::SUCCESS;
+
+  if (condition_tree->type == ConjuctionType::AND_T) {
+    filter_unit = new FilterUnit;
+    filter_unit->set_comp(ExprOp::CONJUNC_AND);
+    FilterUnit *left_unit = nullptr;
+    FilterUnit *right_unit = nullptr;
+    rc = create_filter_unit(db, default_table, tables,
+                            condition_tree->left_sub_tree, left_unit);
+    if (rc != RC::SUCCESS) {
+      return rc;
+    }
+    rc = create_filter_unit(db, default_table, tables,
+                            condition_tree->right_sub_tree, right_unit);
+    if (rc != RC::SUCCESS) {
+      return rc;
+    }
+    filter_unit->set_left_unit(left_unit);
+    filter_unit->set_right_unit(right_unit);
+  }
+  else if (condition_tree->type == ConjuctionType::OR_T) {
+    filter_unit = new FilterUnit;
+    filter_unit->set_comp(ExprOp::CONJUNC_OR);
+    FilterUnit *left_unit = nullptr;
+    FilterUnit *right_unit = nullptr;
+    rc = create_filter_unit(db, default_table, tables,
+                            condition_tree->left_sub_tree, left_unit);
+    if (rc != RC::SUCCESS) {
+      return rc;
+    }
+    rc = create_filter_unit(db, default_table, tables,
+                            condition_tree->right_sub_tree, right_unit);
+    if (rc != RC::SUCCESS) {
+      return rc;
+    }
+    filter_unit->set_left_unit(left_unit);
+    filter_unit->set_right_unit(right_unit);
+  }
+  else if (condition_tree->type == ConjuctionType::ONE_T) {
+    // single condition
+    // FilterObj obj;
+    // filter_unit = new FilterUnit;
+    // filter_unit->set_comp(ExprOp::NO_COMP);
+    rc = create_filter_unit(db, default_table, tables,
+                            condition_tree->node, filter_unit);
+    if (rc != RC::SUCCESS) {
+      return rc;
+    }
+    // filter_unit->set_obj(obj);
+  }
+  else {
+    LOG_WARN("invalid conjunction type : %d", condition_tree->type);
+    return RC::INVALID_ARGUMENT;
   }
   return rc;
 }
@@ -251,3 +313,125 @@ RC FilterStmt::create_filter_unit(
   filter_unit->set_comp(comp);
   return rc;
 }
+
+/*
+RC FilterStmt::create_filter_unit(
+    Db *db, Table *default_table,
+    std::unordered_map<std::string, Table *> *tables,
+    const ConditionSqlNode &condition, FilterObj &filter_obj) {
+  RC rc = RC::SUCCESS;
+
+  ExprOp comp = condition.comp;
+  if (comp < EQUAL_TO || comp >= NO_OP) {
+    LOG_WARN("invalid compare operator : %d", comp);
+    return RC::INVALID_ARGUMENT;
+  }
+
+  filter_unit = new FilterUnit;
+
+  if (condition.left_type == ExpressType::ATTR_T) {
+    FilterObj filter_obj;
+    Field tmp_field;
+    rc = get_field(db, default_table, tables, condition.left_attr, tmp_field);
+    if (rc != RC::SUCCESS) {
+      return rc;
+    }
+    filter_obj.init_attr(tmp_field);
+    filter_unit->set_left(filter_obj);
+  } else if (condition.left_type == ExpressType::VALUE_T) {
+    rc = check_value_date(condition.left_value);
+    if (rc != RC::SUCCESS) {
+      return rc;
+    }
+    FilterObj filter_obj;
+    filter_obj.init_value(condition.left_value);
+    filter_unit->set_left(filter_obj);
+  } else if (condition.left_type == ExpressType::EXPR_T) {
+    FilterObj filter_obj;
+    rc = filter_obj.init_expr(db, default_table, tables, condition.left_expr);
+    if (rc != RC::SUCCESS) {
+      return rc;
+    }
+    filter_unit->set_left(filter_obj);
+  } else if (condition.left_type == ExpressType::SELECT_T) {
+    FilterObj filter_obj;
+    Stmt *tmp_ptr;
+    rc = SelectStmt::create(db, *condition.left_selects, tmp_ptr, true, tables);
+    filter_obj.init_select(tmp_ptr);
+    filter_unit->set_left(filter_obj);
+  } else if (condition.left_type == ExpressType::EXPR_LIST_T) {
+    FilterObj filter_obj;
+    rc = filter_obj.init_list(db, default_table, tables, condition.left_expr);
+    if (rc != RC::SUCCESS) {
+      return rc;
+    }
+    filter_unit->set_left(filter_obj);
+  } else if (condition.left_type == ExpressType::INVALID_T) {
+    // DO NOTHING
+    FilterObj filter_obj;
+    filter_obj.init_null();
+    filter_unit->set_left(filter_obj);
+  } else {
+    LOG_WARN("Invalid type of condition left : %s.",
+             condition.left_expr->name.c_str());
+  }
+
+  if (condition.right_type == ExpressType::ATTR_T) {
+    FilterObj filter_obj;
+    Field tmp_field;
+    rc = get_field(db, default_table, tables, condition.right_attr, tmp_field);
+    if (rc != RC::SUCCESS) {
+      return rc;
+    }
+    filter_obj.init_attr(tmp_field);
+    filter_unit->set_right(filter_obj);
+  } else if (condition.right_type == ExpressType::VALUE_T) {
+    rc = check_value_date(condition.right_value);
+    if (rc != RC::SUCCESS) {
+      return rc;
+    }
+    FilterObj filter_obj;
+    filter_obj.init_value(condition.right_value);
+    if (comp == ExprOp::LIKE || comp == ExprOp::NOT_LIKE) {
+      // 说明右值是like_str
+      filter_obj.expr_obj_.left_value.set_type(AttrType::LIKE_STR);
+    } else if (comp == ExprOp::IS_EQUAL) {
+      // 比较语句是IS
+      // filter_obj.value.set_type(AttrType::LIKE_STR);
+    }
+
+    filter_unit->set_right(filter_obj);
+  } else if (condition.right_type == ExpressType::EXPR_T) {
+    FilterObj filter_obj;
+    rc = filter_obj.init_expr(db, default_table, tables, condition.right_expr);
+    if (rc != RC::SUCCESS) {
+      return rc;
+    }
+    filter_unit->set_right(filter_obj);
+  } else if (condition.right_type == ExpressType::SELECT_T) {
+    FilterObj filter_obj;
+    Stmt *tmp_ptr;
+    rc =
+        SelectStmt::create(db, *condition.right_selects, tmp_ptr, true, tables);
+    filter_obj.init_select(tmp_ptr);
+    filter_unit->set_right(filter_obj);
+  } else if (condition.right_type == ExpressType::EXPR_LIST_T) {
+    FilterObj filter_obj;
+    rc = filter_obj.init_list(db, default_table, tables, condition.right_expr);
+    if (rc != RC::SUCCESS) {
+      return rc;
+    }
+    filter_unit->set_right(filter_obj);
+  } else if (condition.right_type == ExpressType::INVALID_T) {
+    // DO NOTHING
+    FilterObj filter_obj;
+    filter_obj.init_null();
+    filter_unit->set_right(filter_obj);
+  } else {
+    LOG_WARN("Invalid type of condition left : %s.",
+             condition.right_expr->name.c_str());
+  }
+  filter_unit->set_comp(comp);
+  return rc;
+}
+*/

@@ -84,14 +84,57 @@ class FilterUnit {
 
   ExprOp comp() const { return comp_; }
 
-  void set_left(const FilterObj &obj) { left_ = obj; }
-  void set_right(const FilterObj &obj) { right_ = obj; }
+  void set_left_unit(const FilterUnit *left_unit) { left_unit_ = (FilterUnit *)left_unit; }
+  void set_right_unit(const FilterUnit *right_unit) { right_unit_ = (FilterUnit *)right_unit; }
+
+  FilterUnit *left_unit() const { return left_unit_; }
+  FilterUnit *right_unit() const { return right_unit_; }
+
+  // void set_obj(const FilterObj &obj) { obj_ = obj; }
+
+  // const FilterObj &obj() const { return obj_; }
+
+  void set_left(const FilterObj &left) { left_= left; }
+  void set_right(const FilterObj &right) { right_ = right; }
 
   const FilterObj &left() const { return left_; }
   const FilterObj &right() const { return right_; }
 
+  std::unique_ptr<Expression> to_expression(
+      std::map<std::string, LogicalOperator *> *map = nullptr) {
+    if (comp_ == ExprOp::CONJUNC_AND) {
+      std::vector<std::unique_ptr<Expression>> cmp_exprs;
+      std::unique_ptr<Expression> left = left_unit_->to_expression(map);
+      std::unique_ptr<Expression> right = right_unit_->to_expression(map);
+      cmp_exprs.emplace_back(std::move(left));
+      cmp_exprs.emplace_back(std::move(right));
+      std::unique_ptr<ConjunctionExpr> conjunction_expr(
+        new ConjunctionExpr(ConjunctionExpr::Type::AND, cmp_exprs));
+      return conjunction_expr;
+    } else if (comp_ == ExprOp::CONJUNC_OR) {
+      std::vector<std::unique_ptr<Expression>> cmp_exprs;
+      std::unique_ptr<Expression> left = left_unit_->to_expression(map);
+      std::unique_ptr<Expression> right = right_unit_->to_expression(map);
+      cmp_exprs.emplace_back(std::move(left));
+      cmp_exprs.emplace_back(std::move(right));
+      std::unique_ptr<ConjunctionExpr> conjunction_expr(
+        new ConjunctionExpr(ConjunctionExpr::Type::OR, cmp_exprs));
+      return conjunction_expr;
+    } else if (comp_ != ExprOp::NO_OP) {
+      std::unique_ptr<Expression> left = left_.to_expression(map);
+      std::unique_ptr<Expression> right = right_.to_expression(map);
+      std::unique_ptr<ComparisonExpr> cmp_expr (
+        new ComparisonExpr(comp_, std::move(left), std::move(right)));
+      return cmp_expr;
+    } else {
+      return std::unique_ptr<Expression>(nullptr);
+    }
+  }
+
  private:
   ExprOp comp_ = NO_OP;
+  FilterUnit *left_unit_;
+  FilterUnit *right_unit_;
   FilterObj left_;
   FilterObj right_;
 };
@@ -113,14 +156,21 @@ class FilterStmt {
  public:
   static RC create(Db *db, Table *default_table,
                    std::unordered_map<std::string, Table *> *tables,
-                   const ConditionSqlNode *conditions, int condition_num,
+                   ConditionTreeSqlNode **condition_trees, int condition_num,
                    FilterStmt *&stmt,
                    std::unordered_map<std::string, ExprSqlNode *>
                        *alias_to_select_attr = nullptr);
 
   static RC create_filter_unit(Db *db, Table *default_table,
                                std::unordered_map<std::string, Table *> *tables,
-                               const ConditionSqlNode &condition,
+                               ConditionTreeSqlNode *&condition_tree,
+                               FilterUnit *&filter_unit,
+                               std::unordered_map<std::string, ExprSqlNode *>
+                                   *alias_to_select_attr = nullptr);
+
+  static RC create_filter_unit(Db *db, Table *default_table,
+                               std::unordered_map<std::string, Table *> *tables,
+                               const ConditionSqlNode &condition_tree,
                                FilterUnit *&filter_unit,
                                std::unordered_map<std::string, ExprSqlNode *>
                                    *alias_to_select_attr = nullptr);

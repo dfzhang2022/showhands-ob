@@ -46,6 +46,7 @@ enum class ExprType {
   CAST,         ///< 需要做类型转换的表达式
   COMPARISON,   ///< 需要做比较的表达式
   CONJUNCTION,  ///< 多个表达式使用同一种关系(AND或OR)来联结
+  FUNCTION,     ///< Function
   ARITHMETIC,   ///< 算术运算
   SELECTION,    ///< 代表一个select语句 对应应该包含一个算子树
   LIST,         ///< 代表一个ListExpression 对应于各种集合操作
@@ -164,6 +165,23 @@ class ValueExpr : public Expression {
 
  private:
   Value value_;
+};
+class FuncExpr : public Expression {
+ public:
+  FuncExpr() = default;
+  virtual ~FuncExpr() = default;
+  RC get_value(const Tuple &tuple, Value &value) const override;
+  RC try_get_value(Value &value) const override { return RC::SUCCESS; }
+
+  ExprType type() const override { return ExprType::FUNCTION; }
+
+  AttrType value_type() const override { return AttrType::UNDEFINED; }
+
+  RC gen_physical() override { return RC::SUCCESS; }
+
+ private:
+  FunctionMetaInfo meta_info_;
+  std::unique_ptr<Expression> child_;
 };
 
 /**
@@ -344,6 +362,7 @@ class ConjunctionExpr : public Expression {
  public:
   ConjunctionExpr(Type type,
                   std::vector<std::unique_ptr<Expression>> &children);
+  ConjunctionExpr(ConjunctionExpr &in);
   virtual ~ConjunctionExpr() = default;
 
   ExprType type() const override { return ExprType::CONJUNCTION; }
@@ -361,6 +380,7 @@ class ConjunctionExpr : public Expression {
     }
     return rc;
   }
+  ConjunctionExpr *clone();
 
   Type conjunction_type() const { return conjunction_type_; }
 
