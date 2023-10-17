@@ -2122,7 +2122,7 @@ yyreduce:
       else {
         (yyval.attr_info)->length = (yyvsp[-1].number);
       }
-      (yyval.attr_info)->nullable = false;
+      (yyval.attr_info)->nullable = true;
       free((yyvsp[-4].string));
     }
 #line 2129 "yacc_sql.cpp"
@@ -2140,7 +2140,7 @@ yyreduce:
       else {
         (yyval.attr_info)->length = 4;
       }
-      (yyval.attr_info)->nullable = false;
+      (yyval.attr_info)->nullable = true;
       free((yyvsp[-1].string));
     }
 #line 2147 "yacc_sql.cpp"

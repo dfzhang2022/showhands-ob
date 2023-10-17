@@ -420,7 +420,7 @@ attr_def:
       else {
         $$->length = $4;
       }
-      $$->nullable = false;
+      $$->nullable = true;
       free($1);
     }
     | ID type
@@ -434,7 +434,7 @@ attr_def:
       else {
         $$->length = 4;
       }
-      $$->nullable = false;
+      $$->nullable = true;
       free($1);
     }
     |ID type LBRACE number RBRACE NULL_T
