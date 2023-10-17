@@ -1,7 +1,7 @@
 /* Copyright (c) 2021 OceanBase and/or its affiliates. All rights reserved.
 miniob is licensed under Mulan PSL v2.
-You can use this software according to the terms and conditions of the Mulan PSL v2.
-You may obtain a copy of Mulan PSL v2 at:
+You can use this software according to the terms and conditions of the Mulan PSL
+v2. You may obtain a copy of Mulan PSL v2 at:
          http://license.coscl.org.cn/MulanPSL2
 THIS SOFTWARE IS PROVIDED ON AN "AS IS" BASIS, WITHOUT WARRANTIES OF ANY KIND,
 EITHER EXPRESS OR IMPLIED, INCLUDING BUT NOT LIMITED TO NON-INFRINGEMENT,
@@ -13,13 +13,13 @@ See the Mulan PSL v2 for more details. */
 //
 
 #include "sql/operator/table_scan_physical_operator.h"
-#include "storage/table/table.h"
+
 #include "event/sql_debug.h"
+#include "storage/table/table.h"
 
 using namespace std;
 
-RC TableScanPhysicalOperator::open(Trx *trx)
-{
+RC TableScanPhysicalOperator::open(Trx *trx) {
   RC rc = table_->get_record_scanner(record_scanner_, trx, readonly_);
   if (rc == RC::SUCCESS) {
     tuple_.set_schema(table_, table_->table_meta().field_metas());
@@ -28,8 +28,7 @@ RC TableScanPhysicalOperator::open(Trx *trx)
   return rc;
 }
 
-RC TableScanPhysicalOperator::next()
-{
+RC TableScanPhysicalOperator::next() {
   if (!record_scanner_.has_next()) {
     return RC::RECORD_EOF;
   }
@@ -49,39 +48,31 @@ RC TableScanPhysicalOperator::next()
     }
 
     if (filter_result) {
-      sql_debug("get a tuple: %s", tuple_.to_string().c_str());
+      // sql_debug("get a tuple: %s", tuple_.to_string().c_str());
       break;
     } else {
-      sql_debug("a tuple is filtered: %s", tuple_.to_string().c_str());
+      // sql_debug("a tuple is filtered: %s", tuple_.to_string().c_str());
       rc = RC::RECORD_EOF;
     }
   }
   return rc;
 }
 
-RC TableScanPhysicalOperator::close()
-{
-  return record_scanner_.close_scan();
-}
+RC TableScanPhysicalOperator::close() { return record_scanner_.close_scan(); }
 
-Tuple *TableScanPhysicalOperator::current_tuple()
-{
+Tuple *TableScanPhysicalOperator::current_tuple() {
   tuple_.set_record(&current_record_);
   return &tuple_;
 }
 
-string TableScanPhysicalOperator::param() const
-{
-  return table_->name();
-}
+string TableScanPhysicalOperator::param() const { return table_->name(); }
 
-void TableScanPhysicalOperator::set_predicates(vector<unique_ptr<Expression>> &&exprs)
-{
+void TableScanPhysicalOperator::set_predicates(
+    vector<unique_ptr<Expression>> &&exprs) {
   predicates_ = std::move(exprs);
 }
 
-RC TableScanPhysicalOperator::filter(RowTuple &tuple, bool &result)
-{
+RC TableScanPhysicalOperator::filter(RowTuple &tuple, bool &result) {
   RC rc = RC::SUCCESS;
   Value value;
   for (unique_ptr<Expression> &expr : predicates_) {

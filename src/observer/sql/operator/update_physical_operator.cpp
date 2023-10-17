@@ -1,5 +1,6 @@
 #include "sql/operator/update_physical_operator.h"
 
+#include "event/sql_debug.h"
 #include "sql/stmt/update_stmt.h"
 #include "storage/table/table.h"
 #include "storage/trx/trx.h"
@@ -76,6 +77,9 @@ RC UpdatePhysicalOperator::next() {
           return rc;
         }
       }
+      std::string debug_info = "Update select: got ";
+      debug_info += to_string(row_cnt) + " rows";
+      sql_debug(debug_info.c_str());
       if (row_cnt > 1) {
         LOG_WARN("Cannot set value to multiple values.");
         return RC::AGGR_FUNC_NOT_VALID;
