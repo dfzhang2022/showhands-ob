@@ -13,6 +13,8 @@ See the Mulan PSL v2 for more details. */
 //
 #include "sql/stmt/update_stmt.h"
 
+#include <set>
+
 #include "common/log/log.h"
 #include "sql/stmt/filter_stmt.h"
 #include "sql/stmt/select_stmt.h"
@@ -62,12 +64,26 @@ RC UpdateStmt::create(Db *db, UpdateSqlNode &update_sql, Stmt *&stmt) {
     LOG_WARN("failed to create filter statement. rc=%d:%s", rc, strrc(rc));
     return rc;
   }
+
+  std::set<std::string> fieldNameSet;
+  const std::vector<FieldMeta> *tmp_vec = table->table_meta().field_metas();
+  for (auto iter : *tmp_vec) {
+    std::string tmp_field_name = iter.name();
+    if (fieldNameSet.find(tmp_field_name) == fieldNameSet.end()) {
+      fieldNameSet.insert(tmp_field_name);
+    }
+  }
+
   std::vector<std::string> str_vec;
   std::vector<Value> val_vec;
   int value_amount = update_sql.update_values.size();
   std::map<std::string, SelectStmt *> col_name_to_selects;
   for (int i = 0; i < value_amount; i++) {
     std::string attr_name = update_sql.update_values.at(i).name;
+    if (fieldNameSet.find(attr_name) == fieldNameSet.end()) {
+      LOG_ERROR("Insert to non-exists attr.");
+      return RC::INVALID_ARGUMENT;
+    }
     str_vec.emplace_back(attr_name);
     if (update_sql.update_values.at(i).value.attr_type() == NULL_ATTR &&
         !table->table_meta().field(attr_name.c_str())->nullable()) {
