@@ -93,7 +93,7 @@ RC ComparisonExpr::compare_value(const Value &left, const Value &right,
   // int cmp_result = left.compare(right);
   int cmp_result;
   rc = left.compare(right, cmp_result);
-  if (rc != RC::SUCCESS) {
+  if (rc != RC::SUCCESS && rc != RC::NULL_COMPARE_ERROR) {
     LOG_WARN("Compare value error, left type:%s, right type:%s.",
              attr_type_to_string(left.attr_type()),
              attr_type_to_string(right.attr_type()));
@@ -160,7 +160,11 @@ RC ComparisonExpr::compare_value(const Value &left, const Value &right,
       rc = RC::INTERNAL;
     } break;
   }
-
+  if (rc == RC::NULL_COMPARE_ERROR &&
+      (comp_ == ExprOp::IS_EQUAL || comp_ == ExprOp::IS_NOT_EQUAL)) {
+    result = false;
+    rc = RC::SUCCESS;
+  }
   return rc;
 }
 
@@ -392,11 +396,15 @@ RC ComparisonExpr::get_value(const Tuple &tuple, Value &value) const {
         }
         value_set.emplace_back(Value(tmp_value));
       }
-      if (value_set.size() != 1) {
-        LOG_WARN("compare to select can only have 1 rvalue.");
+      if (value_set.size() > 1) {
+        LOG_WARN("compare to select cannot have more than 1 rvalue.");
         return RC::SELECT_EXPR_INVALID_ARGUMENT;
+      } else if (value_set.size() == 1) {
+        left_value.set_value(value_set[0]);
+      } else {
+        left_value.set_null(nullptr, 4);
       }
-      left_value.set_value(value_set[0]);
+
       // rc = left_->get_value(tuple, left_value);
       // if (rc != RC::SUCCESS) {
       //   LOG_WARN("failed to get value of left expression. rc=%s", strrc(rc));
@@ -435,11 +443,15 @@ RC ComparisonExpr::get_value(const Tuple &tuple, Value &value) const {
         }
         value_set.emplace_back(Value(tmp_value));
       }
-      if (value_set.size() != 1) {
-        LOG_WARN("compare to select can only have 1 rvalue.");
+      if (value_set.size() > 1) {
+        LOG_WARN("compare to select cannot have more than 1 value.");
         return RC::SELECT_EXPR_INVALID_ARGUMENT;
+      } else if (value_set.size() == 1) {
+        right_value.set_value(value_set[0]);
+
+      } else {
+        right_value.set_null(nullptr, 4);
       }
-      right_value.set_value(value_set[0]);
       // rc = right_->get_value(tuple, right_value);
       // rc = static_cast<SelectExpr *>(right_.get())->close();
       // if (rc != RC::SUCCESS) {

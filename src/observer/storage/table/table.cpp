@@ -373,6 +373,9 @@ RC Table::make_record(int value_num, const Value *values, Record &record) {
       const size_t data_len = value.length();
       if (copy_len > data_len) {
         copy_len = data_len + 1;
+      } else if (data_len > copy_len) {
+        LOG_ERROR("Insert longer chars into record.");
+        return RC::INVALID_ARGUMENT;
       }
     }
     memcpy(record_data + field->offset(), value.data(), copy_len);
@@ -635,8 +638,8 @@ RC Table::update_record(Record &old_record,
             return RC::SCHEMA_FIELD_TYPE_MISMATCH;
           } else {
             LOG_INFO("Typecasting in update clause.");
-            memcpy(new_record->data() + field_meta.offset(),
-                        tmp_value.data(), field_meta.len());
+            memcpy(new_record->data() + field_meta.offset(), tmp_value.data(),
+                   field_meta.len());
           }
         } else {
           null_bitmap = null_bitmap & (~(1 << cnt));  // 更新bitmap

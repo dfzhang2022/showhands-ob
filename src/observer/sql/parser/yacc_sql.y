@@ -436,7 +436,7 @@ attr_def:
       $$->nullable = false;
       free($1);
     }
-    |ID type LBRACE number RBRACE NULLABLE
+    |ID type LBRACE number RBRACE NULL_T
     {
       $$ = new AttrInfoSqlNode;
       $$->type = (AttrType)$2;
@@ -450,7 +450,7 @@ attr_def:
       $$->nullable = true;
       free($1);
     }
-    | ID type NULLABLE
+    | ID type NULL_T
     {
       $$ = new AttrInfoSqlNode;
       $$->type = (AttrType)$2;

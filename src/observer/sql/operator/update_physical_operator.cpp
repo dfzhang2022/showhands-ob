@@ -45,6 +45,7 @@ RC UpdatePhysicalOperator::next() {
   if (children_.empty()) {
     return RC::RECORD_EOF;
   }
+  RC rc_check_update_select = RC::SUCCESS;
   // 先处理set-select部分
   if (!set_selects_physical_opers_.empty()) {
     size_t set_select_amount = set_selects_physical_opers_.size();
@@ -75,7 +76,7 @@ RC UpdatePhysicalOperator::next() {
           return rc;
         }
       }
-      if (row_cnt != 1) {
+      if (row_cnt > 1) {
         LOG_WARN("Cannot set value to multiple values.");
         return RC::AGGR_FUNC_NOT_VALID;
       }
@@ -83,7 +84,11 @@ RC UpdatePhysicalOperator::next() {
       // 更新set-select中的值
       for (size_t cnt = 0; cnt < attribute_names_.size(); cnt++) {
         if (attribute_names_[cnt] == attr_name) {
-          values_[cnt].set_value(tmp_v);
+          if (row_cnt == 0) {
+            values_[cnt].set_null(nullptr, 4);
+          } else {
+            values_[cnt].set_value(tmp_v);
+          }
           break;
         }
       }
