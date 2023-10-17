@@ -110,6 +110,7 @@ ArithmeticExpr *create_arithmetic_expression(ArithmeticExpr::Type type,
         IN
         AS 
         NULL_T
+        NONE_T
         NULLABLE
         CNT_FUNC
         MAX_FUNC
@@ -600,8 +601,9 @@ value:
       $$ = new Value(0);
       
       $$->set_null(nullptr,4);
-      
-      
+    }
+    |NONE_T{
+      $$ = new Value(114514);
     }
     
     ;

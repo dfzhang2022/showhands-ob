@@ -42,21 +42,23 @@ RC GroupByPhysicalOperator::next() {
     for (auto i : tmp_fields) {
       tmp_directions.push_back(OrderByDirection::ASC_ORDER);
     }
-    // 使用std::function定义一个函数对象，包含两个参数
-    std::function<bool(const Tuple *, const Tuple *)> comparatorFunction =
-        [tmp_fields, tmp_directions](const Tuple *a, const Tuple *b) {
-          return Tuple::compareTuples(a, b, tmp_fields, tmp_directions);
-        };
+    if (this->tuples_.size() > 0) {
+      // 使用std::function定义一个函数对象，包含两个参数
+      std::function<bool(const Tuple *, const Tuple *)> comparatorFunction =
+          [tmp_fields, tmp_directions](const Tuple *a, const Tuple *b) {
+            return Tuple::compareTuples(a, b, tmp_fields, tmp_directions);
+          };
 
-    std::sort(tuples_.begin(), tuples_.end(), comparatorFunction);
-
-    group_index_.push_back(0);
-    for (size_t i = 0; i < tuples_.size() - 1; i++) {
-      if (Tuple::compareTuples(tuples_.at(i), tuples_.at(i + 1), tmp_fields,
-                               tmp_directions)) {
-        group_index_.push_back(i + 1);
+      std::sort(tuples_.begin(), tuples_.end(), comparatorFunction);
+      group_index_.push_back(0);
+      for (int i = 0; i < tuples_.size() - 1; i++) {
+        if (Tuple::compareTuples(tuples_.at(i), tuples_.at(i + 1), tmp_fields,
+                                 tmp_directions)) {
+          group_index_.push_back(i + 1);
+        }
       }
     }
+
     group_index_.push_back(tuples_.size());
     current_group_ = 0;
     current_index_ = 0;

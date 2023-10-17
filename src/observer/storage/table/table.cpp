@@ -377,6 +377,9 @@ RC Table::make_record(int value_num, const Value *values, Record &record) {
         LOG_ERROR("Insert longer chars into record.");
         return RC::INVALID_ARGUMENT;
       }
+    } else if (value.get_int() == 114514) {
+      LOG_WARN("Cannot insert NONE value");
+      return RC::INVALID_ARGUMENT;
     }
     memcpy(record_data + field->offset(), value.data(), copy_len);
   }

@@ -231,9 +231,15 @@ RC AggregationPhysicalOperator::next() {
       }
     }
 
-    this->tuple_.set_cells(values);
-
     if (rc == RC::RECORD_END_GROUP) return RC::RECORD_EOF;
+    if (rc == RC::RECORD_EOF && row_index == 0 &&
+        children_[0].get()->type() == PhysicalOperatorType::GROUP_BY) {
+      // 这个是因为 当分组后有空组就要返回空 而如果没有分组 要返回正常一行
+      // 所以做一下区分
+      LOG_WARN("No tuple from group by.");
+      return RC::RECORD_EOF;
+    }
+    this->tuple_.set_cells(values);
 
     // 对having子句做筛选
     // TODO 精简这部分的逻辑
