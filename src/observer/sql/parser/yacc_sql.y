@@ -84,7 +84,6 @@ ArithmeticExpr *create_arithmetic_expression(ArithmeticExpr::Type type,
         HELP
         EXIT
         DOT 
-        QUOTE
         INTO
         VALUES
         FROM
@@ -984,9 +983,9 @@ select_attr:
       $$->emplace_back(*$1);
       delete $1;
     }*/
-    '*' express_list {
-      if($2 != nullptr){
-        $$ = $2;
+    '*' as_alias express_list {
+      if($3 != nullptr){
+        $$ = $3;
       } else {
         $$ = new std::vector<ExprSqlNode *>;
       }
@@ -994,6 +993,11 @@ select_attr:
       expr_sql_node->type = ExpressType::ATTR_T;
       expr_sql_node->left_attr.relation_name  = "";
       expr_sql_node->left_attr.attribute_name = "*";
+      if($2 != nullptr){
+        expr_sql_node->left_attr.has_alias = true;
+        expr_sql_node->left_attr.alias = $2;
+        expr_sql_node->left_attr.is_syntax_error = true;
+      }
       $$->emplace_back(expr_sql_node);
     }
     | express express_list {

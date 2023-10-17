@@ -27,10 +27,11 @@ FilterStmt::~FilterStmt() {
   filter_units_.clear();
 }
 
-RC FilterStmt::create(Db *db, Table *default_table,
-                      std::unordered_map<std::string, Table *> *tables,
-                      const ConditionSqlNode *conditions, int condition_num,
-                      FilterStmt *&stmt) {
+RC FilterStmt::create(
+    Db *db, Table *default_table,
+    std::unordered_map<std::string, Table *> *tables,
+    const ConditionSqlNode *conditions, int condition_num, FilterStmt *&stmt,
+    std::unordered_map<std::string, ExprSqlNode *> *alias_to_select_attr) {
   RC rc = RC::SUCCESS;
   stmt = nullptr;
 
@@ -38,7 +39,7 @@ RC FilterStmt::create(Db *db, Table *default_table,
   for (int i = 0; i < condition_num; i++) {
     FilterUnit *filter_unit = nullptr;
     rc = create_filter_unit(db, default_table, tables, conditions[i],
-                            filter_unit);
+                            filter_unit, alias_to_select_attr);
     if (rc != RC::SUCCESS) {
       delete tmp_stmt;
       LOG_WARN("failed to create filter unit. condition index=%d", i);
@@ -126,7 +127,8 @@ RC get_field(Db *db, Table *default_table,
 RC FilterStmt::create_filter_unit(
     Db *db, Table *default_table,
     std::unordered_map<std::string, Table *> *tables,
-    const ConditionSqlNode &condition, FilterUnit *&filter_unit) {
+    const ConditionSqlNode &condition, FilterUnit *&filter_unit,
+    std::unordered_map<std::string, ExprSqlNode *> *alias_to_select_attr) {
   RC rc = RC::SUCCESS;
 
   ExprOp comp = condition.comp;
@@ -164,7 +166,11 @@ RC FilterStmt::create_filter_unit(
   } else if (condition.left_type == ExpressType::SELECT_T) {
     FilterObj filter_obj;
     Stmt *tmp_ptr;
-    rc = SelectStmt::create(db, *condition.left_selects, tmp_ptr, true, tables);
+    rc = SelectStmt::create(db, *condition.left_selects, tmp_ptr, true, tables,
+                            alias_to_select_attr);
+    if (rc != RC::SUCCESS) {
+      return rc;
+    }
     filter_obj.init_select(tmp_ptr);
     filter_unit->set_left(filter_obj);
   } else if (condition.left_type == ExpressType::EXPR_LIST_T) {
@@ -219,8 +225,11 @@ RC FilterStmt::create_filter_unit(
   } else if (condition.right_type == ExpressType::SELECT_T) {
     FilterObj filter_obj;
     Stmt *tmp_ptr;
-    rc =
-        SelectStmt::create(db, *condition.right_selects, tmp_ptr, true, tables);
+    rc = SelectStmt::create(db, *condition.right_selects, tmp_ptr, true, tables,
+                            alias_to_select_attr);
+    if (rc != RC::SUCCESS) {
+      return rc;
+    }
     filter_obj.init_select(tmp_ptr);
     filter_unit->set_right(filter_obj);
   } else if (condition.right_type == ExpressType::EXPR_LIST_T) {
