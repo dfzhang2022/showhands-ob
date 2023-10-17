@@ -499,7 +499,25 @@ RC ConjunctionExpr::get_value(const Tuple &tuple, Value &value) const {
   value.set_boolean(default_value);
   return rc;
 }
+ConjunctionExpr::ConjunctionExpr(ConjunctionExpr &in) {
+  this->conjunction_type_ = in.conjunction_type();
 
+  for (int i = 0; in.children().size(); i++) {
+    if (in.children()[i]->type() == ExprType::COMPARISON) {
+      ComparisonExpr *tmp =
+          static_cast<ComparisonExpr *>(in.children()[i].get());
+      unique_ptr<Expression> tmp_ptr(tmp->clone());
+      this->children_.emplace_back(std::move(tmp_ptr));
+    } else if (in.children()[i]->type() == ExprType::CONJUNCTION) {
+      ConjunctionExpr *tmp =
+          static_cast<ConjunctionExpr *>(in.children()[i].get());
+      unique_ptr<Expression> tmp_ptr(new ConjunctionExpr(*tmp));
+      this->children_.emplace_back(std::move(tmp_ptr));
+    } else {
+      LOG_ERROR("Invalid type in conjunctionExpr.");
+    }
+  }
+}
 ////////////////////////////////////////////////////////////////////////////////
 
 ArithmeticExpr::ArithmeticExpr(ArithmeticExpr::Type type, Expression *left,
@@ -738,6 +756,29 @@ RC ListExpression::get_value_list(const Tuple &tuple,
     }
     LOG_INFO("Get value of %s.", expr_list[i]->name().c_str());
     value_set->push_back(tmp_value);
+  }
+  return rc;
+}
+
+////////////////////////////////////////////////////////////////////////////////
+RC FuncExpr::get_value(const Tuple &tuple, Value &value) const {
+  RC rc = RC::SUCCESS;
+  rc = child_->get_value(tuple, value);
+  if (rc != RC::SUCCESS) {
+    return rc;
+  }
+  switch (meta_info_.function_type) {
+    case FunctionType::LENGTH_FUNC: {
+      value.set_int(value.get_string().length());
+    } break;
+    case FunctionType::ROUND_FUNC: {
+      value.set_float(customRound(value.get_float(), meta_info_.round_type));
+    } break;
+    case FunctionType::DATE_FORMAT_FUNC: {
+      // TODO 实现DATE_FORMAT函数
+    } break;
+    default:
+      break;
   }
   return rc;
 }
